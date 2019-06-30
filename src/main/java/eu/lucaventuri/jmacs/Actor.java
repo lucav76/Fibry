@@ -2,34 +2,38 @@ package eu.lucaventuri.jmacs;
 
 import eu.lucaventuri.common.Exceptions;
 import eu.lucaventuri.common.Exitable;
-import eu.lucaventuri.functional.Either;
+import eu.lucaventuri.functional.Either3;
 
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /** Super simple actor, that can process messages of type T, or execute Runnables inside its thread */
-public class Actor<T> extends Exitable {
-    protected final BlockingDeque<Either<Runnable, T>> queue;
+public class Actor<T, R> extends Exitable implements Consumer<T>, Function<T, R> {
+    protected final BlockingDeque<Either3<Runnable, T, MessageWithAnswer<T, R>>> queue;
+    protected final Consumer<T> actorLogic;
+    protected final Consumer<MessageWithAnswer<T, R>> actorLogicReturn;
 
-    Actor(Consumer<T> actorLogic, boolean useFibers) {
-        this(actorLogic, new LinkedBlockingDeque<Either<Runnable, T>>(), useFibers);
+    Actor(Consumer<T> actorLogic, Function<T, R> actorLogicReturn) {
+        this(actorLogic, actorLogicReturn, new LinkedBlockingDeque<Either3<Runnable, T, MessageWithAnswer<T, R>>>());
     }
 
-    Actor(Consumer<T> actorLogic, BlockingDeque<Either<Runnable, T>> queue, boolean useFibers) {
+    Actor(Consumer<T> actorLogic, Function<T, R> actorLogicReturn, BlockingDeque<Either3<Runnable, T, MessageWithAnswer<T, R>>> queue) {
+        this.actorLogic = actorLogic;
+        this.actorLogicReturn = mwa -> mwa.answers.complete(actorLogicReturn.apply(mwa.message));
         this.queue = queue;
-
-        new Thread(processMessage(queue, actorLogic)).start();
     }
 
-    private Runnable processMessage(BlockingDeque<Either<Runnable, T>> queue, Consumer<T> actorLogic) {
+    Runnable processMessages() {
         return () -> {
             while (!isExiting()) {
                 Exceptions.log(() -> {
                     var message = queue.takeFirst();
 
-                    message.ifEither(Runnable::run, actorLogic::accept);
+                    message.ifEither(Runnable::run, actorLogic::accept, actorLogicReturn::accept);
                 });
             }
 
@@ -37,6 +41,27 @@ public class Actor<T> extends Exitable {
         };
     }
 
+    public void sendMessage(T message) {
+        ActorUtils.sendMessage(queue, message);
+    }
+
+    public CompletableFuture<R> sendMessageReturn(T message) {
+        return ActorUtils.sendMessageReturn(queue, message);
+    }
+
+    @Override
+    public void accept(T message) {
+        sendMessage(message);
+    }
+
+    @Override
+    public R apply(T message) {
+        try {
+            return sendMessageReturn(message).get();
+        } catch (InterruptedException | ExecutionException e) {
+            return null;
+        }
+    }
 
     public void execAsync(Runnable run) {
         ActorUtils.execAsync(queue, run);

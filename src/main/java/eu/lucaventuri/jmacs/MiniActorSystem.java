@@ -1,24 +1,49 @@
 package eu.lucaventuri.jmacs;
 
 import eu.lucaventuri.common.ConcurrentHashSet;
-import eu.lucaventuri.functional.Either;
+import eu.lucaventuri.functional.Either3;
 
 import java.util.Set;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-/** Super simple actor system, creating one thread per Actor. Each Actor can either process messages or execute Runnables inside its thread */
+/** Super simple actor system, creating one thread per Actor. Each Actor can either process messages (with or without return) or execute Runnables inside its thread */
 public class MiniActorSystem {
     private static final ConcurrentHashMap<String, BlockingDeque> namedQueues = new ConcurrentHashMap<>();
     private static final Set<String> actorNamesInUse = ConcurrentHashSet.build();
 
-    public static <T> ActorWithoutReturn<T> newActor(Consumer<T> actorLogic, boolean useFibers) {
-        return new ActorWithoutReturn<>(actorLogic, useFibers);
+    public static enum Strategy {
+        THREAD {
+            @Override
+            <T, R> Actor<T, R> start(Actor<T, R> actor) {
+                new Thread(actor::processMessages).start();
+
+                return actor;
+            }
+        }, FIBER {
+            @Override
+            <T, R> Actor<T, R> start(Actor<T, R> actor) {
+                return THREAD.start(actor);
+            }
+        }, AUTO {
+            @Override
+            <T, R> Actor<T, R> start(Actor<T, R> actor) {
+                return THREAD.start(actor);
+            }
+        };
+
+        abstract <T, R> Actor<T, R> start(Actor<T, R> actor);
     }
 
-    public static <T> ActorWithoutReturn<T> newActor(String actorName, Consumer<T> actorLogic, boolean useFibers) {
-        return new ActorWithoutReturn<>(actorLogic, getOrCreateActorQueue(registerActorName(actorName)), useFibers);
+
+
+    public static <T> Actor<T, Void> newActor(Consumer<T> actorLogic, Strategy strategy) {
+        return (Actor<T, Void>) strategy.start(new Actor<T, Void>(actorLogic, ActorUtils.discardingToReturning(actorLogic)));
+    }
+
+    public static <T, Void> Actor<T, Void> newActor(String actorName, Consumer<T> actorLogic, Strategy strategy) {
+        return (Actor<T, Void>) strategy.start(new Actor<T, Void>(actorLogic, ActorUtils.discardingToReturning(actorLogic), getOrCreateActorQueue(registerActorName(actorName))));
     }
 
     protected static String registerActorName(String actorName) {
@@ -30,20 +55,24 @@ public class MiniActorSystem {
         return actorName;
     }
 
-    public static <T, R> ActorWithReturn<T, R> newActorWithReturn(Function<T, R> actorLogic, boolean useFibers) {
-        return new ActorWithReturn<>(actorLogic, useFibers);
+    public static <T, R> Actor<T, R> newActorWithReturn(Function<T, R> actorLogic, Strategy strategy) {
+        return (Actor<T, R>) strategy.start(new Actor<>(ActorUtils.returningToDiscarding(actorLogic), actorLogic));
     }
 
-    public static <T, R> ActorWithReturn<T, R> newActorWithReturn(String actorName, Function<T, R> actorLogic, boolean useFibers) {
-        return new ActorWithReturn<>(actorLogic, getOrCreateActorQueue(registerActorName(actorName)), useFibers);
+    public static <T, R> Actor<T, R> newActorWithReturn(String actorName, Function<T, R> actorLogic, Strategy strategy) {
+        return (Actor<T, R>) strategy.start(new Actor<>(ActorUtils.returningToDiscarding(actorLogic), actorLogic, getOrCreateActorQueue(registerActorName(actorName))));
     }
 
-    private static <T> LinkedBlockingDeque<Either<Runnable, T>> getOrCreateActorQueue(String actorName) {
-        return (LinkedBlockingDeque<Either<Runnable, T>>) namedQueues.computeIfAbsent(actorName, name -> new LinkedBlockingDeque<Either<Runnable, T>>());
+    private static <T, R> LinkedBlockingDeque<Either3<Runnable, T, MessageWithAnswer<T, R>>> getOrCreateActorQueue(String actorName) {
+        return (LinkedBlockingDeque<Either3<Runnable, T, MessageWithAnswer<T, R>>>) namedQueues.computeIfAbsent(actorName, name -> new LinkedBlockingDeque<Either3<Runnable, T, MessageWithAnswer<T, R>>>());
     }
 
-    public static <T> void sendToActor(String actorName, T message) {
+    public static <T> void sendMessage(String actorName, T message) {
         ActorUtils.sendMessage(getOrCreateActorQueue(actorName), message);
+    }
+
+    public static <T, R> CompletableFuture<R> sendMessageReturn(String actorName, T message) {
+        return ActorUtils.sendMessageReturn(getOrCreateActorQueue(actorName), message);
     }
 
     public static void execAsync(String actorName, Runnable run) {

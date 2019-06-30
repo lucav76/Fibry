@@ -2,32 +2,41 @@ package eu.lucaventuri.jmacs;
 
 import eu.lucaventuri.common.Exceptions;
 import eu.lucaventuri.concurrent.SignalingSingleRunnable;
-import eu.lucaventuri.functional.Either;
+import eu.lucaventuri.functional.Either3;
 
 import java.util.concurrent.*;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 final class ActorUtils {
     private ActorUtils() { /* Static methods only */}
 
-    static <T> void sendMessage(BlockingDeque<Either<Runnable, T>> queue, T message) {
-        queue.add(Either.right(message));
+    static <T, R> void sendMessage(BlockingDeque<Either3<Runnable, T, MessageWithAnswer<T, R>>> queue, T message) {
+        queue.add(Either3.right(message));
     }
 
-    static <T> void execAsync(BlockingDeque<Either<Runnable, T>> queue, Runnable run) {
-        queue.add(Either.left(run));
+    static <T, R> CompletableFuture<R> sendMessageReturn(BlockingDeque<Either3<Runnable, T, MessageWithAnswer<T, R>>> queue, T message) {
+        MessageWithAnswer<T, R> mwr = new MessageWithAnswer<>(message);
+        queue.add(Either3.other(mwr));
+
+        return mwr.answers;
     }
 
-    static <T> void execAndWait(BlockingDeque<Either<Runnable, T>> queue, Runnable run) {
+    static <T, R> void execAsync(BlockingDeque<Either3<Runnable, T, MessageWithAnswer<T, R>>> queue, Runnable run) {
+        queue.add(Either3.left(run));
+    }
+
+    static <T, R> void execAndWait(BlockingDeque<Either3<Runnable, T, MessageWithAnswer<T, R>>> queue, Runnable run) {
         SignalingSingleRunnable sr = SignalingSingleRunnable.of(run);
 
-        queue.add(Either.left(sr));
+        queue.add(Either3.left(sr));
         Exceptions.log(sr::await);
     }
 
-    static <T> CompletableFuture<Void> execFuture(BlockingDeque<Either<Runnable, T>> queue, Runnable run) {
+    static <T, R> CompletableFuture<Void> execFuture(BlockingDeque<Either3<Runnable, T, MessageWithAnswer<T, R>>> queue, Runnable run) {
         SignalingSingleRunnable sr = SignalingSingleRunnable.of(run);
 
-        queue.add(Either.left(sr));
+        queue.add(Either3.left(sr));
 
         return new CompletableFuture<>() {
             @Override
@@ -57,5 +66,17 @@ final class ActorUtils {
                 return null;
             }
         };
+    }
+
+    static <T, R> Function<T, R> discardingToReturning(Consumer<T> actorLogic) {
+        return message -> {
+            actorLogic.accept(message);
+
+            return null;
+        };
+    }
+
+    static <T, R> Consumer<T> returningToDiscarding(Function<T, R> actorLogic) {
+        return actorLogic::apply;
     }
 }

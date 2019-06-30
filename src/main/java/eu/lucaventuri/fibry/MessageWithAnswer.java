@@ -1,4 +1,4 @@
-package eu.lucaventuri.jmacs;
+package eu.lucaventuri.fibry;
 
 import java.util.concurrent.CompletableFuture;
 

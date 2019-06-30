@@ -121,13 +121,13 @@ final public class Exceptions {
     }
 
     public static Stream<StackTraceElement> getCompactStackTrace(Throwable ex, boolean skippAllJava) {
-        var stack = ex.getStackTrace();
+        StackTraceElement[] stack = ex.getStackTrace();
         int len = stack.length;
 
         while (len > 0 && isGenericClass(stack[len - 1]))
             len--;
 
-        var stream = Arrays.stream(stack).limit(len);
+        Stream<StackTraceElement> stream = Arrays.stream(stack).limit(len);
 
         if (skippAllJava)
             stream = stream.filter(s -> !isJavaClass(s));
@@ -136,19 +136,19 @@ final public class Exceptions {
     }
 
     public static void printCompactStackTrace(Throwable ex, boolean skippAllJava) {
-        var stream = getCompactStackTrace(ex, skippAllJava);
+        Stream<StackTraceElement> stream = getCompactStackTrace(ex, skippAllJava);
 
         stream.forEach(System.err::println);
     }
 
     private static boolean isJavaClass(StackTraceElement elem) {
-        var cls = elem.getClassName();
+        String cls = elem.getClassName();
 
         return (cls.startsWith("java.") || cls.startsWith("javax.") || cls.startsWith("sun."));
     }
 
     private static boolean isGenericClass(StackTraceElement elem) {
-        var cls = elem.getClassName();
+        String cls = elem.getClassName();
 
         return (isJavaClass(elem) || cls.startsWith("org."));
     }

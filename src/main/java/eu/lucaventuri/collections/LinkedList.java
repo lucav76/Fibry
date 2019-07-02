@@ -11,8 +11,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * As a result, we can add and remove a specific node in O(1), which is our goal.
  */
 public class LinkedList<T> implements Iterable<T> {
-    private final AtomicReference<Node<T>> head = new AtomicReference<>();
-    private final AtomicReference<Node<T>> tail = new AtomicReference<>();
+    private Node<T> head;
+    private Node<T> tail;
     private AtomicReference<Thread> threadRemove = new AtomicReference<>();
 
     private void verifyRemoveThread() {
@@ -30,7 +30,7 @@ public class LinkedList<T> implements Iterable<T> {
         verifyRemoveThread();
 
         return new Iterator<T>() {
-            private Node<T> cur = head.get();
+            private Node<T> cur = head;
 
             @Override
             public boolean hasNext() {
@@ -54,7 +54,7 @@ public class LinkedList<T> implements Iterable<T> {
             @Override
             public Iterator<Node<T>> iterator() {
                 return new Iterator<Node<T>>() {
-                    private Node<T> cur = head.get();
+                    private Node<T> cur = head;
 
                     @Override
                     public boolean hasNext() {
@@ -104,14 +104,14 @@ public class LinkedList<T> implements Iterable<T> {
         verify();
 
         Node<T> n = new Node<>(value);
-
-        Node<T> prevTail = tail.getAndSet(n);
+        Node<T> prevTail = tail;
+        tail = n;
         n.prev = prevTail;
 
         if (prevTail != null) {
             prevTail.next = n;
         } else
-            head.compareAndSet(null, n);
+            head = n;
 
         verify();
 
@@ -122,8 +122,10 @@ public class LinkedList<T> implements Iterable<T> {
     public void remove(Node<T> node) {
         verify();
 
-        head.compareAndExchange(node, node.next);
-        tail.compareAndExchange(node, node.prev);
+        if (head==node)
+        head = node.next;
+        if (tail==node)
+        tail = node.prev;
 
         // TODO: it would be nice to assert that it is part of this list...
         if (node.prev != null)
@@ -142,57 +144,24 @@ public class LinkedList<T> implements Iterable<T> {
         verify();
 
         // TODO: it would be nice to assert that it is part of this list...
-        boolean updated;
-        Node<T> prevHead;
+        Node<T> prevHead = head;
 
-        do {
-            prevHead = head.get();
+        if (prevHead == null)
+            return null;
 
-            while (prevHead == null) {
-                Node<T> prevTail = tail.get();
+        // Head available
+        Node<T> newHead = prevHead.next;
 
-                if (prevTail == null)
-                    return null;  // Fine: list is empty
+        head = newHead;
 
-                // Not fine: let's find the current head...
-                Node<T> newHead = recoverHead(prevTail);
-
-                head.compareAndSet(null, newHead);
-                prevHead = head.get();
-            }
-
-            // Head available
-            Node<T> newHead = prevHead.next;
-
-            updated = head.compareAndSet(prevHead, newHead);
-
-            if (updated) {
-                if (newHead != null)
-                    newHead.prev = null;
-                else {
-                    if (!tail.compareAndSet(prevHead, null)) {
-                        // Not cool: somebody appended to the tail. Let's fix the head.
-
-                        head.compareAndSet(null, recoverHead(tail.get()));
-                    }
-                }
-
-            }
-        } while (!updated);
+        if (newHead != null)
+            newHead.prev = null;
+        else
+            tail = null;
 
         verify();
 
         return prevHead;
-    }
-
-    private Node<T> recoverHead(Node<T> prevTail) {
-        Node<T> newHead = prevTail;
-
-        while (prevTail != null) {
-            newHead = prevTail;
-            prevTail = prevTail.prev;
-        }
-        return newHead;
     }
 
     public T removeHead() {
@@ -202,20 +171,20 @@ public class LinkedList<T> implements Iterable<T> {
     }
 
     public T peekHead() {
-        Node<T> node = head.get();
+        Node<T> node = head;
 
         return node == null ? null : node.value;
     }
 
     public T peekTail() {
-        Node<T> node = tail.get();
+        Node<T> node = tail;
 
         return node == null ? null : node.value;
     }
 
     List<T> asListFromHead() {
         List<T> list = new ArrayList<>();
-        Node<T> n = head.get();
+        Node<T> n = head;
 
         while (n != null) {
             list.add(n.value);
@@ -227,7 +196,7 @@ public class LinkedList<T> implements Iterable<T> {
 
     List<T> asListFromTail() {
         List<T> list = new ArrayList<>();
-        Node<T> n = tail.get();
+        Node<T> n = tail;
 
         while (n != null) {
             list.add(n.value);

@@ -23,7 +23,7 @@ public class Actor<T, R> extends Exitable implements Consumer<T>, Function<T, R>
 
     Actor(Consumer<T> actorLogic, Function<T, R> actorLogicReturn, BlockingDeque<Either3<Runnable, T, MessageWithAnswer<T, R>>> queue) {
         this.actorLogic = actorLogic;
-        this.actorLogicReturn = mwa -> mwa.answers.complete(actorLogicReturn.apply(mwa.message));
+        this.actorLogicReturn = mwr -> mwr.answers.complete(actorLogicReturn.apply(mwr.message));
         this.queue = queue;
     }
 

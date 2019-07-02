@@ -1,0 +1,333 @@
+package eu.lucaventuri.collections;
+
+import eu.lucaventuri.common.Exceptions;
+import org.junit.Before;
+import org.junit.Test;
+
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.junit.Assert.*;
+
+public class TestLinkedList {
+    private final AtomicInteger numInserted = new AtomicInteger();
+    private final AtomicInteger numDeleted = new AtomicInteger();
+
+    @Before
+    public void setup() {
+        numInserted.set(0);
+        numDeleted.set(0);
+    }
+
+    @Test
+    public void testEmpty() {
+        LinkedList list = new LinkedList();
+
+        assertEmpty(list);
+    }
+
+    @Test
+    public void testOne() {
+        LinkedList<String> list = new LinkedList<>();
+
+        list.addToTail("abc");
+
+        assert1Node(list, "abc");
+
+        assertEquals("abc", list.removeHead());
+
+        assertEmpty(list);
+
+        LinkedList.Node<String> n = list.addToTail("A");
+        assert1Node(list, "A");
+
+        list.remove(n);
+
+        assertEmpty(list);
+    }
+
+    private void assertEmpty(LinkedList<String> list) {
+        assertEquals(0, list.asListFromHead().size());
+        assertEquals(0, list.asListFromTail().size());
+        assertNull(list.peekHead());
+        assertNull(list.peekTail());
+
+        assertFalse(list.iterator().hasNext());
+    }
+
+    @Test
+    public void testTwo() {
+        LinkedList<String> list = new LinkedList<>();
+
+        list.addToTail("A");
+        assert1Node(list, "A");
+
+        list.addToTail("B");
+        assert2Nodes(list, "A", "B");
+
+        list.removeHead();
+        assert1Node(list, "B");
+
+        list.removeHead();
+        assertEmpty(list);
+
+        LinkedList.Node<String> n1 = list.addToTail("A");
+        assert1Node(list, "A");
+
+        LinkedList.Node<String> n2 = list.addToTail("B");
+        assert2Nodes(list, "A", "B");
+
+        list.remove(n2);
+        assert1Node(list, "A");
+
+        n2 = list.addToTail("C");
+        assert2Nodes(list, "A", "C");
+
+        list.remove(n1);
+        assert1Node(list, "C");
+    }
+
+    @Test
+    public void testThree() {
+        LinkedList<String> list = new LinkedList<>();
+
+        list.addToTail("A");
+        assert1Node(list, "A");
+
+        list.addToTail("B");
+        assert2Nodes(list, "A", "B");
+
+        list.addToTail("C");
+        assert3Nodes(list, "A", "B", "C");
+
+        list.removeHead();
+        assert2Nodes(list, "B", "C");
+
+        list.removeHead();
+        assert1Node(list, "C");
+
+        list.removeHead();
+        assertEmpty(list);
+
+
+        LinkedList.Node<String> n1 = list.addToTail("A");
+        assert1Node(list, "A");
+
+        LinkedList.Node<String> n2 = list.addToTail("B");
+        assert2Nodes(list, "A", "B");
+
+        LinkedList.Node<String> n3 = list.addToTail("C");
+        assert3Nodes(list, "A", "B", "C");
+
+        list.remove(n3);
+        assert2Nodes(list, "A", "B");
+
+        n3 = list.addToTail("D");
+        assert3Nodes(list, "A", "B", "D");
+
+        list.remove(n2);
+        assert2Nodes(list, "A", "D");
+
+        LinkedList.Node<String> n4 = list.addToTail("E");
+        assert3Nodes(list, "A", "D", "E");
+
+        list.remove(n1);
+        assert2Nodes(list, "D", "E");
+    }
+
+    @Test
+    public void testInsertFromEmpty() throws InterruptedException {
+        LinkedList<Integer> list = new LinkedList<>();
+
+        insert(list, 100, 0, 1000).await();
+
+        verifyIntegerList(list, 0, 100_000);
+    }
+
+    @Test
+    public void testInsertFromSomething() throws InterruptedException {
+        LinkedList<Integer> list = new LinkedList<>();
+
+        list.addToTail(-1);
+        list.addToTail(-2);
+        list.addToTail(-3);
+        insert(list, 100, 0, 1000).await();
+
+        verifyIntegerList(list, -3, 100_000);
+    }
+
+    @Test
+    public void testInsertThenRemoveHead() throws InterruptedException {
+        LinkedList<Integer> list = new LinkedList<>();
+
+        insert(list, 100, 0, 1000).await();
+        removeHead(list, 100, 0, 1000).await();
+
+        verifyIntegerList(list, 0, 0);
+    }
+
+    @Test
+    public void testInsertAndRemoveHead() throws InterruptedException {
+        LinkedList<Integer> list = new LinkedList<>();
+        AtomicBoolean exit = new AtomicBoolean();
+
+        CountDownLatch latchRemove = removeHeadUntilRemoved(list, 100, 0, 1000);
+        CountDownLatch latchInsert = insert(list, 100, 0, 1000);
+
+        new Thread(() -> {
+            while (!exit.get()) {
+                System.out.println("Inserted: " + numInserted.get() + " - Removed: " + numDeleted.get());
+                Exceptions.silence(() -> Thread.sleep(250));
+            }
+        }).start();
+        latchRemove.await();
+        exit.set(true);
+        verifyIntegerList(list, 0, 0);
+    }
+
+    private void verifyIntegerList(LinkedList<Integer> list, int start, int end) {
+        List<Integer> listFromTail = list.asListFromTail();
+        List<Integer> listFromHead = list.asListFromHead();
+
+        verifyIntegerList(listFromTail, start, end);
+        verifyIntegerList(listFromHead, start, end);
+    }
+
+    private void verifyIntegerList(List<Integer> list, int start, int end) {
+        assertEquals(end - start, list.size());
+
+        if (end == start)
+            return;
+
+        Collections.sort(list);
+
+        assertEquals(start, (int) list.get(0));
+        assertEquals(end - 1, (int) list.get(end - start - 1));
+
+        for (int i = 0; i < end - start; i++)
+            assertEquals(i + start, (int) list.get(i));
+    }
+
+    private void assert3Nodes(LinkedList<String> list, String head, String middle, String tail) {
+        assertEquals(3, list.asListFromHead().size());
+        assertEquals(3, list.asListFromTail().size());
+        assertEquals(head, list.asListFromHead().get(0));
+        assertEquals(middle, list.asListFromHead().get(1));
+        assertEquals(tail, list.asListFromHead().get(2));
+        assertEquals(head, list.asListFromTail().get(2));
+        assertEquals(middle, list.asListFromTail().get(1));
+        assertEquals(tail, list.asListFromTail().get(0));
+        assertEquals(head, list.peekHead());
+        assertEquals(tail, list.peekTail());
+
+        Iterator<String> iter = list.iterator();
+        assertTrue(iter.hasNext());
+        assertEquals(head, iter.next());
+        assertTrue(iter.hasNext());
+        assertEquals(middle, iter.next());
+        assertTrue(iter.hasNext());
+        assertEquals(tail, iter.next());
+        assertFalse(iter.hasNext());
+    }
+
+    private void assert2Nodes(LinkedList<String> list, String head, String tail) {
+        assertEquals(2, list.asListFromHead().size());
+        assertEquals(2, list.asListFromTail().size());
+        assertEquals(head, list.asListFromHead().get(0));
+        assertEquals(tail, list.asListFromHead().get(1));
+        assertEquals(head, list.asListFromTail().get(1));
+        assertEquals(tail, list.asListFromTail().get(0));
+        assertEquals(head, list.peekHead());
+        assertEquals(tail, list.peekTail());
+
+        Iterator<String> iter = list.iterator();
+        assertTrue(iter.hasNext());
+        assertEquals(head, iter.next());
+        assertTrue(iter.hasNext());
+        assertEquals(tail, iter.next());
+        assertFalse(iter.hasNext());
+    }
+
+    private void assert1Node(LinkedList<String> list, String value) {
+        assertEquals(1, list.asListFromHead().size());
+        assertEquals(1, list.asListFromTail().size());
+        assertEquals(value, list.asListFromHead().get(0));
+        assertEquals(value, list.asListFromTail().get(0));
+        assertEquals(value, list.peekHead());
+        assertEquals(value, list.peekTail());
+
+        Iterator<String> iter = list.iterator();
+        assertTrue(iter.hasNext());
+        assertEquals(value, iter.next());
+        assertFalse(iter.hasNext());
+    }
+
+    private CountDownLatch insert(LinkedList<Integer> list, int numThreads, int start, int batchSize) {
+        CountDownLatch latch = new CountDownLatch(numThreads);
+
+        for (int curThread = 0; curThread < numThreads; curThread++) {
+            int batchStart = start + batchSize * curThread;
+            int batchEnd = batchStart + batchSize;
+            new Thread(() -> {
+                for (int i = batchStart; i < batchEnd; i++) {
+                    list.addToTail(i);
+                    numInserted.incrementAndGet();
+                }
+
+                latch.countDown();
+            }).start();
+        }
+
+        return latch;
+    }
+
+    private CountDownLatch removeHead(LinkedList<Integer> list, int numThreads, int start, int batchSize) {
+        CountDownLatch latch = new CountDownLatch(numThreads);
+
+        for (int curThread = 0; curThread < numThreads; curThread++) {
+            int batchStart = start + batchSize * curThread;
+            int batchEnd = batchStart + batchSize;
+            new Thread(() -> {
+                for (int i = batchStart; i < batchEnd; i++)
+                    list.removeHead();
+
+                latch.countDown();
+            }).start();
+        }
+
+        return latch;
+    }
+
+    private CountDownLatch removeHeadUntilRemoved(LinkedList<Integer> list, int numThreads, int start, int batchSize) {
+        CountDownLatch latch = new CountDownLatch(numThreads);
+
+        for (int curThread = 0; curThread < numThreads; curThread++) {
+            int batchStart = start + batchSize * curThread;
+            int batchEnd = batchStart + batchSize;
+            new Thread(() -> {
+                for (int i = batchStart; i < batchEnd; i++) {
+                    Integer n;
+                    int num=0;
+
+                    do {
+                        n = list.removeHead();
+                        num++;
+
+                        if (num%100==0)
+                            Exceptions.silence(() -> Thread.sleep(1));
+                    } while (n == null);
+
+                    numDeleted.incrementAndGet();
+                }
+
+                latch.countDown();
+            }).start();
+        }
+
+        return latch;
+    }
+}

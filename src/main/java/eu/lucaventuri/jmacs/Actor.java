@@ -7,38 +7,33 @@ import eu.lucaventuri.functional.Either3;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.LinkedBlockingDeque;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
 /** Super simple actor, that can process messages of type T, or execute Runnables inside its thread */
-public class Actor<T, R> extends Exitable implements Consumer<T>, Function<T, R> {
-    protected final BlockingDeque<Either3<Runnable, T, MessageWithAnswer<T, R>>> queue;
+public class Actor<T, R, S> extends Exitable implements Consumer<T>, Function<T, R> {
+    protected final BlockingDeque<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue;
     protected final Consumer<T> actorLogic;
     protected final Consumer<MessageWithAnswer<T, R>> actorLogicReturn;
+    protected S state;
 
-    Actor(Consumer<T> actorLogic, Function<T, R> actorLogicReturn) {
-        this(actorLogic, actorLogicReturn, new LinkedBlockingDeque<Either3<Runnable, T, MessageWithAnswer<T, R>>>());
-    }
-
-    Actor(Consumer<T> actorLogic, Function<T, R> actorLogicReturn, BlockingDeque<Either3<Runnable, T, MessageWithAnswer<T, R>>> queue) {
+    Actor(Consumer<T> actorLogic, Function<T, R> actorLogicReturn, BlockingDeque<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, S initialState) {
         this.actorLogic = actorLogic;
         this.actorLogicReturn = mwr -> mwr.answers.complete(actorLogicReturn.apply(mwr.message));
         this.queue = queue;
+        this.state = initialState;
     }
 
-    Runnable processMessages() {
-        return () -> {
-            while (!isExiting()) {
-                Exceptions.log(() -> {
-                    var message = queue.takeFirst();
+    void processMessages() {
+        while (!isExiting()) {
+            Exceptions.log(() -> {
+                var message = queue.takeFirst();
 
-                    message.ifEither(Runnable::run, actorLogic::accept, actorLogicReturn::accept);
-                });
-            }
+                message.ifEither(cns -> cns.accept(state), actorLogic::accept, actorLogicReturn::accept);
+            });
+        }
 
-            notifyFinished();
-        };
+        notifyFinished();
     }
 
     public void sendMessage(T message) {
@@ -63,15 +58,15 @@ public class Actor<T, R> extends Exitable implements Consumer<T>, Function<T, R>
         }
     }
 
-    public void execAsync(Runnable run) {
-        ActorUtils.execAsync(queue, run);
+    public void execAsync(Consumer<S> worker) {
+        ActorUtils.execAsync(queue, worker);
     }
 
-    public void execAndWait(Runnable run) {
-        ActorUtils.execAndWait(queue, run);
+    public void execAndWait(Consumer<S> worker) {
+        ActorUtils.execAndWait(queue, worker);
     }
 
-    public CompletableFuture<Void> execFuture(Runnable run) {
-        return ActorUtils.execFuture(queue, run);
+    public CompletableFuture<Void> execFuture(Consumer<S> worker) {
+        return ActorUtils.execFuture(queue, worker);
     }
 }

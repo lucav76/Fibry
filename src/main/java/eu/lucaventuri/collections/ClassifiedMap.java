@@ -1,7 +1,5 @@
 package eu.lucaventuri.collections;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 
@@ -14,6 +12,7 @@ public class ClassifiedMap {
 
     public boolean addToTail(Object obj) {
         assert obj!=null;
+        verify();
 
         if (obj==null)
             return false;
@@ -22,10 +21,14 @@ public class ClassifiedMap {
 
         mapByClass.computeIfAbsent(obj.getClass(), k -> new LinkedList<>()).addToTail(node);
 
+        verify();
+
         return true;
     }
 
     public <T> T removeHead() {
+        verify();
+
         LinkedList.Node<Object> n = list.removeHeadNode();
 
         if (n!=null) {
@@ -35,20 +38,54 @@ public class ClassifiedMap {
                 classList.removeFirstByValue(n);
         }
 
+        verify();
+
         return (T) n.value;
     }
 
+    private void verify() {
+        assert (mapByClass.isEmpty() && list.ieEmpty()) || (!mapByClass.isEmpty() && !list.ieEmpty());
+    }
+
+    void deepVerify() {
+        assert (mapByClass.size() == list.asListFromHead().size());
+    }
+
     public <T>  T scanAndChoose(Class<T> cls, Predicate<T> filter) {
+        verify();
         LinkedList<LinkedList.Node<Object>> listByClass = mapByClass.get(cls);
 
         if (listByClass==null)
             return null;
 
-        for(Object o: listByClass) {
-            if (filter.test((T)o))
-                return (T) o;
+        for(LinkedList.Node<Object> n: listByClass) {
+            if (filter.test((T)n.value)) {
+                listByClass.removeFirstByValue(n);
+                list.remove(n);
+                return (T) n.value;
+            }
+        }
+
+        for(Class clz: mapByClass.keySet()) {
+            listByClass = mapByClass.get(clz);
+
+            if (cls.isAssignableFrom(clz)) {
+                for(LinkedList.Node<Object> n: listByClass) {
+                    if (filter.test((T)n.value)) {
+                        listByClass.removeFirstByValue(n);
+                        list.remove(n);
+                        return (T) n.value;
+                    }
+                }
+            }
         }
 
         return null;
+    }
+
+    public boolean isEmpty() {
+        verify();
+
+        return list.ieEmpty();
     }
 }

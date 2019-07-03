@@ -1,7 +1,7 @@
 package eu.lucaventuri.jmacs;
 
 import eu.lucaventuri.common.Exceptions;
-import eu.lucaventuri.concurrent.SignalingSingleRunnable;
+import eu.lucaventuri.concurrent.SignalingSingleConsumer;
 import eu.lucaventuri.functional.Either3;
 
 import java.util.concurrent.*;
@@ -11,30 +11,30 @@ import java.util.function.Function;
 final class ActorUtils {
     private ActorUtils() { /* Static methods only */}
 
-    static <T, R> void sendMessage(BlockingDeque<Either3<Runnable, T, MessageWithAnswer<T, R>>> queue, T message) {
+    static <T, R, S> void sendMessage(BlockingDeque<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, T message) {
         queue.add(Either3.right(message));
     }
 
-    static <T, R> CompletableFuture<R> sendMessageReturn(BlockingDeque<Either3<Runnable, T, MessageWithAnswer<T, R>>> queue, T message) {
+    static <T, R, S> CompletableFuture<R> sendMessageReturn(BlockingDeque<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, T message) {
         MessageWithAnswer<T, R> mwr = new MessageWithAnswer<>(message);
         queue.add(Either3.other(mwr));
 
         return mwr.answers;
     }
 
-    static <T, R> void execAsync(BlockingDeque<Either3<Runnable, T, MessageWithAnswer<T, R>>> queue, Runnable run) {
-        queue.add(Either3.left(run));
+    static <T, R, S> void execAsync(BlockingDeque<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> worker) {
+        queue.add(Either3.left(worker));
     }
 
-    static <T, R> void execAndWait(BlockingDeque<Either3<Runnable, T, MessageWithAnswer<T, R>>> queue, Runnable run) {
-        SignalingSingleRunnable sr = SignalingSingleRunnable.of(run);
+    static <T, R, S> void execAndWait(BlockingDeque<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> worker) {
+        SignalingSingleConsumer<S> sc = SignalingSingleConsumer.of(worker);
 
-        queue.add(Either3.left(sr));
-        Exceptions.log(sr::await);
+        queue.add(Either3.left(sc));
+        Exceptions.log(sc::await);
     }
 
-    static <T, R> CompletableFuture<Void> execFuture(BlockingDeque<Either3<Runnable, T, MessageWithAnswer<T, R>>> queue, Runnable run) {
-        SignalingSingleRunnable sr = SignalingSingleRunnable.of(run);
+    static <T, R, S> CompletableFuture<Void> execFuture(BlockingDeque<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> worker) {
+        SignalingSingleConsumer<S> sr = SignalingSingleConsumer.of(worker);
 
         queue.add(Either3.left(sr));
 

@@ -77,11 +77,18 @@ public class LinkedList<T> implements Iterable<T> {
         verifyRemoveThread();
 
         for (Node<T> node : asNodesIterable()) {
-            if (node.value != null && node.value.equals(value))
+            if (node.value != null && node.value.equals(value)) {
+                remove(node);
+
                 return node;
+            }
         }
 
         return null;
+    }
+
+    public boolean ieEmpty() {
+        return head == null;
     }
 
     public static class Node<T> {
@@ -122,10 +129,10 @@ public class LinkedList<T> implements Iterable<T> {
     public void remove(Node<T> node) {
         verify();
 
-        if (head==node)
-        head = node.next;
-        if (tail==node)
-        tail = node.prev;
+        if (head == node)
+            head = node.next;
+        if (tail == node)
+            tail = node.prev;
 
         // TODO: it would be nice to assert that it is part of this list...
         if (node.prev != null)

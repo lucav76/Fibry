@@ -38,6 +38,7 @@ public class MiniActorSystem {
 
     public static class NamedActorCreator {
         private final String name;  // Can be null
+        private Strategy strategy = Strategy.AUTO;
 
         public class NamedStateActorCreator<S> {
             private final S initialState;
@@ -46,27 +47,33 @@ public class MiniActorSystem {
                 this.initialState = initialState;
             }
 
-            public <T> Actor<T, Void, S> newActor(Consumer<T> actorLogic, Strategy strategy) {
+            public <T> Actor<T, Void, S> newActor(Consumer<T> actorLogic) {
                 return (Actor<T, Void, S>) strategy.start(new Actor<T, Void, S>(actorLogic, ActorUtils.discardingToReturning(actorLogic), getOrCreateActorQueue(registerActorName(name)), initialState));
             }
 
-            public <T, R> Actor<T, R, S> newActorWithReturn(Function<T, R> actorLogic, Strategy strategy) {
+            public <T, R> Actor<T, R, S> newActorWithReturn(Function<T, R> actorLogic) {
                 return (Actor<T, R, S>) strategy.start(new Actor<T, R, S>(ActorUtils.returningToDiscarding(actorLogic), actorLogic, getOrCreateActorQueue(registerActorName(name)), initialState));
             }
         }
 
         private NamedActorCreator(String name) {this.name = name; }
 
-        public <T> Actor<T, Void, Void> newActor(Consumer<T> actorLogic, Strategy strategy) {
+        public <T> Actor<T, Void, Void> newActor(Consumer<T> actorLogic) {
             return (Actor<T, Void, Void>) strategy.start(new Actor<T, Void, Void>(actorLogic, ActorUtils.discardingToReturning(actorLogic), getOrCreateActorQueue(registerActorName(name)), null));
         }
 
-        public <T, R> Actor<T, R, Void> newActorWithReturn(Function<T, R> actorLogic, Strategy strategy) {
+        public <T, R> Actor<T, R, Void> newActorWithReturn(Function<T, R> actorLogic) {
             return (Actor<T, R, Void>) strategy.start(new Actor<T, R, Void>(ActorUtils.returningToDiscarding(actorLogic), actorLogic, getOrCreateActorQueue(registerActorName(name)), null));
         }
 
         public <S> NamedStateActorCreator<S> initialState(S state) {
             return new NamedStateActorCreator<>(state);
+        }
+
+        public NamedActorCreator strategy(Strategy strategy) {
+            this.strategy = strategy;
+
+            return this;
         }
     }
 

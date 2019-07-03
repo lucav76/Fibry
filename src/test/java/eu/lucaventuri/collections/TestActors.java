@@ -18,7 +18,7 @@ public class TestActors {
 
     @Test
     public void testSyncExec() {
-        Actor<String, Void, StringBuilder> actor = MiniActorSystem.anonymous().initialState(new StringBuilder()).newActor(lazy, MiniActorSystem.Strategy.AUTO);
+        Actor<String, Void, StringBuilder> actor = MiniActorSystem.anonymous().initialState(new StringBuilder()).newActor(lazy);
 
         actor.execAndWait(sb -> sb.append("A"));
         actor.execAndWait(sb -> sb.append("B"));
@@ -39,7 +39,7 @@ public class TestActors {
             int numCalls;
         }
 
-        Actor<String, Void, State> actor = MiniActorSystem.anonymous().initialState(new State()).newActor(lazy, MiniActorSystem.Strategy.AUTO);
+        Actor<String, Void, State> actor = MiniActorSystem.anonymous().initialState(new State()).newActor(lazy);
 
         for (int i = 0; i < numExpectedCalls; i++)
             actor.execAndWait(s -> {
@@ -66,7 +66,7 @@ public class TestActors {
             int numCalls;
         }
 
-        Actor<String, Void, State> actor = MiniActorSystem.anonymous().initialState(new State()).newActor(lazy, MiniActorSystem.Strategy.AUTO);
+        Actor<String, Void, State> actor = MiniActorSystem.anonymous().initialState(new State()).newActor(lazy);
 
         for (int i = 0; i < numExpectedCalls; i++)
             actor.execAsync(s -> {
@@ -91,7 +91,7 @@ public class TestActors {
             int numCalls;
         }
 
-        Actor<String, Void, State> actor = MiniActorSystem.anonymous().initialState(new State()).newActor(lazy, MiniActorSystem.Strategy.AUTO);
+        Actor<String, Void, State> actor = MiniActorSystem.anonymous().initialState(new State()).newActor(lazy);
 
         actor.execFuture(s -> {
             s.numCalls++;
@@ -118,7 +118,7 @@ public class TestActors {
         Actor<Integer, Void, State> actor = MiniActorSystem.anonymous().initialState(state).newActor(n -> {
             state.numCalls += n;
             latch.countDown();
-        }, MiniActorSystem.Strategy.AUTO);
+        });
 
         actor.sendMessage(1);
         actor.sendMessage(2);
@@ -132,7 +132,7 @@ public class TestActors {
 
     @Test
     public void testSendMessageReturn() throws InterruptedException, ExecutionException {
-        Actor<Integer, Integer, Void> actor = MiniActorSystem.anonymous().newActorWithReturn(n -> n.intValue()*n.intValue(), MiniActorSystem.Strategy.AUTO);
+        Actor<Integer, Integer, Void> actor = MiniActorSystem.anonymous().newActorWithReturn(n -> n.intValue()*n.intValue());
 
         assertEquals(1, actor.sendMessageReturn(1).get().intValue());
         assertEquals(4, actor.sendMessageReturn(2).get().intValue());

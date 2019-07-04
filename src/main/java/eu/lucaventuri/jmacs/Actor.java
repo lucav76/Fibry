@@ -69,4 +69,20 @@ public class Actor<T, R, S> extends Exitable implements Consumer<T>, Function<T,
     public CompletableFuture<Void> execFuture(Consumer<S> worker) {
         return ActorUtils.execFuture(queue, worker);
     }
+
+    public void execAsync(Runnable worker) {
+        ActorUtils.execAsync(queue, state -> worker.run());
+    }
+
+    public void execAndWait(Runnable worker) {
+        ActorUtils.execAndWait(queue, state -> worker.run());
+    }
+
+    public CompletableFuture<Void> execFuture(Runnable worker) {
+        return ActorUtils.execFuture(queue, state -> worker.run());
+    }
+
+    public void sendPoisonPill() {
+        execAsync( state -> askExit());
+    }
 }

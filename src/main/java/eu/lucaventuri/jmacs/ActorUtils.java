@@ -9,7 +9,10 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Array;
+import java.util.Queue;
 import java.util.concurrent.*;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -56,29 +59,29 @@ public final class ActorUtils {
 
     private ActorUtils() { /* Static methods only */}
 
-    static <T, R, S> void sendMessage(BlockingDeque<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, T message) {
+    static <T, R, S> void sendMessage(Queue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, T message) {
         queue.add(Either3.right(message));
     }
 
-    static <T, R, S> CompletableFuture<R> sendMessageReturn(BlockingDeque<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, T message) {
+    static <T, R, S> CompletableFuture<R> sendMessageReturn(Queue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, T message) {
         MessageWithAnswer<T, R> mwr = new MessageWithAnswer<>(message);
         queue.add(Either3.other(mwr));
 
         return mwr.answers;
     }
 
-    static <T, R, S> void execAsync(BlockingDeque<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> worker) {
+    static <T, R, S> void execAsync(Queue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> worker) {
         queue.add(Either3.left(worker));
     }
 
-    static <T, R, S> void execAndWait(BlockingDeque<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> worker) {
+    static <T, R, S> void execAndWait(Queue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> worker) {
         SignalingSingleConsumer<S> sc = SignalingSingleConsumer.of(worker);
 
         queue.add(Either3.left(sc));
         Exceptions.log(sc::await);
     }
 
-    static <T, R, S> CompletableFuture<Void> execFuture(BlockingDeque<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> worker) {
+    static <T, R, S> CompletableFuture<Void> execFuture(Queue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> worker) {
         SignalingSingleConsumer<S> sr = SignalingSingleConsumer.of(worker);
 
         queue.add(Either3.left(sr));
@@ -121,7 +124,18 @@ public final class ActorUtils {
         };
     }
 
+    static <T, T2, R> BiFunction<T, T2, R> discardingToReturning(BiConsumer<T, T2> actorLogic) {
+        return (param1, param2) -> {
+            actorLogic.accept(param1, param2);
+
+            return null;
+        };
+    }
+
     static <T, R> Consumer<T> returningToDiscarding(Function<T, R> actorLogic) {
+        return actorLogic::apply;
+    }
+    static <T, T2, R> BiConsumer<T, T2> returningToDiscarding(BiFunction<T, T2, R> actorLogic) {
         return actorLogic::apply;
     }
 

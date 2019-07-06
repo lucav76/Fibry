@@ -1,7 +1,7 @@
 package eu.lucaventuri.collections;
 
 import eu.lucaventuri.common.SystemUtils;
-import eu.lucaventuri.jmacs.MessageSilo;
+import eu.lucaventuri.jmacs.MessageBag;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -14,7 +14,7 @@ public class TestMessageSilo {
     @Test
     public void testEmpty() {
         LinkedBlockingQueue<String> queue = new LinkedBlockingQueue<>();
-        MessageSilo<String> silo = new MessageSilo<>(queue);
+        MessageBag<String> silo = new MessageBag<>(queue);
 
         new Thread(() -> {
             SystemUtils.sleep(10);
@@ -27,7 +27,7 @@ public class TestMessageSilo {
     @Test
     public void testInOrder() {
         LinkedBlockingQueue<String> queue = new LinkedBlockingQueue<>();
-        MessageSilo<String> silo = new MessageSilo<>(queue);
+        MessageBag<String> silo = new MessageBag<>(queue);
 
         new Thread(() -> {
             queue.offer("A");
@@ -48,7 +48,7 @@ public class TestMessageSilo {
     @Test
     public void testReceive() {
         LinkedBlockingQueue<Object> queue = new LinkedBlockingQueue<>();
-        MessageSilo<Object> silo = new MessageSilo<>(queue);
+        MessageBag<Object> silo = new MessageBag<>(queue);
 
         new Thread(() -> {
             queue.offer("A");
@@ -106,7 +106,7 @@ public class TestMessageSilo {
     @Test
     public void testInheritance() {
         LinkedBlockingQueue<Object> queue = new LinkedBlockingQueue<>();
-        MessageSilo<Object> silo = new MessageSilo<>(queue);
+        MessageBag<Object> silo = new MessageBag<>(queue);
         A a1 = new A();
         A a2 = new A();
         A a3 = new A();

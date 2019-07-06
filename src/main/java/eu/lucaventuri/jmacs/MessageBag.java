@@ -3,19 +3,21 @@ package eu.lucaventuri.jmacs;
 import eu.lucaventuri.collections.ClassifiedMap;
 import eu.lucaventuri.common.SystemUtils;
 
+import java.util.AbstractQueue;
+import java.util.Iterator;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Predicate;
 
 /**
  * Provide the functionality to read messages in order and to retrieve them by class and filtering.
  * Thread safety is achieved using the blocking queue, while receive() uses the ClassifiedMap.
- * To improve performance, a lock-less blocking queue "with nodes" should be implemented to join both the retrieval options
+ * To improve performance, a lock-less blocking queue "with nodes" should be implemented to get both the retrieval behaviors from a single object
  */
-public class MessageSilo<T> {
+public class MessageBag<T> extends AbstractQueue<T> implements MessageReceiver<T> {
     private final LinkedBlockingQueue<T> queue;
     private final ClassifiedMap map = new ClassifiedMap();
 
-    public MessageSilo(LinkedBlockingQueue<T> queue) {
+    public MessageBag(LinkedBlockingQueue<T> queue) {
         this.queue = queue;
     }
 
@@ -67,5 +69,33 @@ public class MessageSilo<T> {
 
             map.addToTail(message);
         }
+    }
+
+    @Override
+    public Iterator<T> iterator() {
+        throw new UnsupportedOperationException("Iterator not available in " + this.getClass().getName());
+    }
+
+    @Override
+    public int size() {
+        return queue.size();
+    }
+
+    @Override
+    public boolean offer(T element) {
+        return queue.offer(element);
+    }
+
+    @Override
+    public T poll() {
+        return retrieveFromQueue(); // We want it always blocking
+    }
+
+    @Override
+    public T peek() {
+        if (map.isEmpty())
+            return queue.peek();
+
+        return map.peekHead();
     }
 }

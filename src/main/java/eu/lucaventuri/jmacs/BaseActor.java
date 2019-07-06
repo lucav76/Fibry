@@ -1,4 +1,6 @@
 package eu.lucaventuri.jmacs;
 
-public class BaseActor {
+import eu.lucaventuri.common.Exitable;
+
+public abstract class BaseActor<T, R> extends Exitable {
 }

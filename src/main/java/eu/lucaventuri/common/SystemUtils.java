@@ -40,7 +40,7 @@ public final class SystemUtils {
      *
      * @param ms ms to sleep
      */
-    public static void sleep(int ms) {
+    public static void sleep(long ms) {
         try {
             Thread.sleep(ms < 0 ? 0 : ms);
         } catch (InterruptedException e) {
@@ -136,5 +136,18 @@ public final class SystemUtils {
      */
     public static boolean getAssertsEnabled() {
         return assertsEnabled;
+    }
+
+    /**
+     * @param className name of the class to find
+     * @return the class, or null if it is not available
+     */
+    @SuppressWarnings("rawtypes")
+    public static Class findClassByName(String className) {
+        try {
+            return Class.forName(className);
+        } catch (ClassNotFoundException e) {
+            return null;
+        }
     }
 }

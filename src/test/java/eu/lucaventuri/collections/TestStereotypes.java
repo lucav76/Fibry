@@ -30,7 +30,7 @@ public class TestStereotypes {
     @Test
     public void testWorkersConsumer() throws ExecutionException, InterruptedException {
         final AtomicInteger val = new AtomicInteger();
-        Consumer<Integer> master = Stereotypes.auto().workersConsumer(n -> {
+        Consumer<Integer> master = Stereotypes.auto().workersAsConsumerCreator(n -> {
             System.out.println(n);
 
             val.addAndGet(n);
@@ -61,7 +61,7 @@ public class TestStereotypes {
     @Test
     public void testWorkerWithReturnFunction() throws ExecutionException, InterruptedException {
         final AtomicInteger val = new AtomicInteger();
-        Function<Integer, CompletableFuture<Integer>> master = Stereotypes.auto().workersFunction(val::addAndGet);
+        Function<Integer, CompletableFuture<Integer>> master = Stereotypes.auto().workersAsFunctionCreator(val::addAndGet);
 
         assertEquals(1, master.apply(1).get().intValue());
         assertEquals(3, master.apply(2).get().intValue());

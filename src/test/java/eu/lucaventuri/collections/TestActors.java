@@ -20,14 +20,14 @@ public class TestActors {
     public void testSyncExec() {
         Actor<String, Void, StringBuilder> actor = MiniActorSystem.anonymous().initialState(new StringBuilder()).newActor(lazy);
 
-        actor.execAndWait(sb -> sb.append("A"));
-        actor.execAndWait(sb -> sb.append("B"));
-        actor.execAndWait(sb -> sb.append("C"));
+        actor.execAndWait(act -> act.getState().append("A"));
+        actor.execAndWait(act -> act.getState().append("B"));
+        actor.execAndWait(act -> act.getState().append("C"));
 
-        actor.execAndWait(sb -> {
-            System.out.println(sb);
+        actor.execAndWait(act -> {
+            System.out.println(act.getState());
 
-            assertEquals("ABC", sb.toString());
+            assertEquals("ABC", act.getState().toString());
         });
     }
 
@@ -42,8 +42,8 @@ public class TestActors {
         Actor<String, Void, State> actor = MiniActorSystem.anonymous().initialState(new State()).newActor(lazy);
 
         for (int i = 0; i < numExpectedCalls; i++)
-            actor.execAndWait(s -> {
-                s.numCalls++;
+            actor.execAndWait(act -> {
+                act.getState().numCalls++;
                 callsExecuted.incrementAndGet();
             });
 
@@ -51,10 +51,10 @@ public class TestActors {
             SystemUtils.sleep(1);
         }
 
-        actor.execAndWait(s -> {
-            System.out.println(s);
+        actor.execAndWait(act -> {
+            System.out.println(act.getState());
 
-            assertEquals(numExpectedCalls, s.numCalls);
+            assertEquals(numExpectedCalls, act.getState().numCalls);
         });
     }
 
@@ -69,8 +69,8 @@ public class TestActors {
         Actor<String, Void, State> actor = MiniActorSystem.anonymous().initialState(new State()).newActor(lazy);
 
         for (int i = 0; i < numExpectedCalls; i++)
-            actor.execAsync(s -> {
-                s.numCalls++;
+            actor.execAsync(act -> {
+                act.getState().numCalls++;
                 callsExecuted.incrementAndGet();
             });
 
@@ -78,10 +78,10 @@ public class TestActors {
             SystemUtils.sleep(1);
         }
 
-        actor.execAndWait(s -> {
-            System.out.println(s);
+        actor.execAndWait(act -> {
+            System.out.println(act.getState());
 
-            assertEquals(numExpectedCalls, s.numCalls);
+            assertEquals(numExpectedCalls, act.getState().numCalls);
         });
     }
 
@@ -93,23 +93,23 @@ public class TestActors {
 
         Actor<String, Void, State> actor = MiniActorSystem.anonymous().initialState(new State()).newActor(lazy);
 
-        actor.execFuture(s -> {
-            s.numCalls++;
+        actor.execFuture(act -> {
+            act.getState().numCalls++;
         }).get();
-        actor.execFuture(s -> {
-            s.numCalls++;
+        actor.execFuture(act -> {
+            act.getState().numCalls++;
         }).get();
 
-        actor.execAndWait(s -> {
-            System.out.println(s);
+        actor.execAndWait(act -> {
+            System.out.println(act.getState());
 
-            assertEquals(2, s.numCalls);
+            assertEquals(2, act.getState().numCalls);
         });
     }
 
     @Test
     public void testSendMessage() throws InterruptedException, ExecutionException {
-        CountDownLatch latch = new CountDownLatch(3);
+        CountDownLatch latch = new CountDownLatch(4);
         class State {
             int numCalls;
         }

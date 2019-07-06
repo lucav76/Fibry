@@ -5,6 +5,9 @@ import eu.lucaventuri.functional.Either3;
 
 import java.util.Set;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -24,12 +27,16 @@ public class MiniActorSystem {
         }, FIBER {
             @Override
             <T, R, S> Actor<T, R, S> start(Actor<T, R, S> actor) {
-                return THREAD.start(actor);
+                ActorUtils.runAsFiber(() -> {
+                    actor.processMessages();
+                });
+
+                return actor;
             }
         }, AUTO {
             @Override
             <T, R, S> Actor<T, R, S> start(Actor<T, R, S> actor) {
-                return THREAD.start(actor);
+                return ActorUtils.areFibersAvailable() ? FIBER.start(actor) : THREAD.start(actor);
             }
         };
 
@@ -48,22 +55,38 @@ public class MiniActorSystem {
             }
 
             public <T> Actor<T, Void, S> newActor(Consumer<T> actorLogic) {
-                return (Actor<T, Void, S>) strategy.start(new Actor<T, Void, S>(actorLogic, ActorUtils.discardingToReturning(actorLogic), getOrCreateActorQueue(registerActorName(name)), initialState));
+                return strategy.start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name)), initialState));
+            }
+
+            public <T> Actor<T, Void, S> newActor(BiConsumer<T, PartialActor<T, S>> actorBiLogic) {
+                AtomicReference<Actor<T, Void, S>> ref = new AtomicReference<>();
+                Consumer<T> actorLogic = message -> actorBiLogic.accept(message, ref.get());
+
+                ref.set(strategy.start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name)), initialState)));
+
+                return ref.get();
             }
 
             public <T, R> Actor<T, R, S> newActorWithReturn(Function<T, R> actorLogic) {
-                return (Actor<T, R, S>) strategy.start(new Actor<T, R, S>(ActorUtils.returningToDiscarding(actorLogic), actorLogic, getOrCreateActorQueue(registerActorName(name)), initialState));
+                return strategy.start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name)), initialState));
+            }
+
+            public <T, R> Actor<T, R, S> newActorWithReturn(BiFunction<T, PartialActor<T, S>, R> actorBiLogic) {
+                AtomicReference<Actor<T, Void, S>> ref = new AtomicReference<>();
+                Function<T, R> actorLogic = message -> actorBiLogic.apply(message, ref.get());
+
+                return strategy.start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name)), initialState));
             }
         }
 
         private NamedActorCreator(String name) {this.name = name; }
 
         public <T> Actor<T, Void, Void> newActor(Consumer<T> actorLogic) {
-            return (Actor<T, Void, Void>) strategy.start(new Actor<T, Void, Void>(actorLogic, ActorUtils.discardingToReturning(actorLogic), getOrCreateActorQueue(registerActorName(name)), null));
+            return (Actor<T, Void, Void>) strategy.start(new Actor<T, Void, Void>(actorLogic, getOrCreateActorQueue(registerActorName(name)), null));
         }
 
         public <T, R> Actor<T, R, Void> newActorWithReturn(Function<T, R> actorLogic) {
-            return (Actor<T, R, Void>) strategy.start(new Actor<T, R, Void>(ActorUtils.returningToDiscarding(actorLogic), actorLogic, getOrCreateActorQueue(registerActorName(name)), null));
+            return (Actor<T, R, Void>) strategy.start(new Actor<T, R, Void>(actorLogic, getOrCreateActorQueue(registerActorName(name)), null));
         }
 
         public <S> NamedStateActorCreator<S> initialState(S state) {

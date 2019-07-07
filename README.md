@@ -19,25 +19,26 @@ I would not call the following numbers real benchmarks, as they have not been ta
 I might do a better round of benchmark in the future, and disclose the characteristics of the system.
 
 - Number of concurrent threads that can be created without OS tuning: around 10K
-- Number of concurrent fibers that can be created: more than 3M (*300x better*)
+- Number of concurrent fibers that can be created: more than 3M (**300x better**)
 - Threads created per second: 3.5K
 - Fibers created per second: 130K (**37x better**)
 - Sync messages per second, between 2 threads (requires thread switching): 8.5K
-- Sync messages per second, between 2 threads (requires fiber switching): 64K (7.5X better)
+- Sync messages per second, between 2 threads (requires fiber switching): 64K (**7.5X better**)
 
 As an indication, Fibry can send around 4-5M of messages per second
 
 Simplicity first
 ==
 *Fibry* has been designed to be simple:
-- your actor can and should use synchronous logic
-- there is a series of Stereotypes to handle common scenarios
-- you actors don't need to extend any particular class but just implement Consumer or Function
-- there is a fluid interface
+- Your actor can and should use synchronous logic
+- There is a series of Stereotypes to handle common scenarios
+- You actors don't need to extend any particular class but just implement Consumer or Function
 - Your actors can be used "transparently" in code that knows nothing about your actors, as the implement Consumer and Function
 - It is simple to retrieve the result of a message
+- There is a fluid interface
 - You can receive messages of your choice while processing a message  
 - You can send code to be executed in the thread/fiber of the actor (Chromium uses a similar mechanism)
+- **Fibry has no dependencies**, so no conflicts, no surprises and just a tiny jar
 
 Why fibers?
 ===

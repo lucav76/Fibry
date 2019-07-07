@@ -14,12 +14,17 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-/** Super simple actor system, creating one thread per Actor. Each Actor can either process messages (with or without return) or execute Consumer inside its thread */
+/**
+ * Simple actor system, creating one thread/fiber per Actor. Each Actor can either process messages (with or without return) or execute Consumer inside its thread.
+ * Receiving actors can perform a 'receive' operation and ask for specific messages.
+ */
 public class MiniActorSystem {
     private static final ConcurrentHashMap<String, BlockingDeque> namedQueues = new ConcurrentHashMap<>();
     private static final Set<String> actorNamesInUse = ConcurrentHashSet.build();
 
+    /** Strategy used to create the actors */
     public static enum Strategy {
+        /** One thread per actor */
         THREAD {
             @Override
             <T, R, S> BaseActor<T, R, S> start(BaseActor<T, R, S> actor) {
@@ -27,7 +32,9 @@ public class MiniActorSystem {
 
                 return actor;
             }
-        }, FIBER {
+        },
+        /** One fiber per actor */
+        FIBER {
             @Override
             <T, R, S> BaseActor<T, R, S> start(BaseActor<T, R, S> actor) {
                 ActorUtils.runAsFiber(() -> {
@@ -36,7 +43,9 @@ public class MiniActorSystem {
 
                 return actor;
             }
-        }, AUTO {
+        },
+        /** If fibers are available, the it uses FIBER else it uses THREAD */
+        AUTO {
             @Override
             <T, R, S> BaseActor<T, R, S> start(BaseActor<T, R, S> actor) {
                 return ActorUtils.areFibersAvailable() ? FIBER.start(actor) : THREAD.start(actor);

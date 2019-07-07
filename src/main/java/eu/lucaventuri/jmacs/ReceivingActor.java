@@ -7,7 +7,7 @@ import java.util.Queue;
 import java.util.concurrent.BlockingDeque;
 import java.util.function.*;
 
-/** Super simple actor, that can process messages of type T, or execute Runnables inside its thread */
+/** Special actor that is also able to "receive messages", asking for them. As this has potential performance implications, this feature is kept separated from normal actors */
 public class ReceivingActor<T, R, S> extends BaseActor<T, R, S> {
     protected final MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>, T> bag;
     protected final MessageReceiver<T> bagConverter;

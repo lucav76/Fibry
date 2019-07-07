@@ -143,6 +143,9 @@ Some warnings
 Fibry is experimental, and to leverage its potential you need to use Loom, which is a project under development that it's not clear when it will be merged into the OpenJDK, though clearly the development is very active and proceeding well.
 If you start to use Fibry and find some bugs, please notify me.
 
+Not every network operation is Fiber Friendly, at the moment. You can find a list [here](https://wiki.openjdk.java.net/display/loom/Networking+IO). 
+In particular UDP is only partly supported. Selectors are also not supported, but as avoiding non-blocking operation is a key goal of fibers, this should not be a concern.
+
 At the moment I have no plans to make a distributed version of Fibry, but if there is real interest I would be happy to do it.
 
 Enjoy!

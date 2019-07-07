@@ -93,4 +93,5 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Consumer<T>
     /** @return the length of the queue */
     public long getQueueLength() { return queue.size(); }
 
+    abstract void processMessages();
 }

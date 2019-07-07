@@ -46,7 +46,7 @@ public class Actor<T, R, S> extends BaseActor<T, R, S> {
         this.state = initialState;
     }
 
-
+    @Override
     void processMessages() {
         while (!isExiting()) {
             Exceptions.log(() -> {

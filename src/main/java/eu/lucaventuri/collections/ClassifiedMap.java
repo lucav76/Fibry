@@ -1,6 +1,7 @@
 package eu.lucaventuri.collections;
 
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 /**
@@ -21,6 +22,22 @@ public class ClassifiedMap {
         LinkedList.Node<Object> node = list.addToTail(obj);
 
         mapByClass.computeIfAbsent(obj.getClass(), k -> new LinkedList<>()).addToTail(node);
+
+        verify();
+
+        return true;
+    }
+
+    public boolean addToTailConverted(Object obj, Class convertedClass) {
+        assert obj != null;
+        verify();
+
+        if (obj == null)
+            return false;
+
+        LinkedList.Node<Object> node = list.addToTail(obj);
+
+        mapByClass.computeIfAbsent(convertedClass, k -> new LinkedList<>()).addToTail(node);
 
         verify();
 
@@ -61,9 +78,25 @@ public class ClassifiedMap {
 
     public <T> T scanAndChoose(Class<T> cls, Predicate<T> filter) {
         verify();
-        LinkedList<LinkedList.Node<Object>> listByClass = mapByClass.get(cls);
+        T value = scanList(filter, mapByClass.get(cls));
 
-        if (listByClass == null)
+        if (value!=null)
+            return value;
+
+        for (Class clz : mapByClass.keySet()) {
+            if (cls!=clz && cls.isAssignableFrom(clz)) {
+                value = scanList(filter, mapByClass.get(clz));
+
+                if (value!=null)
+                    return value;
+            }
+        }
+
+        return null;
+    }
+
+    private <T> T scanList(Predicate<T> filter, LinkedList<LinkedList.Node<Object>> listByClass) {
+        if (listByClass==null)
             return null;
 
         for (LinkedList.Node<Object> n : listByClass) {
@@ -74,20 +107,6 @@ public class ClassifiedMap {
             }
         }
 
-        for (Class clz : mapByClass.keySet()) {
-            listByClass = mapByClass.get(clz);
-
-            if (cls.isAssignableFrom(clz)) {
-                for (LinkedList.Node<Object> n : listByClass) {
-                    if (filter.test((T) n.value)) {
-                        listByClass.removeFirstByValue(n);
-                        list.remove(n);
-                        return (T) n.value;
-                    }
-                }
-            }
-        }
-
         return null;
     }
 
@@ -95,5 +114,42 @@ public class ClassifiedMap {
         verify();
 
         return list.ieEmpty();
+    }
+
+    public <K, E extends K, T> K scanAndChooseAndConvert(Class<E> cls, Predicate<E> filter, Function<T, K> converter) {
+        verify();
+
+        K value = scanAndCovertList(cls, filter, converter, mapByClass.get(cls));
+
+        if (value != null)
+            return value;
+
+        for (Class clz : mapByClass.keySet()) {
+            if (cls.isAssignableFrom(clz)) {
+                value = scanAndCovertList(clz, filter, converter, mapByClass.get(clz));
+
+                if (value != null)
+                    return value;
+            }
+        }
+
+        return null;
+    }
+
+    private <K, E extends K, T> K scanAndCovertList(Class cls, Predicate<E> filter, Function<T, K> converter, LinkedList<LinkedList.Node<Object>> listByClass) {
+        if (listByClass==null)
+            return null;
+
+        for (LinkedList.Node<Object> n : listByClass) {
+            K valueConverted = converter.apply((T) n.value);
+
+            if (valueConverted != null && filter.test((E)valueConverted)) {
+                listByClass.removeFirstByValue(n);
+                list.remove(n);
+                return valueConverted;
+            }
+        }
+
+        return null;
     }
 }

@@ -5,7 +5,8 @@ import eu.lucaventuri.common.SystemUtils;
 
 import java.util.AbstractQueue;
 import java.util.Iterator;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 /**
@@ -13,12 +14,19 @@ import java.util.function.Predicate;
  * Thread safety is achieved using the blocking queue, while receive() uses the ClassifiedMap.
  * To improve performance, a lock-less blocking queue "with nodes" should be implemented to get both the retrieval behaviors from a single object
  */
-public class MessageBag<T> extends AbstractQueue<T> implements MessageReceiver<T> {
-    private final LinkedBlockingQueue<T> queue;
+public class MessageBag<T, CONV> extends AbstractQueue<T> implements MessageReceiver<T> {
+    private final BlockingQueue<T> queue;
     private final ClassifiedMap map = new ClassifiedMap();
+    private final Function<T, CONV> converter;
 
-    public MessageBag(LinkedBlockingQueue<T> queue) {
+    public MessageBag(BlockingQueue<T> queue, Function<T, CONV> converter) {
         this.queue = queue;
+        this.converter = converter;
+    }
+
+    public MessageBag(BlockingQueue<T> queue) {
+        this.queue = queue;
+        this.converter = null;
     }
 
     public T readMessage() {
@@ -52,6 +60,24 @@ public class MessageBag<T> extends AbstractQueue<T> implements MessageReceiver<T
         return message != null ? message : receiveFromQueue(clz, filter);
     }
 
+    /**
+     * Used to receive specific messages; please notice that delivery order is not guaranteed.
+     * This method can be slow, so it should be used with care, on actors that process a single request and that are not supposed to receive many messages.
+     * Please consider using sendMessageReturn() if appropriate.
+     */
+    public <K, E extends CONV> CONV receiveAndConvert(Class<E> clz, Predicate<E> filter) {
+        if (map.isEmpty())
+            return receiveFromQueueAndConvert(clz, filter);
+
+        CONV message = receiveFromMapAndConvert(clz, filter, converter);
+
+        return message != null ? message : receiveFromQueueAndConvert(clz, filter);
+    }
+
+    private <K, E extends K> K receiveFromMapAndConvert(Class<E> clz, Predicate<E> filter, Function<T, K> converter) {
+        return map.scanAndChooseAndConvert(clz, filter, converter);
+    }
+
     private <E extends T> E receiveFromMap(Class<E> clz, Predicate<E> filter) {
         return map.scanAndChoose(clz, filter);
     }
@@ -67,7 +93,28 @@ public class MessageBag<T> extends AbstractQueue<T> implements MessageReceiver<T
                 }
             }
 
-            map.addToTail(message);
+            if (converter != null)
+                map.addToTailConverted(message, converter.apply(message).getClass());
+            else
+                map.addToTail(message);
+        }
+    }
+
+    private <E extends CONV> CONV receiveFromQueueAndConvert(Class<E> clz, Predicate<E> filter) {
+        while (true) {
+            T message = retrieveFromQueue();
+            CONV messageConverted = converter.apply(message);
+
+            if (messageConverted != null && clz.isInstance(messageConverted)) {
+                if (filter.test((E) messageConverted)) {
+                    return (E) messageConverted;
+                }
+            }
+
+            if (converter != null)
+                map.addToTailConverted(message, converter.apply(message).getClass());
+            else
+                map.addToTail(message);
         }
     }
 

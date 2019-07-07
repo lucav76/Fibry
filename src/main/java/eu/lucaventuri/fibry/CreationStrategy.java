@@ -1,5 +1,8 @@
 package eu.lucaventuri.fibry;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /** Strategy used to create the actors */
 public enum CreationStrategy {
     /** One thread per actor */
@@ -30,5 +33,17 @@ public enum CreationStrategy {
         }
     };
 
+    /** Starts an actor */
     abstract <T, R, S> BaseActor<T, R, S> start(BaseActor<T, R, S> actor);
+
+    /** Return the strategies that are available */
+    public Iterable<CreationStrategy> available() {
+        List<CreationStrategy> list = new ArrayList<>();
+
+        list.add(THREAD);
+        if (ActorUtils.areFibersAvailable())
+            list.add(FIBER);
+
+        return list;
+    }
 }

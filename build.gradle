@@ -5,8 +5,8 @@ plugins {
 group 'eu.lucaventuri'
 version '1.0-SNAPSHOT'
 
-sourceCompatibility = 11
-targetCompatibility = 11
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
 
 repositories {
     mavenCentral()

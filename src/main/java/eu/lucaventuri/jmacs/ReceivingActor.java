@@ -53,7 +53,7 @@ public class ReceivingActor<T, R, S> extends BaseActor<T, R, S> {
     }
 
     public static <T, R, S> MessageReceiver<T> convertBag(MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>, T> bag) {
-        return new MessageReceiver<>() {
+        return new MessageReceiver<T>() {
             @Override
             public T readMessage() {
                 while (true) {

@@ -26,7 +26,7 @@ public class WaitExampleThreads {
             }
         });
 
-        for (int i = 0; i < 100_000; i++) {
+        for (int i = 0; i < 10_000; i++) {
             Stereotypes.threads().runOnce(() -> {
                 waiting.incrementAndGet();
                 SystemUtils.sleep(30_000);

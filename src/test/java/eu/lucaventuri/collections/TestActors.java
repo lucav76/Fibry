@@ -132,10 +132,11 @@ public class TestActors {
 
     @Test
     public void testSendMessageReturn() throws InterruptedException, ExecutionException {
-        Actor<Integer, Integer, Void> actor = ActorSystem.anonymous().newActorWithReturn(n -> n.intValue()*n.intValue());
+        Actor<Integer, Integer, Void> actor = ActorSystem.anonymous().newActorWithReturn(n -> n*n);
 
         assertEquals(1, actor.sendMessageReturn(1).get().intValue());
         assertEquals(4, actor.sendMessageReturn(2).get().intValue());
+        assertEquals(4, actor.apply(2).intValue());
         assertEquals(9, actor.sendMessageReturn(3).get().intValue());
         assertEquals(16, actor.sendMessageReturn(4).get().intValue());
     }

@@ -86,7 +86,7 @@ public final class ActorUtils {
 
         queue.add(Either3.left(sr));
 
-        return new CompletableFuture<>() {
+        return new CompletableFuture<Void>() {
             @Override
             public boolean cancel(boolean mayInterruptIfRunning) {
                 return false;

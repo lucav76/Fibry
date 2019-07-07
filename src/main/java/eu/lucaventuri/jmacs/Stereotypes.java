@@ -16,7 +16,8 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static eu.lucaventuri.jmacs.MiniActorSystem.Strategy.*;
+import static eu.lucaventuri.jmacs.CreationStrategy.*;
+import eu.lucaventuri.jmacs.ActorSystem.*;
 
 // Connection acceptor
 // Embedded web server acceptor
@@ -43,9 +44,9 @@ public class Stereotypes {
     }
 
     public static class NamedStereotype {
-        private final MiniActorSystem.Strategy strategy;
+        private final CreationStrategy strategy;
 
-        public NamedStereotype(MiniActorSystem.Strategy strategy) {
+        public NamedStereotype(CreationStrategy strategy) {
             this.strategy = strategy;
         }
 
@@ -55,7 +56,7 @@ public class Stereotypes {
          * @return a supplier of actors that are going to use the specified logic
          */
         public <T> Supplier<Actor<T, Void, Void>> workersCreator(Consumer<T> actorLogic) {
-            MiniActorSystem.NamedActorCreator.NamedStateActorCreator<Void> config = anonymous().initialState(null);
+            NamedStateActorCreator<Void> config = anonymous().initialState(null);
 
             return () -> config.newActor(actorLogic);
         }
@@ -67,7 +68,7 @@ public class Stereotypes {
          * When appropriate, this is a simple way to run parallel processing, as long as you don't need to know the result
          */
         public <T> Consumer<T> workersAsConsumerCreator(Consumer<T> actorLogic) {
-            MiniActorSystem.NamedActorCreator.NamedStateActorCreator<Void> config = anonymous().initialState(null);
+            NamedStateActorCreator<Void> config = anonymous().initialState(null);
 
             return message -> config.newActor(actorLogic).sendMessage(message);
         }
@@ -79,7 +80,7 @@ public class Stereotypes {
          * @return a supplier of actors that are going to use the specified logic
          */
         public <T, R> Supplier<Actor<T, R, Void>> workersWithReturnCreator(Function<T, R> actorLogic) {
-            MiniActorSystem.NamedActorCreator.NamedStateActorCreator<Void> config = anonymous().initialState(null);
+            NamedStateActorCreator<Void> config = anonymous().initialState(null);
 
             return () -> config.newActorWithReturn(actorLogic);
         }
@@ -91,7 +92,7 @@ public class Stereotypes {
          * When appropriate, this is a simple way to run parallel processing
          */
         public <T, R> Function<T, CompletableFuture<R>> workersAsFunctionCreator(Function<T, R> actorLogic) {
-            MiniActorSystem.NamedActorCreator.NamedStateActorCreator<Void> config = anonymous().initialState(null);
+            NamedStateActorCreator<Void> config = anonymous().initialState(null);
 
             return message -> config.newActorWithReturn(actorLogic).sendMessageReturn(message);
         }
@@ -106,7 +107,7 @@ public class Stereotypes {
          * @throws IOException
          */
         public void embeddedHttpServer(int port, HttpWorker... workers) throws IOException {
-            MiniActorSystem.NamedActorCreator.NamedStateActorCreator<Void> config = anonymous().initialState(null);
+            NamedStateActorCreator<Void> config = anonymous().initialState(null);
             HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
 
             for (HttpWorker worker : workers) {
@@ -130,7 +131,7 @@ public class Stereotypes {
          * @throws IOException
          */
         public void embeddedHttpServer(int port, HttpStringWorker... workers) throws IOException {
-            MiniActorSystem.NamedActorCreator.NamedStateActorCreator<Void> config = anonymous().initialState(null);
+            NamedStateActorCreator<Void> config = anonymous().initialState(null);
             HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
 
             for (HttpStringWorker worker : workers) {
@@ -153,7 +154,7 @@ public class Stereotypes {
 
         /** Creates a named actor that does not receive messages; this is useful to execute code in a remote thread */
         public <S> SinkActor<S> sink(String name, S state) {
-            MiniActorSystem.NamedActorCreator.NamedStateActorCreator<S> config = named(name).initialState(state);
+            NamedStateActorCreator<S> config = named(name).initialState(state);
 
             return config.newActor(message -> {
             });
@@ -161,7 +162,7 @@ public class Stereotypes {
 
         /** Creates an actor that does not receive messages; this is useful to execute code in a remote thread */
         public <S> SinkActor<S> sink(S state) {
-            MiniActorSystem.NamedActorCreator.NamedStateActorCreator<S> config = anonymous().initialState(state);
+            NamedStateActorCreator<S> config = anonymous().initialState(state);
 
             return config.newActor(message -> {
             });
@@ -247,12 +248,12 @@ public class Stereotypes {
             });
         }
 
-        private MiniActorSystem.NamedActorCreator anonymous() {
-            return MiniActorSystem.anonymous().strategy(strategy);
+        private NamedStrategyActorCreator anonymous() {
+            return ActorSystem.anonymous().strategy(strategy);
         }
 
-        private MiniActorSystem.NamedActorCreator named(String name) {
-            return MiniActorSystem.named(name).strategy(strategy);
+        private NamedStrategyActorCreator named(String name) {
+            return ActorSystem.named(name).strategy(strategy);
         }
     }
 

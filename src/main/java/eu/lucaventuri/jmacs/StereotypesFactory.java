@@ -8,10 +8,10 @@ import java.util.function.Supplier;
 // Connection acceptor
 // Embedded web server acceptor
 // Anonymous workers
-public class StereotypesFactory {
+/*public class StereotypesFactory {
     public static class NamedActorCreator {
         private final String name;  // Can be null
-        private MiniActorSystem.Strategy strategy = MiniActorSystem.Strategy.AUTO;
+        private CreationStrategy strategy = CreationStrategy.AUTO;
 
         public class NamedStateActorCreator<S> {
             private final S initialState;
@@ -21,25 +21,25 @@ public class StereotypesFactory {
             }
 
             public <T> Supplier<Actor<T, Void, S>> workerCreator(Consumer<T> actorLogic) {
-                MiniActorSystem.NamedActorCreator.NamedStateActorCreator<S> config = MiniActorSystem.named(name).strategy(strategy).initialState(null);
+                ActorSystem.NamedActorCreator.NamedStateActorCreator<S> config = ActorSystem.named(name).strategy(strategy).initialState(null);
 
                 return () -> config.newActor(actorLogic);
             }
 
             public <T> Consumer<T> workerConsumer(Consumer<T> actorLogic) {
-                MiniActorSystem.NamedActorCreator.NamedStateActorCreator<S> config = MiniActorSystem.named(name).strategy(strategy).initialState(null);
+                ActorSystem.NamedActorCreator.NamedStateActorCreator<S> config = ActorSystem.named(name).strategy(strategy).initialState(null);
 
                 return message -> config.newActor(actorLogic).sendMessage(message);
             }
 
             public <T, R> Function<T, CompletableFuture<R>> workerFunction(Function<T, R> actorLogic) {
-                MiniActorSystem.NamedActorCreator.NamedStateActorCreator<S> config = MiniActorSystem.named(name).strategy(strategy).initialState(null);
+                ActorSystem.NamedActorCreator.NamedStateActorCreator<S> config = ActorSystem.named(name).strategy(strategy).initialState(null);
 
                 return message -> config.newActorWithReturn(actorLogic).sendMessageReturn(message);
             }
 
             public <T, R> Supplier<Actor<T, R, S>> workerWithReturnCreator(Function<T, R> actorLogic) {
-                MiniActorSystem.NamedActorCreator.NamedStateActorCreator<S> config = MiniActorSystem.named(name).strategy(strategy).initialState(null);
+                ActorSystem.NamedActorCreator.NamedStateActorCreator<S> config = ActorSystem.named(name).strategy(strategy).initialState(null);
 
                 return () -> config.newActorWithReturn(actorLogic);
             }
@@ -69,7 +69,7 @@ public class StereotypesFactory {
             return new NamedStateActorCreator<>(state);
         }
 
-        public NamedActorCreator strategy(MiniActorSystem.Strategy strategy) {
+        public NamedActorCreator strategy(CreationStrategy strategy) {
             this.strategy = strategy;
 
             return this;
@@ -84,3 +84,4 @@ public class StereotypesFactory {
         return new NamedActorCreator(null);
     }
 }
+*/

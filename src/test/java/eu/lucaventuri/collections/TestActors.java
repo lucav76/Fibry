@@ -2,7 +2,7 @@ package eu.lucaventuri.collections;
 
 import eu.lucaventuri.common.SystemUtils;
 import eu.lucaventuri.jmacs.Actor;
-import eu.lucaventuri.jmacs.MiniActorSystem;
+import eu.lucaventuri.jmacs.ActorSystem;
 import org.junit.Test;
 
 import java.util.concurrent.CountDownLatch;
@@ -18,7 +18,7 @@ public class TestActors {
 
     @Test
     public void testSyncExec() {
-        Actor<String, Void, StringBuilder> actor = MiniActorSystem.anonymous().initialState(new StringBuilder()).newActor(lazy);
+        Actor<String, Void, StringBuilder> actor = ActorSystem.anonymous().initialState(new StringBuilder()).newActor(lazy);
 
         actor.execAndWait(act -> act.getState().append("A"));
         actor.execAndWait(act -> act.getState().append("B"));
@@ -39,7 +39,7 @@ public class TestActors {
             int numCalls;
         }
 
-        Actor<String, Void, State> actor = MiniActorSystem.anonymous().initialState(new State()).newActor(lazy);
+        Actor<String, Void, State> actor = ActorSystem.anonymous().initialState(new State()).newActor(lazy);
 
         for (int i = 0; i < numExpectedCalls; i++)
             actor.execAndWait(act -> {
@@ -66,7 +66,7 @@ public class TestActors {
             int numCalls;
         }
 
-        Actor<String, Void, State> actor = MiniActorSystem.anonymous().initialState(new State()).newActor(lazy);
+        Actor<String, Void, State> actor = ActorSystem.anonymous().initialState(new State()).newActor(lazy);
 
         for (int i = 0; i < numExpectedCalls; i++)
             actor.execAsync(act -> {
@@ -91,7 +91,7 @@ public class TestActors {
             int numCalls;
         }
 
-        Actor<String, Void, State> actor = MiniActorSystem.anonymous().initialState(new State()).newActor(lazy);
+        Actor<String, Void, State> actor = ActorSystem.anonymous().initialState(new State()).newActor(lazy);
 
         actor.execFuture(act -> {
             act.getState().numCalls++;
@@ -115,7 +115,7 @@ public class TestActors {
         }
         State state = new State();
 
-        Actor<Integer, Void, State> actor = MiniActorSystem.anonymous().initialState(state).newActor(n -> {
+        Actor<Integer, Void, State> actor = ActorSystem.anonymous().initialState(state).newActor(n -> {
             state.numCalls += n;
             latch.countDown();
         });
@@ -132,7 +132,7 @@ public class TestActors {
 
     @Test
     public void testSendMessageReturn() throws InterruptedException, ExecutionException {
-        Actor<Integer, Integer, Void> actor = MiniActorSystem.anonymous().newActorWithReturn(n -> n.intValue()*n.intValue());
+        Actor<Integer, Integer, Void> actor = ActorSystem.anonymous().newActorWithReturn(n -> n.intValue()*n.intValue());
 
         assertEquals(1, actor.sendMessageReturn(1).get().intValue());
         assertEquals(4, actor.sendMessageReturn(2).get().intValue());

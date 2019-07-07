@@ -1,17 +1,17 @@
 package eu.lucaventuri.examples;
 
 import eu.lucaventuri.jmacs.Actor;
-import eu.lucaventuri.jmacs.MiniActorSystem;
+import eu.lucaventuri.jmacs.ActorSystem;
 import eu.lucaventuri.jmacs.Stereotypes;
 
-import static eu.lucaventuri.jmacs.MiniActorSystem.Strategy.FIBER;
-import static eu.lucaventuri.jmacs.MiniActorSystem.Strategy.THREAD;
+import static eu.lucaventuri.jmacs.CreationStrategy.FIBER;
+import static eu.lucaventuri.jmacs.CreationStrategy.THREAD;
 
 public class MessageExchangeExample {
     public static void main(String[] args) {
         int msToTest = 3_000;
-        Actor<Integer, Integer, Void> studentThread = MiniActorSystem.anonymous().strategy(THREAD).newActorWithReturn(i -> i * i);
-        Actor<Integer, Integer, Void> studentFiber = MiniActorSystem.anonymous().strategy(FIBER).newActorWithReturn(i -> i * i);
+        Actor<Integer, Integer, Void> studentThread = ActorSystem.anonymous().strategy(THREAD).newActorWithReturn(i -> i * i);
+        Actor<Integer, Integer, Void> studentFiber = ActorSystem.anonymous().strategy(FIBER).newActorWithReturn(i -> i * i);
 
         System.out.println("1+1 thread - test of " + msToTest + " ms");
 

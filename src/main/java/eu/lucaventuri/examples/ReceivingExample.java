@@ -1,7 +1,7 @@
 package eu.lucaventuri.examples;
 
 import eu.lucaventuri.jmacs.MessageReceiver;
-import eu.lucaventuri.jmacs.MiniActorSystem;
+import eu.lucaventuri.jmacs.ActorSystem;
 import eu.lucaventuri.jmacs.ReceivingActor;
 
 import java.util.concurrent.CompletableFuture;
@@ -27,7 +27,7 @@ public class ReceivingExample {
             }
         };
 
-        ReceivingActor<Object, String, Object> actor = MiniActorSystem.anonymous().initialState(null).newReceivingActorWithReturn(actorLogicReturn);
+        ReceivingActor<Object, String, Object> actor = ActorSystem.anonymous().initialState(null).newReceivingActorWithReturn(actorLogicReturn);
 
         CompletableFuture<String> res1 = actor.sendMessageReturn(1);
         actor.sendMessage("Blah!");

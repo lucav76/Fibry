@@ -1,4 +1,4 @@
-package eu.lucaventuri.jmacs;
+package eu.lucaventuri.fibry;
 
 /** Strategy used to create the actors */
 public enum CreationStrategy {

@@ -1,4 +1,4 @@
-package eu.lucaventuri.jmacs;
+package eu.lucaventuri.fibry;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -16,8 +16,8 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static eu.lucaventuri.jmacs.CreationStrategy.*;
-import eu.lucaventuri.jmacs.ActorSystem.*;
+import static eu.lucaventuri.fibry.CreationStrategy.*;
+import eu.lucaventuri.fibry.ActorSystem.*;
 
 // Connection acceptor
 // Embedded web server acceptor

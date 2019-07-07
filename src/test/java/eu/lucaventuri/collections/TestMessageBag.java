@@ -2,7 +2,7 @@ package eu.lucaventuri.collections;
 
 import eu.lucaventuri.common.SystemUtils;
 import eu.lucaventuri.functional.Either;
-import eu.lucaventuri.jmacs.MessageBag;
+import eu.lucaventuri.fibry.MessageBag;
 import org.junit.Test;
 import static org.junit.Assert.*;
 

@@ -1,8 +1,8 @@
 package eu.lucaventuri.collections;
 
 import eu.lucaventuri.common.SystemUtils;
-import eu.lucaventuri.jmacs.Actor;
-import eu.lucaventuri.jmacs.Stereotypes;
+import eu.lucaventuri.fibry.Actor;
+import eu.lucaventuri.fibry.Stereotypes;
 import org.junit.Test;
 
 import java.util.concurrent.CompletableFuture;

@@ -1,8 +1,8 @@
 package eu.lucaventuri.collections;
 
 import eu.lucaventuri.common.SystemUtils;
-import eu.lucaventuri.jmacs.Actor;
-import eu.lucaventuri.jmacs.ActorSystem;
+import eu.lucaventuri.fibry.Actor;
+import eu.lucaventuri.fibry.ActorSystem;
 import org.junit.Test;
 
 import java.util.concurrent.CountDownLatch;

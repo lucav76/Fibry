@@ -1,7 +1,7 @@
 package eu.lucaventuri.examples;
 
 import eu.lucaventuri.common.SystemUtils;
-import eu.lucaventuri.jmacs.Stereotypes;
+import eu.lucaventuri.fibry.Stereotypes;
 
 import java.util.concurrent.atomic.AtomicInteger;
 

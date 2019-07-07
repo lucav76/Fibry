@@ -1,11 +1,11 @@
 package eu.lucaventuri.examples;
 
-import eu.lucaventuri.jmacs.Actor;
-import eu.lucaventuri.jmacs.ActorSystem;
-import eu.lucaventuri.jmacs.Stereotypes;
+import eu.lucaventuri.fibry.Actor;
+import eu.lucaventuri.fibry.ActorSystem;
+import eu.lucaventuri.fibry.Stereotypes;
 
-import static eu.lucaventuri.jmacs.CreationStrategy.FIBER;
-import static eu.lucaventuri.jmacs.CreationStrategy.THREAD;
+import static eu.lucaventuri.fibry.CreationStrategy.FIBER;
+import static eu.lucaventuri.fibry.CreationStrategy.THREAD;
 
 public class MessageExchangeExample {
     public static void main(String[] args) {

@@ -1,4 +1,4 @@
-package eu.lucaventuri.jmacs;
+package eu.lucaventuri.fibry;
 
 public interface SinkActor<S> {
     public void execAsync(Runnable worker);

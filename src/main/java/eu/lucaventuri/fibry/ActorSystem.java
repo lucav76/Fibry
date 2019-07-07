@@ -1,4 +1,4 @@
-package eu.lucaventuri.jmacs;
+package eu.lucaventuri.fibry;
 
 import eu.lucaventuri.common.ConcurrentHashSet;
 import eu.lucaventuri.functional.Either3;

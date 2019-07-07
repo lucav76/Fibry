@@ -1,9 +1,9 @@
 package eu.lucaventuri.examples;
 
 import eu.lucaventuri.common.SystemUtils;
-import eu.lucaventuri.jmacs.ActorUtils;
-import eu.lucaventuri.jmacs.Stereotypes;
-import eu.lucaventuri.jmacs.Stereotypes.HttpStringWorker;
+import eu.lucaventuri.fibry.ActorUtils;
+import eu.lucaventuri.fibry.Stereotypes;
+import eu.lucaventuri.fibry.Stereotypes.HttpStringWorker;
 
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;

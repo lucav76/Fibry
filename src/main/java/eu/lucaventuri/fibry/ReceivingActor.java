@@ -1,9 +1,8 @@
-package eu.lucaventuri.jmacs;
+package eu.lucaventuri.fibry;
 
 import eu.lucaventuri.common.Exceptions;
 import eu.lucaventuri.functional.Either3;
 
-import java.util.Queue;
 import java.util.concurrent.BlockingDeque;
 import java.util.function.*;
 

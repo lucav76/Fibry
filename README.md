@@ -133,6 +133,11 @@ Some examples:
 
 Please check the **examples** package for inspiration.
 
+This is a very simple HTTP Hello World:
+```java
+Stereotypes.auto().embeddedHttpServer(8080, new Stereotypes.HttpStringWorker("/", ex -> "Hello world!"));
+```
+
 Some warnings
 ==
 Fibry is experimental, and to leverage its potential you need to use Loom, which is a project under development that it's not clear when it will be merged into the OpenJDK, though clearly the development is very active and proceeding well.

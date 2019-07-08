@@ -84,8 +84,8 @@ You can supply an initial state, which is mostly useful for thread confinement.
 You can create 4 type of actor (ok, 6...):
 - Normal Actors: they receive messages without returning any result; they need to implement Consumer or BiConsumer (if you need access to the actor)
 - Returning Actors: they compute a result and return a CompletableFuture for each message; they need to implement Function or BiFunction  (if you need access to the actor)
-- Receving actors: they are norman actor that can also "receive", meaning that they can ask the actor system to deliver some particular message while processing another message, e.g. if you are waiting for another actor to provide some information; they need to implement BiConsumer
-- Receving and returning actors: the are receiving actors that can also return a result;     they need to implement BiFunction
+- Receiving actors: they are norman actor that can also "receive", meaning that they can ask the actor system to deliver some particular message while processing another message, e.g. if you are waiting for another actor to provide some information; they need to implement BiConsumer
+- Receiving and returning actors: the are receiving actors that can also return a result;     they need to implement BiFunction
 
 Please take into consideration that while Receiving actors are the most powerful, there is some overhead in their use, and the receive operation must be use carefully as in the worst case it might have to scan all the message in the queue. In fact, I expect many cases to be covered with returning actors (e.g. you ask something to another actor and wait for the result), and they should be preferred.
 
@@ -107,7 +107,7 @@ actor.apply(2).intValue()
 ```
 
 Please notice that **apply()** is blocking and it is therefore equivalent to **sendMessageReturnWait()**, while sendMessageReturn() returns a CompletableFuture that can allow the code to do other things while waiting.
-An eccessive use of apply() and sendMessageReturnWait() can have negative effects on performance.
+An excessive use of apply() and sendMessageReturnWait() can have negative effects on performance.
 
 Thread confinement
 ===
@@ -124,9 +124,9 @@ Please check it and feel free to send me suggestions for new stereotypes.
 You are encouraged to use the **Stereotypes** class instead of relying on ActorSystem, if it provides something useful to you.
 
 Some examples:
-- *workersAsConsumerCreator()*: creates a master actor returned as Consumer; every call to **accept()** will spwan a new actor that will process the message, making multithread as simple as it can be 
+- *workersAsConsumerCreator()*: creates a master actor returned as Consumer; every call to **accept()** will spawn a new actor that will process the message, making multi-thread as simple as it can be
 - *workersAsFunctionCreator()*: as before, but it accepts a Function, so it can actually return a result
-- *embeddedHttpServer*: creates and embedded HTTP Server (using the standard HTTP Server included in Java), that process any request with an acotr
+- *embeddedHttpServer*: creates and embedded HTTP Server (using the standard HTTP Server included in Java), that process any request with an actor
 - *sink()*: creates an actor that cannot process messages, but that can still be used for thread confinement, sending code to it
 - *runOnce()*: creates an actor that executes some logic in a separated thread, once.
 - *schedule()*: creates an actor that executes some logic in a separated thread, as many times as requested, as often as requested

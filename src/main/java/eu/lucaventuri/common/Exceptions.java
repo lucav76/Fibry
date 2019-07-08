@@ -102,7 +102,7 @@ final public class Exceptions {
      * @param <E> Exception that can be thrown
      * @return the result of the callable in case of success, or the default value if an exception is thrown
      */
-    public static <T, E extends Throwable> T orElseValuie(CallableEx<T, E> callable, T defaultValue) {
+    public static <T, E extends Throwable> T orElseValue(CallableEx<T, E> callable, T defaultValue) {
         try {
             return callable.call();
         } catch (Throwable e) {

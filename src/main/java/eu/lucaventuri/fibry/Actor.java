@@ -9,16 +9,16 @@ import java.util.function.Function;
 
 // FIXME: Use MessageBag
 
-/** Sctor that can process messages of type T, or execute code (supplied by a caller) inside its thread/fiber */
+/** Actor that can process messages of type T, or execute code (supplied by a caller) inside its thread/fiber */
 public class Actor<T, R, S> extends BaseActor<T, R, S> {
     protected final BlockingDeque<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue;
     protected final Consumer<T> actorLogic;
     protected final Consumer<MessageWithAnswer<T, R>> actorLogicReturn;
 
     /**
-     * Constructor creating an acotor that process messages without returning any value
-     * @param actorLogic Logic associated to the actor
-     * @param queue queue
+     * Constructor creating an actor that process messages without returning any value
+     * @param actorLogic   Logic associated to the actor
+     * @param queue        queue
      * @param initialState optional initial state
      */
     Actor(Consumer<T> actorLogic, BlockingDeque<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState) {
@@ -33,7 +33,8 @@ public class Actor<T, R, S> extends BaseActor<T, R, S> {
     }
 
     /**
-     * Constructor creating an acotor that process messages without returning any value
+     * Constructor creating an actor that process messages without returning any value
+     *
      * @param actorLogicReturn Logic associated to the actor
      * @param queue queue
      * @param initialState optional initial state

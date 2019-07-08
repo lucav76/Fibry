@@ -7,10 +7,10 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * LinkedList that uses Nodes instead of adding values as the Java lists do.
+ * NodeLinkedList that uses Nodes instead of adding values as the Java lists do.
  * As a result, we can add and remove a specific node in O(1), which is our goal.
  */
-public class LinkedList<T> implements Iterable<T> {
+public class NodeLinkedList<T> implements Iterable<T> {
     private Node<T> head;
     private Node<T> tail;
     private AtomicReference<Thread> threadRemove = new AtomicReference<>();

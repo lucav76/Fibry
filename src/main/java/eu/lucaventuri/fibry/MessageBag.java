@@ -105,7 +105,7 @@ public class MessageBag<T, CONV> extends AbstractQueue<T> implements MessageRece
             T message = retrieveFromQueue();
             CONV messageConverted = converter.apply(message);
 
-            if (messageConverted != null && clz.isInstance(messageConverted)) {
+            if (clz.isInstance(messageConverted)) {
                 if (filter.test((E) messageConverted)) {
                     return (E) messageConverted;
                 }

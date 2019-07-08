@@ -142,6 +142,7 @@ Stereotypes.auto().embeddedHttpServer(8080, new Stereotypes.HttpStringWorker("/"
 Some warnings
 ==
 Fibry is experimental, and to leverage its potential you need to use Loom, which is a project under development that it's not clear when it will be merged into the OpenJDK, though clearly the development is very active and proceeding well.
+I suspect that Loom has some bugs, as I saw some errors popping up when exchanging sync messages between a thread and a fiber, so it might be better to not mix them for now.
 If you start to use Fibry and find some bugs, please notify me.
 
 Not every network operation is Fiber Friendly, at the moment. You can find a list [here](https://wiki.openjdk.java.net/display/loom/Networking+IO). 

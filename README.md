@@ -72,7 +72,7 @@ On Windows you might have to use a Virtual Machine, and I would recommend to avo
 
 To recognize Loom you don't need to do anything particular, **Fibry will detect if fibers are available** and use them automatically. But you do have to choose to use the FIBER or AUTO strategy, as Fibry allows you to force the creation of threads, if that's what you need.
 
-Creating actors with ActorSystem
+Creating actors with the ActorSystem class
 ===
 While using actors is very simple, there are several ways to create the actors and to use them, so you will need to decide how you want your system to be built.
 
@@ -116,7 +116,7 @@ Usually the logic of the actor is supplied during the creation, but sometimes in
 An example would be **Platform.runLater()** in JavaFX.
 Fibry support this behavior for every actor, with the methods *execAsync()*, *execAndWait()* and *execFuture()*, all accepting Runnable and Consumer interface.  
  
-Stereotypes
+Creating actors with the Stereotypes class
 ==
 As you start to us actors, some patterns might emerge on the way that the actors are configured.
 Some fo this patterns have been implemented in the Stereotypes class.

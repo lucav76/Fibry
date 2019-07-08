@@ -9,8 +9,8 @@ import java.util.function.Predicate;
  * This object in intended to be used to filter messages based on their class and on some other attribute
  */
 public class ClassifiedMap {
-    private final LinkedList<Object> list = new LinkedList<>();
-    private final ConcurrentHashMap<Class, LinkedList<LinkedList.Node<Object>>> mapByClass = new ConcurrentHashMap<>();
+    private final NodeLinkedList<Object> list = new NodeLinkedList<>();
+    private final ConcurrentHashMap<Class, NodeLinkedList<NodeLinkedList.Node<Object>>> mapByClass = new ConcurrentHashMap<>();
 
     public boolean addToTail(Object obj) {
         assert obj != null;
@@ -19,9 +19,9 @@ public class ClassifiedMap {
         if (obj == null)
             return false;
 
-        LinkedList.Node<Object> node = list.addToTail(obj);
+        NodeLinkedList.Node<Object> node = list.addToTail(obj);
 
-        mapByClass.computeIfAbsent(obj.getClass(), k -> new LinkedList<>()).addToTail(node);
+        mapByClass.computeIfAbsent(obj.getClass(), k -> new NodeLinkedList<>()).addToTail(node);
 
         verify();
 
@@ -35,9 +35,9 @@ public class ClassifiedMap {
         if (obj == null)
             return false;
 
-        LinkedList.Node<Object> node = list.addToTail(obj);
+        NodeLinkedList.Node<Object> node = list.addToTail(obj);
 
-        mapByClass.computeIfAbsent(convertedClass, k -> new LinkedList<>()).addToTail(node);
+        mapByClass.computeIfAbsent(convertedClass, k -> new NodeLinkedList<>()).addToTail(node);
 
         verify();
 
@@ -53,12 +53,12 @@ public class ClassifiedMap {
     public <T> T removeHead() {
         verify();
 
-        LinkedList.Node<Object> n = list.removeHeadNode();
+        NodeLinkedList.Node<Object> n = list.removeHeadNode();
 
         if (n == null)
             return null;
 
-        LinkedList<LinkedList.Node<Object>> classList = mapByClass.get(n.value.getClass());
+        NodeLinkedList<NodeLinkedList.Node<Object>> classList = mapByClass.get(n.value.getClass());
 
         if (classList != null)
             classList.removeFirstByValue(n);
@@ -95,11 +95,11 @@ public class ClassifiedMap {
         return null;
     }
 
-    private <T> T scanList(Predicate<T> filter, LinkedList<LinkedList.Node<Object>> listByClass) {
+    private <T> T scanList(Predicate<T> filter, NodeLinkedList<NodeLinkedList.Node<Object>> listByClass) {
         if (listByClass==null)
             return null;
 
-        for (LinkedList.Node<Object> n : listByClass) {
+        for (NodeLinkedList.Node<Object> n : listByClass) {
             if (filter.test((T) n.value)) {
                 listByClass.removeFirstByValue(n);
                 list.remove(n);
@@ -136,11 +136,11 @@ public class ClassifiedMap {
         return null;
     }
 
-    private <K, E extends K, T> K scanAndCovertList(Class cls, Predicate<E> filter, Function<T, K> converter, LinkedList<LinkedList.Node<Object>> listByClass) {
+    private <K, E extends K, T> K scanAndCovertList(Class cls, Predicate<E> filter, Function<T, K> converter, NodeLinkedList<NodeLinkedList.Node<Object>> listByClass) {
         if (listByClass==null)
             return null;
 
-        for (LinkedList.Node<Object> n : listByClass) {
+        for (NodeLinkedList.Node<Object> n : listByClass) {
             K valueConverted = converter.apply((T) n.value);
 
             if (valueConverted != null && filter.test((E)valueConverted)) {

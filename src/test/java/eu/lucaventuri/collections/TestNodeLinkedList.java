@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.*;
 
-public class TestLinkedList {
+public class TestNodeLinkedList {
     private final AtomicInteger numInserted = new AtomicInteger();
     private final AtomicInteger numDeleted = new AtomicInteger();
 
@@ -26,14 +26,14 @@ public class TestLinkedList {
 
     @Test
     public void testEmpty() {
-        LinkedList list = new LinkedList();
+        NodeLinkedList list = new NodeLinkedList();
 
         assertEmpty(list);
     }
 
     @Test
     public void testOne() {
-        LinkedList<String> list = new LinkedList<>();
+        NodeLinkedList<String> list = new NodeLinkedList<>();
 
         list.addToTail("abc");
 
@@ -43,7 +43,7 @@ public class TestLinkedList {
 
         assertEmpty(list);
 
-        LinkedList.Node<String> n = list.addToTail("A");
+        NodeLinkedList.Node<String> n = list.addToTail("A");
         assert1Node(list, "A");
 
         list.remove(n);
@@ -51,7 +51,7 @@ public class TestLinkedList {
         assertEmpty(list);
     }
 
-    private void assertEmpty(LinkedList<String> list) {
+    private void assertEmpty(NodeLinkedList<String> list) {
         assertEquals(0, list.asListFromHead().size());
         assertEquals(0, list.asListFromTail().size());
         assertNull(list.peekHead());
@@ -62,7 +62,7 @@ public class TestLinkedList {
 
     @Test
     public void testTwo() {
-        LinkedList<String> list = new LinkedList<>();
+        NodeLinkedList<String> list = new NodeLinkedList<>();
 
         list.addToTail("A");
         assert1Node(list, "A");
@@ -76,10 +76,10 @@ public class TestLinkedList {
         list.removeHead();
         assertEmpty(list);
 
-        LinkedList.Node<String> n1 = list.addToTail("A");
+        NodeLinkedList.Node<String> n1 = list.addToTail("A");
         assert1Node(list, "A");
 
-        LinkedList.Node<String> n2 = list.addToTail("B");
+        NodeLinkedList.Node<String> n2 = list.addToTail("B");
         assert2Nodes(list, "A", "B");
 
         list.remove(n2);
@@ -94,7 +94,7 @@ public class TestLinkedList {
 
     @Test
     public void testThree() {
-        LinkedList<String> list = new LinkedList<>();
+        NodeLinkedList<String> list = new NodeLinkedList<>();
 
         list.addToTail("A");
         assert1Node(list, "A");
@@ -115,13 +115,13 @@ public class TestLinkedList {
         assertEmpty(list);
 
 
-        LinkedList.Node<String> n1 = list.addToTail("A");
+        NodeLinkedList.Node<String> n1 = list.addToTail("A");
         assert1Node(list, "A");
 
-        LinkedList.Node<String> n2 = list.addToTail("B");
+        NodeLinkedList.Node<String> n2 = list.addToTail("B");
         assert2Nodes(list, "A", "B");
 
-        LinkedList.Node<String> n3 = list.addToTail("C");
+        NodeLinkedList.Node<String> n3 = list.addToTail("C");
         assert3Nodes(list, "A", "B", "C");
 
         list.remove(n3);
@@ -133,7 +133,7 @@ public class TestLinkedList {
         list.remove(n2);
         assert2Nodes(list, "A", "D");
 
-        LinkedList.Node<String> n4 = list.addToTail("E");
+        NodeLinkedList.Node<String> n4 = list.addToTail("E");
         assert3Nodes(list, "A", "D", "E");
 
         list.remove(n1);
@@ -142,7 +142,7 @@ public class TestLinkedList {
 
     @Test
     public void testSingleInsertFromEmpty() throws InterruptedException {
-        LinkedList<Integer> list = new LinkedList<>();
+        NodeLinkedList<Integer> list = new NodeLinkedList<>();
 
         insert(list, 1, 0, 100_000).await();
 
@@ -151,7 +151,7 @@ public class TestLinkedList {
 
     @Test
     public void testSingleInsertFromSomething() throws InterruptedException {
-        LinkedList<Integer> list = new LinkedList<>();
+        NodeLinkedList<Integer> list = new NodeLinkedList<>();
 
         list.addToTail(-1);
         list.addToTail(-2);
@@ -164,7 +164,7 @@ public class TestLinkedList {
     @Test
     @Ignore
     public void testMultiInsertFromEmpty() throws InterruptedException {
-        LinkedList<Integer> list = new LinkedList<>();
+        NodeLinkedList<Integer> list = new NodeLinkedList<>();
 
         insert(list, 100, 0, 1000).await();
 
@@ -174,7 +174,7 @@ public class TestLinkedList {
     @Test
     @Ignore
     public void testMultiInsertFromSomething() throws InterruptedException {
-        LinkedList<Integer> list = new LinkedList<>();
+        NodeLinkedList<Integer> list = new NodeLinkedList<>();
 
         list.addToTail(-1);
         list.addToTail(-2);
@@ -187,7 +187,7 @@ public class TestLinkedList {
     @Test
     @Ignore
     public void testMultiInsertThenRemoveHead() throws InterruptedException {
-        LinkedList<Integer> list = new LinkedList<>();
+        NodeLinkedList<Integer> list = new NodeLinkedList<>();
 
         insert(list, 100, 0, 1000).await();
         removeHead(list, 100, 0, 1000).await();
@@ -198,7 +198,7 @@ public class TestLinkedList {
     @Test
     @Ignore
     public void testMultiInsertAndRemoveHead() throws InterruptedException {
-        LinkedList<Integer> list = new LinkedList<>();
+        NodeLinkedList<Integer> list = new NodeLinkedList<>();
         AtomicBoolean exit = new AtomicBoolean();
 
         CountDownLatch latchRemove = removeHeadUntilRemoved(list, 100, 0, 1000);
@@ -215,7 +215,7 @@ public class TestLinkedList {
         verifyIntegerList(list, 0, 0);
     }
 
-    private void verifyIntegerList(LinkedList<Integer> list, int start, int end) {
+    private void verifyIntegerList(NodeLinkedList<Integer> list, int start, int end) {
         List<Integer> listFromTail = list.asListFromTail();
         List<Integer> listFromHead = list.asListFromHead();
 
@@ -238,7 +238,7 @@ public class TestLinkedList {
             assertEquals(i + start, (int) list.get(i));
     }
 
-    private void assert3Nodes(LinkedList<String> list, String head, String middle, String tail) {
+    private void assert3Nodes(NodeLinkedList<String> list, String head, String middle, String tail) {
         assertEquals(3, list.asListFromHead().size());
         assertEquals(3, list.asListFromTail().size());
         assertEquals(head, list.asListFromHead().get(0));
@@ -260,7 +260,7 @@ public class TestLinkedList {
         assertFalse(iter.hasNext());
     }
 
-    private void assert2Nodes(LinkedList<String> list, String head, String tail) {
+    private void assert2Nodes(NodeLinkedList<String> list, String head, String tail) {
         assertEquals(2, list.asListFromHead().size());
         assertEquals(2, list.asListFromTail().size());
         assertEquals(head, list.asListFromHead().get(0));
@@ -278,7 +278,7 @@ public class TestLinkedList {
         assertFalse(iter.hasNext());
     }
 
-    private void assert1Node(LinkedList<String> list, String value) {
+    private void assert1Node(NodeLinkedList<String> list, String value) {
         assertEquals(1, list.asListFromHead().size());
         assertEquals(1, list.asListFromTail().size());
         assertEquals(value, list.asListFromHead().get(0));
@@ -292,7 +292,7 @@ public class TestLinkedList {
         assertFalse(iter.hasNext());
     }
 
-    private CountDownLatch insert(LinkedList<Integer> list, int numThreads, int start, int batchSize) {
+    private CountDownLatch insert(NodeLinkedList<Integer> list, int numThreads, int start, int batchSize) {
         CountDownLatch latch = new CountDownLatch(numThreads);
 
         for (int curThread = 0; curThread < numThreads; curThread++) {
@@ -311,7 +311,7 @@ public class TestLinkedList {
         return latch;
     }
 
-    private CountDownLatch removeHead(LinkedList<Integer> list, int numThreads, int start, int batchSize) {
+    private CountDownLatch removeHead(NodeLinkedList<Integer> list, int numThreads, int start, int batchSize) {
         CountDownLatch latch = new CountDownLatch(numThreads);
 
         for (int curThread = 0; curThread < numThreads; curThread++) {
@@ -328,7 +328,7 @@ public class TestLinkedList {
         return latch;
     }
 
-    private CountDownLatch removeHeadUntilRemoved(LinkedList<Integer> list, int numThreads, int start, int batchSize) {
+    private CountDownLatch removeHeadUntilRemoved(NodeLinkedList<Integer> list, int numThreads, int start, int batchSize) {
         CountDownLatch latch = new CountDownLatch(numThreads);
 
         for (int curThread = 0; curThread < numThreads; curThread++) {

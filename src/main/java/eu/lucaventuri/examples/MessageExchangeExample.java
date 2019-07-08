@@ -24,21 +24,18 @@ public class MessageExchangeExample {
         Stereotypes.threads().runOnce(() -> {
             testStudent(msToTest, studentFiber, false);
         }).waitForExit();
-        ;
 
         System.out.println("1 fiber + 1 thread - test of " + msToTest + " ms");
 
         Stereotypes.fibers().runOnce(() -> {
             testStudent(msToTest, studentThread, false);
         }).waitForExit();
-        ;
 
         System.out.println("1+1 fibers - test of " + msToTest + " ms");
 
         Stereotypes.fibers().runOnce(() -> {
             testStudent(msToTest, studentFiber, false);
         }).waitForExit();
-        ;
 
         studentThread.askExit();
         studentFiber.askExit();

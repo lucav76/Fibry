@@ -24,12 +24,12 @@ public class Exitable {
         exiting.set(true);
     }
 
-    public void askExitaAndWait() {
+    public void askExitAndWait() {
         askExit();
         waitForExit();
     }
 
-    public void askExitaAndWait(long timeout, TimeUnit unit) {
+    public void askExitAndWait(long timeout, TimeUnit unit) {
         askExit();
         waitForExit(timeout, unit);
     }

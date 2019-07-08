@@ -14,9 +14,10 @@ public class ReceivingActor<T, R, S> extends BaseActor<T, R, S> {
     protected final BiConsumer<MessageReceiver<T>, MessageWithAnswer<T, R>> actorLogicReturn;
 
     /**
-     * Constructor creating an acotor that process messages without returning any value
-     * @param actorLogic Logic associated to the actor
-     * @param messageBag Bag
+     * Constructor creating an actor that process messages without returning any value
+     *
+     * @param actorLogic   Logic associated to the actor
+     * @param messageBag   Bag
      * @param initialState optional initial state
      */
     ReceivingActor(BiConsumer<MessageReceiver<T>, T> actorLogic, MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>, T> messageBag, S initialState) {
@@ -36,7 +37,7 @@ public class ReceivingActor<T, R, S> extends BaseActor<T, R, S> {
     }
 
     /**
-     * Constructor creating an acotor that process messages without returning any value
+     * Constructor creating an actor that process messages without returning any value
      * @param actorLogicReturn Logic associated to the actor
      * @param messageBag Bag
      * @param initialState optional initial state

@@ -1,8 +1,7 @@
-package eu.lucaventuri.collections;
+package eu.lucaventuri.fibry;
 
 import eu.lucaventuri.common.SystemUtils;
 import eu.lucaventuri.functional.Either;
-import eu.lucaventuri.fibry.MessageBag;
 import org.junit.Test;
 import static org.junit.Assert.*;
 

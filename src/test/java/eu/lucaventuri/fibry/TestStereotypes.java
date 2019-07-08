@@ -1,4 +1,4 @@
-package eu.lucaventuri.collections;
+package eu.lucaventuri.fibry;
 
 import eu.lucaventuri.common.SystemUtils;
 import eu.lucaventuri.fibry.Actor;

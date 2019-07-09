@@ -1,5 +1,5 @@
 Fibry
-==
+===
 
 Fibry is an experimental Actor System built to be simple and flexible to use. Hopefully it will also be fun to use.
 Fibry is the the **first Java Actor System using fibers from [Project Loom](https://openjdk.java.net/projects/loom/)**.
@@ -10,7 +10,7 @@ Fibry aims to replicate some of the features of the Erlang Actor System in Java.
 Fibry support of thread confinement allow you to send code to be execute in the thread/fiber of the actor.
 
 Some numbers
-==
+===
 So, fibers are better than threads. Got it. How much better?
 Very much. Depending on your problem, you can consider them 10X-100X better than threads.
 Please remember that Fibry is not optimized for performance, though performance have been taken into high consideration.
@@ -28,7 +28,7 @@ I might do a better round of benchmark in the future, and disclose the character
 As an indication, Fibry can send around 4-5M of messages per second
 
 Simplicity first
-==
+===
 *Fibry* has been designed to be simple:
 - Your actor can and should use synchronous logic
 - There is a series of Stereotypes to handle common scenarios
@@ -117,7 +117,7 @@ An example would be **Platform.runLater()** in JavaFX.
 Fibry support this behavior for every actor, with the methods *execAsync()*, *execAndWait()* and *execFuture()*, all accepting Runnable and Consumer interface.  
  
 Creating actors with the Stereotypes class
-==
+===
 As you start to us actors, some patterns might emerge on the way that the actors are configured.
 Some fo this patterns have been implemented in the Stereotypes class.
 Please check it and feel free to send me suggestions for new stereotypes.
@@ -139,8 +139,26 @@ This is a very simple HTTP Hello World:
 Stereotypes.auto().embeddedHttpServer(8080, new Stereotypes.HttpStringWorker("/", ex -> "Hello world!"));
 ```
 
+Actor Pools
+===
+Fibry supports the concept of actor pool, a scalable pool of actors than can quickly scale based on the number of messages in the queue.
+The pools can be created using the class ActorSystem. However, please be careful because some operations might behave differently than with other actors. In particular thread confinement will no longer work as before, because your code can run on multiple actors. However, as long as you access the state of the actor, you are guaranteed that the state is thread confined.
+When creating a pool, you get access to the PoolActorLeader, which is a representative of the group but does not really process messages. If the pool is scalable, another actor is created to monitor the work queue. So creating a pool of N actors might actually create N=1 or N+2 actors.
+The leader can be used as a normal actor, and will take care to send the messages to the workers. 
+
+This code creates a fixed pool of 3 actors:
+```java
+var leader = ActorSystem.anonymous().strategy(CreationStrategy.THREAD).<String>poolParams(PoolParameters.fixedSize(3), null).<String>newPool(actorLogic);
+
+```  
+
+And the following code creates a scalable pool from 3 to 10 actors:
+```java
+var leader = ActorSystem.anonymous().strategy(CreationStrategy.THREAD).<String>poolParams(PoolParameters.scaling(3, 10, 100, 0, 1, 500), null).<String>newPool(actorLogic);
+```
+ 
 Some warnings
-==
+===
 Fibry is experimental, and to leverage its potential you need to use Loom, which is a project under development that it's not clear when it will be merged into the OpenJDK, though clearly the development is very active and proceeding well.
 I suspect that Loom has some bugs, as I saw some errors popping up when exchanging sync messages between a thread and a fiber, so it might be better to not mix them for now.
 If you start to use Fibry and find some bugs, please notify me.

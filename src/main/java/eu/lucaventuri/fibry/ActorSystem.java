@@ -38,9 +38,9 @@ public class ActorSystem {
         }
 
         // By design, group pools logic should not have access to the actor itself
-        private <T, R> GroupActorLeader<T, R, S> createFixedPool(Either<Consumer<T>, Function<T, R>> actorLogic) {
+        private <T, R> PoolActorLeader<T, R, S> createFixedPool(Either<Consumer<T>, Function<T, R>> actorLogic) {
             MultiExitable groupExit = new MultiExitable();
-            GroupActorLeader<T, R, S> groupLeader = new GroupActorLeader<T, R, S>(getOrCreateActorQueue(registerActorName(name, false)), (S) null, groupExit);
+            PoolActorLeader<T, R, S> groupLeader = new PoolActorLeader<T, R, S>(getOrCreateActorQueue(registerActorName(name, false)), (S) null, groupExit);
 
             for (int i = 0; i < poolParams.minSize; i++)
                 createNewWorkerAndAddToPool(groupLeader, actorLogic);
@@ -48,7 +48,7 @@ public class ActorSystem {
             return groupLeader;
         }
 
-        private <T, R> void createNewWorkerAndAddToPool(GroupActorLeader<T, R, S> groupLeader, Either<Consumer<T>, Function<T, R>> actorLogic) {
+        private <T, R> void createNewWorkerAndAddToPool(PoolActorLeader<T, R, S> groupLeader, Either<Consumer<T>, Function<T, R>> actorLogic) {
             NamedStateActorCreator<S> creator = new NamedStateActorCreator<>(name, strategy, stateSupplier == null ? null : stateSupplier.get(), true);
 
             actorLogic.ifEither(logic -> {
@@ -58,8 +58,8 @@ public class ActorSystem {
             });
         }
 
-        private <T, R> GroupActorLeader<T, R, S> createPool(Either<Consumer<T>, Function<T, R>> actorLogic) {
-            GroupActorLeader<T, R, S> leader = createFixedPool(actorLogic);
+        private <T, R> PoolActorLeader<T, R, S> createPool(Either<Consumer<T>, Function<T, R>> actorLogic) {
+            PoolActorLeader<T, R, S> leader = createFixedPool(actorLogic);
 
             if (poolParams.minSize != poolParams.maxSize)
                 autoScale(leader, actorLogic);
@@ -67,7 +67,7 @@ public class ActorSystem {
             return leader;
         }
 
-        private <R, T> void autoScale(GroupActorLeader<T, R, S> leader, Either<Consumer<T>, Function<T, R>> actorLogic) {
+        private <R, T> void autoScale(PoolActorLeader<T, R, S> leader, Either<Consumer<T>, Function<T, R>> actorLogic) {
             MultiExitable groupExit = leader.getGroupExit();
 
             Stereotypes.auto().schedule(() -> {

@@ -15,7 +15,7 @@ public class TestAutoScaling {
     public void testFixedSize() throws ExecutionException, InterruptedException {
         Set<Thread> actors = new HashSet<>();
         CountDownLatch latch = new CountDownLatch(3);
-        GroupActorLeader<String, Void, String> leader = (GroupActorLeader<String, Void, String>) ActorSystem.anonymous().strategy(CreationStrategy.THREAD).<String>poolParams(PoolParameters.fixedSize(3), null).<String>newPool(msg -> {
+        PoolActorLeader<String, Void, String> leader = (PoolActorLeader<String, Void, String>) ActorSystem.anonymous().strategy(CreationStrategy.THREAD).<String>poolParams(PoolParameters.fixedSize(3), null).<String>newPool(msg -> {
             actors.add(Thread.currentThread());
             latch.countDown();
             try {
@@ -42,7 +42,7 @@ public class TestAutoScaling {
     public void testScaling() throws ExecutionException, InterruptedException {
         int maxActors = 10;
         Set<Thread> actors = new HashSet<>();
-        GroupActorLeader<String, Void, String> leader = (GroupActorLeader<String, Void, String>) ActorSystem.anonymous().strategy(CreationStrategy.THREAD).<String>poolParams(PoolParameters.scaling(3, maxActors, 1, 0, 1, 5), null).<String>newPool(msg -> {
+        PoolActorLeader<String, Void, String> leader = (PoolActorLeader<String, Void, String>) ActorSystem.anonymous().strategy(CreationStrategy.THREAD).<String>poolParams(PoolParameters.scaling(3, maxActors, 1, 0, 1, 5), null).<String>newPool(msg -> {
             actors.add(Thread.currentThread());
             SystemUtils.sleep(30);
         });

@@ -10,10 +10,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 /** THe group leader of ana actor pool does not process messages by itself; its role is to propagate the exit calls */
-public class GroupActorLeader<T, R, S> extends Actor<T, R, S> {
+public class PoolActorLeader<T, R, S> extends Actor<T, R, S> {
     private final MultiExitable groupExit;
 
-    GroupActorLeader(BlockingDeque<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState, MultiExitable groupExit) {
+    PoolActorLeader(BlockingDeque<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState, MultiExitable groupExit) {
         super(msg -> {
         }, queue, initialState);
         this.groupExit = groupExit;

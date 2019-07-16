@@ -32,6 +32,6 @@ out.txt
 frame*.json
 Debug/
 /.metadata/
-/.idea
+/.idea/
 *.key
 *.txt

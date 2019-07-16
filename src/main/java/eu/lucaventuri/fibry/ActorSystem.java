@@ -26,7 +26,6 @@ public class ActorSystem {
     public static class ActorPoolCreator<S> {
         private final CreationStrategy strategy;
         private final String name;  // Can be null
-
         private final Supplier<S> stateSupplier;
         private final PoolParameters poolParams;
 
@@ -93,10 +92,10 @@ public class ActorSystem {
     }
 
     public static class NamedStateActorCreator<S> {
-        private final S initialState;
-        private final CreationStrategy strategy;
-        private final String name;  // Can be null
-        private final boolean allowReuse;
+        final S initialState;
+        final CreationStrategy strategy;
+        final String name;  // Can be null
+        final boolean allowReuse;
 
         private NamedStateActorCreator(String name, CreationStrategy strategy, S initialState, boolean allowReuse) {
             this.name = name;
@@ -146,13 +145,8 @@ public class ActorSystem {
 
     // Name and strategy as supplied, initialState: null
     public static class NamedStrategyActorCreator extends NamedStateActorCreator<Void> {
-        private final String name;  // Can be null
-        private final CreationStrategy strategy;  // Can be null
-
         private NamedStrategyActorCreator(String name, CreationStrategy strategy) {
             super(name, strategy, null, false);
-            this.name = name;
-            this.strategy = strategy;
         }
 
         public <S> NamedStateActorCreator<S> initialState(S state) {
@@ -166,11 +160,8 @@ public class ActorSystem {
 
     // Name as supplied, strategy: auto and initialState: null
     public static class NamedActorCreator extends NamedStrategyActorCreator {
-        private final String name;  // Can be null
-
         private NamedActorCreator(String name) {
             super(name, CreationStrategy.AUTO);
-            this.name = name;
         }
 
         public NamedStrategyActorCreator strategy(CreationStrategy strategy) {

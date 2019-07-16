@@ -191,11 +191,11 @@ public class ActorSystem {
         return actorName;
     }
 
-    private static <T, R, S> LinkedBlockingDeque<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> getOrCreateActorQueue(String actorName) {
+    private static <T, R, S> BlockingDeque<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> getOrCreateActorQueue(String actorName) {
         if (actorName == null)
-            return new LinkedBlockingDeque<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>>();
+            return new LinkedBlockingDeque<>();
 
-        return (LinkedBlockingDeque<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>>) namedQueues.computeIfAbsent(actorName, name -> new LinkedBlockingDeque<Either3<Consumer, T, MessageWithAnswer<T, R>>>());
+        return namedQueues.computeIfAbsent(actorName, name -> new LinkedBlockingDeque<>());
     }
 
     private static void enforceName(String actorName) {

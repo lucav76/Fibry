@@ -150,4 +150,24 @@ public final class SystemUtils {
             return null;
         }
     }
+
+    public static long time(Runnable run) {
+        long start = System.currentTimeMillis();
+
+        run.run();
+
+        return System.currentTimeMillis() - start;
+    }
+
+    public static long printTime(Runnable run, String description) {
+        long start = System.currentTimeMillis();
+
+        run.run();
+
+        long time = System.currentTimeMillis() - start;
+
+        System.out.println(description + " : " + time + " ms");
+
+        return time;
+    }
 }

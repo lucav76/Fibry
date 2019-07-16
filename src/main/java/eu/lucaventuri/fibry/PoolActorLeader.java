@@ -42,13 +42,13 @@ public class PoolActorLeader<T, R, S> extends Actor<T, R, S> {
     }
 
     @Override
-    public void askExitaAndWait() {
-        groupExit.askExitaAndWait();
+    public void askExitAndWait() {
+        groupExit.askExitAndWait();
     }
 
     @Override
-    public void askExitaAndWait(long timeout, TimeUnit unit) {
-        groupExit.askExitaAndWait(timeout, unit);
+    public void askExitAndWait(long timeout, TimeUnit unit) {
+        groupExit.askExitAndWait(timeout, unit);
     }
 
     @Override

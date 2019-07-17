@@ -25,7 +25,7 @@ I might do a better round of benchmark in the future, and disclose the character
 - Sync messages per second, between 2 threads (requires thread switching): 8.5K
 - Sync messages per second, between 2 threads (requires fiber switching): 64K (**7.5X better**)
 
-As an indication, Fibry can send around 4-5M of messages per second
+As an indication, Fibry can send around 4-5M of messages per second.
 
 Simplicity first
 ===
@@ -159,12 +159,12 @@ var leader = ActorSystem.anonymous().strategy(CreationStrategy.THREAD).<String>p
  
 Some warnings
 ===
-Fibry is experimental, and to leverage its potential you need to use Loom, which is a project under development that it's not clear when it will be merged into the OpenJDK, though clearly the development is very active and proceeding well.
+Fibry is experimental, and to leverage its potential you need to use Loom, which is a project under development that it's not clear when it will be merged into the OpenJDK; that said, the development of Loom seems very active and proceeding well.
 I suspect that Loom has some bugs, as I saw some errors popping up when exchanging sync messages between a thread and a fiber, so it might be better to not mix them for now.
 If you start to use Fibry and find some bugs, please notify me.
 
-Not every network operation is Fiber Friendly, at the moment. You can find a list [here](https://wiki.openjdk.java.net/display/loom/Networking+IO). 
-In particular UDP is only partly supported. Selectors are also not supported, but as avoiding non-blocking operation is a key goal of fibers, this should not be a concern.
+Not every network operation is *fiber friendly*, at the moment. You can find a list of what works and what does not [here](https://wiki.openjdk.java.net/display/loom/Networking+IO). 
+In particular UDP is only partially supported. Selectors are also not supported, but as avoiding non-blocking operation is a key goal of fibers, this should not be a concern.
 
 At the moment I have no plans to make a distributed version of Fibry, but if there is real interest I would be happy to do it.
 

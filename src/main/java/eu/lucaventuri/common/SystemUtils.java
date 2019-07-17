@@ -3,16 +3,9 @@ package eu.lucaventuri.common;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.*;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 import java.util.stream.Stream;
 import java.util.stream.Stream.Builder;
 
@@ -159,7 +152,27 @@ public final class SystemUtils {
         return System.currentTimeMillis() - start;
     }
 
+    public static <E extends Exception> long timeEx(RunnableEx<E> run) throws E {
+        long start = System.currentTimeMillis();
+
+        run.run();
+
+        return System.currentTimeMillis() - start;
+    }
+
     public static long printTime(Runnable run, String description) {
+        long start = System.currentTimeMillis();
+
+        run.run();
+
+        long time = System.currentTimeMillis() - start;
+
+        System.out.println(description + " : " + time + " ms");
+
+        return time;
+    }
+
+    public static <E extends Exception> long printTimeEx(RunnableEx<E> run, String description) throws E {
         long start = System.currentTimeMillis();
 
         run.run();

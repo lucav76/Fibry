@@ -3,6 +3,7 @@ package eu.lucaventuri.common;
 //import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
+import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -18,12 +19,32 @@ final public class Exceptions {
         }
     }
 
+    public static Runnable silentRunnable(RunnableEx run) {
+        return () -> {
+            try {
+                run.run();
+            } catch (Throwable t) {
+                /* */
+            }
+        };
+    }
+
     public static <T> T silence(CallableEx<T, ? extends Throwable> call, T valueOnException) {
         try {
             return call.call();
         } catch (Throwable t) {
             return valueOnException;
         }
+    }
+
+    public static <T> Callable<T> silentCallable(CallableEx<T, ? extends Throwable> call, T valueOnException) {
+        return () -> {
+            try {
+                return call.call();
+            } catch (Throwable t) {
+                return valueOnException;
+            }
+        };
     }
 
     public static void rethrowRuntime(RunnableEx run) {

@@ -80,7 +80,7 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Consumer<T>
         return ActorUtils.execFuture(queue, state -> worker.run());
     }
 
-    /** Queue a request to exit, that will be processed after all the messages corrently in the queue */
+    /** Queue a request to exit, that will be processed after all the messages currently in the queue */
     public void sendPoisonPill() {
         execAsync( state -> askExit());
     }

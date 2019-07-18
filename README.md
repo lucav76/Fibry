@@ -169,3 +169,7 @@ In particular UDP is only partially supported. Selectors are also not supported,
 At the moment I have no plans to make a distributed version of Fibry, but if there is real interest I would be happy to do it.
 
 Enjoy!
+
+Acknowledgements
+===
+Big thank you to Deniz Türkoglu: his code, advise, code reviews and endless discussions made Fibry a much better product. 

@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.stream.Stream;
 import java.util.stream.Stream.Builder;
@@ -123,6 +124,16 @@ public final class SystemUtils {
             System.err.println(e);
         }
     }
+
+    /**
+     * Close an Optional without exceptions
+     *
+     * @param clo closeable to close
+     */
+    public static void close(Optional<? extends Closeable> clo) {
+        clo.ifPresent(SystemUtils::close);
+    }
+
 
     /**
      * @return true if the asserts are enabled, and therefore the program is running in debug mode

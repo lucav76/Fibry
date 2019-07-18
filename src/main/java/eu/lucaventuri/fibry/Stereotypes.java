@@ -5,24 +5,32 @@ import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import eu.lucaventuri.common.Exceptions;
 import eu.lucaventuri.common.SystemUtils;
+import eu.lucaventuri.fibry.ActorSystem.NamedStateActorCreator;
+import eu.lucaventuri.fibry.ActorSystem.NamedStrategyActorCreator;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static eu.lucaventuri.fibry.CreationStrategy.*;
-import eu.lucaventuri.fibry.ActorSystem.*;
 
 // Connection acceptor
 // Embedded web server acceptor
 // Anonymous workers
 public class Stereotypes {
+    private static AtomicBoolean debug = new AtomicBoolean(false);
+
     public static class HttpWorker {
         public final String context;
         public final HttpHandler handler;
@@ -169,7 +177,7 @@ public class Stereotypes {
         }
 
         /** Creates an actor that runs a Runnable, once */
-        public SinkActor<Void> runOnce(Runnable run) {
+        public SinkActorSingleMessage<Void> runOnce(Runnable run) {
             SinkActor<Void> actor = sink(null);
 
             actor.execAsync(() -> {
@@ -184,7 +192,7 @@ public class Stereotypes {
          * Creates an actor that runs a Consumer, once.
          * The consumer receives the actor itself, which sometimes can be useful (e.g. to check if somebody ask to exit)
          */
-        public SinkActor<Void> runOnceWithThis(Consumer<SinkActor<Void>> actorLogic) {
+        public SinkActorSingleMessage<Void> runOnceWithThis(Consumer<SinkActor<Void>> actorLogic) {
             SinkActor<Void> actor = sink(null);
 
             actor.execAsync(() -> {
@@ -196,12 +204,12 @@ public class Stereotypes {
         }
 
         /** Creates an actor that runs a Runnable forever, every scheduleMs ms */
-        public SinkActor<Void> schedule(Runnable run, long scheduleMs) {
+        public SinkActorSingleMessage<Void> schedule(Runnable run, long scheduleMs) {
             return schedule(run, scheduleMs, Long.MAX_VALUE);
         }
 
         /** Creates an actor that runs a Runnable maxTimes or until somebody asks for exit (this is controlled only in between executions); the actor is scheduled to run every scheduleMs ms */
-        public SinkActor<Void> schedule(Runnable run, long scheduleMs, long maxTimes) {
+        public SinkActorSingleMessage<Void> schedule(Runnable run, long scheduleMs, long maxTimes) {
             SinkActor<Void> actor = sink(null);
 
             actor.execAsync(() -> {
@@ -226,26 +234,90 @@ public class Stereotypes {
 
         /**
          * Creates an actor that can accept new TCP connections on the specified port and spawn a new actor for each connection.
+         * This method will return after the server socket has been created. If the server socket cannot be created, it will throw an exception.
+         * If the server socket can be created once, subsequent exceptions will be logged, and it will try to recreate the server socket as needed.
+         * <p>
+         * The contract with the workers is that:
+         * - They take ownership of the connection (e.g. they need to close it)
+         * - Only one message with the connection will ever be sent
+         * - After the connection, a poison pill will be sent, so the actor will die after processing one connection
          *
          * @param port TCP port
          * @param workersLogic Logic of each worker
          * @param stateSupplier Supplier able to create a new state for each worker
          * @param <S> Type of state
          * @return the acceptor actor
+         * @throws IOException this is only thrown if it happens at the beginning, when the ServerSocket is created. Other exceptions will be sent to the console, and the socket will be created again. If the exception is thrown, the actor will also be killed, else it will keep going and retry
          */
-        public <S> SinkActor<Void> tcpAcceptor(int port, Consumer<Socket> workersLogic, Supplier<S> stateSupplier) {
-            return runOnceWithThis(thisActor -> {
-                try (ServerSocket serverSocket = new ServerSocket(port)) {
-                    while (!thisActor.isExiting()) {
+        public <S> SinkActorSingleMessage<Void> tcpAcceptor(int port, Consumer<Socket> workersLogic, Supplier<S> stateSupplier) throws IOException {
+            final CountDownLatch latchSocketCreation = new CountDownLatch(1);
+            final AtomicReference<IOException> exception = new AtomicReference<>();
+
+            SinkActorSingleMessage<Void> actor = runOnceWithThis(thisActor -> {
+                while (!thisActor.isExiting()) {
+                    Optional<ServerSocket> serverSocket = createServerSocketWithTimeout(port, latchSocketCreation, exception, 1000);
+
+                    serverSocket.ifPresent(socket -> acceptConnections(workersLogic, stateSupplier, thisActor, socket));
+
+                    SystemUtils.close(serverSocket);
+                    // Slows down a bit in case of continuous exceptions. A circuit breaker would also be an option
+                    SystemUtils.sleep(10);
+                }
+                if (debug.get())
+                    System.out.println("TCP acceptor actor on port " + port + " shutting down");
+            });
+
+            Exceptions.silence(latchSocketCreation::await);
+
+            IOException e = exception.get();
+
+            if (e != null) {
+                actor.askExit();
+
+                throw e;
+            }
+
+            if (debug.get())
+                System.out.println("TCP acceptor listening on port " + port);
+
+            return actor;
+        }
+
+        private <S> void acceptConnections(Consumer<Socket> workersLogic, Supplier<S> stateSupplier, SinkActor<Void> thisActor, ServerSocket serverSocket) {
+            try {
+                while (!thisActor.isExiting()) {
+                    try {
                         Socket clientSocket = serverSocket.accept();
+
+                        // The socket can be null by design; as consequence of the SO_TIMEOUT; this will give the actor a chance to exit even if there are no clients connecting
                         Actor<Socket, Void, S> worker = anonymous().initialState(stateSupplier == null ? null : stateSupplier.get()).newActor(workersLogic);
 
+                        // Lose ownership of the socket, it will be managed by the worker
                         worker.sendMessage(clientSocket);
+                        worker.sendPoisonPill();
+                    } catch (SocketTimeoutException e) {
+                        /** By design */
+                        System.err.println(e);
                     }
-                } catch (IOException e) {
-                    e.printStackTrace();
                 }
-            });
+            } catch (IOException e) {
+                System.err.println(e);
+            }
+        }
+
+        private Optional<ServerSocket> createServerSocketWithTimeout(int port, CountDownLatch latchSocketCreation, AtomicReference<IOException> exception, int timeoutAccept) {
+            try {
+                ServerSocket serverSocket = new ServerSocket(port);
+                serverSocket.setSoTimeout(timeoutAccept);
+
+                return Optional.of(serverSocket);
+            } catch (IOException e) {
+                exception.set(e); // Important exception: it was not possible to create the server socket
+
+                return Optional.empty();
+            } finally {
+                latchSocketCreation.countDown();
+            }
         }
 
         private NamedStrategyActorCreator anonymous() {
@@ -268,5 +340,9 @@ public class Stereotypes {
     public static NamedStereotype fibers() {
 
         return new NamedStereotype(FIBER);
+    }
+
+    public static void setDebug(boolean activateDebug) {
+        debug.set(activateDebug);
     }
 }

@@ -238,8 +238,8 @@ public class Stereotypes {
          * If the server socket can be created once, subsequent exceptions will be logged, and it will try to recreate the server socket as needed.
          * <p>
          * The contract with the workers is that:
-         * - They take ownership of the connection (e.g. they need to close it)
-         * - Only one message with the connection will ever be sent
+         * - Only one message will ever be sent, and the message is the connection
+         * - They workers take ownership of the connection, however the acceptor will try to close it anyway. So the worker don't need to close it.
          * - After the connection, a poison pill will be sent, so the actor will die after processing one connection
          *
          * @param port TCP port

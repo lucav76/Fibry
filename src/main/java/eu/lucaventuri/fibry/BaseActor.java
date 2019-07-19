@@ -12,9 +12,11 @@ import java.util.function.Function;
 public abstract class BaseActor<T, R, S> extends Exitable implements Consumer<T>, Function<T, R>, PartialActor<T, S>, SinkActor<S> {
     private final Queue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue;
     protected S state;
+    protected final Consumer<S> finalizer;
 
-    protected BaseActor(Queue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue) {
+    protected BaseActor(Queue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> finalizer) {
         this.queue = queue;
+        this.finalizer = finalizer;
     }
 
     /** Asynchronously sends a message to the actor */

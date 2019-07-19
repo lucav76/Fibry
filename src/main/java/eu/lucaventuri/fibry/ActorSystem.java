@@ -28,18 +28,20 @@ public class ActorSystem {
         private final String name;  // Can be null
         private final Supplier<S> stateSupplier;
         private final PoolParameters poolParams;
+        private final Consumer<S> finalizer;
 
-        private ActorPoolCreator(CreationStrategy strategy, String name, PoolParameters poolParams, Supplier<S> stateSupplier) {
+        private ActorPoolCreator(CreationStrategy strategy, String name, PoolParameters poolParams, Supplier<S> stateSupplier, Consumer<S> finalizer) {
             this.strategy = strategy;
             this.name = name != null ? name : "__pool__" + progressivePoolId.incrementAndGet() + "__" + Math.random() + "__";
             this.poolParams = poolParams;
             this.stateSupplier = stateSupplier;
+            this.finalizer = finalizer;
         }
 
         // By design, group pools logic should not have access to the actor itself
         private <T, R> PoolActorLeader<T, R, S> createFixedPool(Either<Consumer<T>, Function<T, R>> actorLogic) {
             MultiExitable groupExit = new MultiExitable();
-            PoolActorLeader<T, R, S> groupLeader = new PoolActorLeader<T, R, S>(getOrCreateActorQueue(registerActorName(name, false)), (S) null, groupExit);
+            PoolActorLeader<T, R, S> groupLeader = new PoolActorLeader<T, R, S>(getOrCreateActorQueue(registerActorName(name, false)), (S) null, groupExit, finalizer);
 
             for (int i = 0; i < poolParams.minSize; i++)
                 createNewWorkerAndAddToPool(groupLeader, actorLogic);
@@ -48,8 +50,7 @@ public class ActorSystem {
         }
 
         private <T, R> void createNewWorkerAndAddToPool(PoolActorLeader<T, R, S> groupLeader, Either<Consumer<T>, Function<T, R>> actorLogic) {
-            NamedStateActorCreator<S> creator = new NamedStateActorCreator<>(name, strategy, stateSupplier == null ? null : stateSupplier.get(), true);
-
+            NamedStateActorCreator<S> creator = new NamedStateActorCreator<>(name, strategy, stateSupplier == null ? null : stateSupplier.get(), true, finalizer);
             actorLogic.ifEither(logic -> {
                 groupLeader.getGroupExit().add(creator.newActor(logic));
             }, logic -> {
@@ -96,23 +97,25 @@ public class ActorSystem {
         final CreationStrategy strategy;
         final String name;  // Can be null
         final boolean allowReuse;
+        final Consumer<S> finalizer;
 
-        private NamedStateActorCreator(String name, CreationStrategy strategy, S initialState, boolean allowReuse) {
+        private NamedStateActorCreator(String name, CreationStrategy strategy, S initialState, boolean allowReuse, Consumer<S> finalizer) {
             this.name = name;
             this.strategy = strategy;
             this.initialState = initialState;
             this.allowReuse = allowReuse;
+            this.finalizer = finalizer;
         }
 
         public <T> Actor<T, Void, S> newActor(Consumer<T> actorLogic) {
-            return (Actor<T, Void, S>) strategy.<T, Void, S>start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse)), initialState));
+            return (Actor<T, Void, S>) strategy.<T, Void, S>start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse)), initialState, finalizer));
         }
 
         public <T> Actor<T, Void, S> newActor(BiConsumer<T, PartialActor<T, S>> actorBiLogic) {
             AtomicReference<Actor<T, Void, S>> ref = new AtomicReference<>();
             Consumer<T> actorLogic = message -> actorBiLogic.accept(message, ref.get());
 
-            ref.set((Actor<T, Void, S>) strategy.<T, Void, S>start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse)), initialState)));
+            ref.set((Actor<T, Void, S>) strategy.<T, Void, S>start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse)), initialState, finalizer)));
 
             return ref.get();
         }
@@ -121,40 +124,60 @@ public class ActorSystem {
             MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, Void>>, T> bag = ReceivingActor.<T, Void, S>queueToBag(getOrCreateActorQueue(registerActorName(name, allowReuse)));
             MessageReceiver<T> receiver = ReceivingActor.convertBag(bag);
 
-            return (ReceivingActor<T, Void, S>) strategy.start(new ReceivingActor<>(actorBiLogic, bag, initialState));
+            return (ReceivingActor<T, Void, S>) strategy.start(new ReceivingActor<>(actorBiLogic, bag, initialState, finalizer));
         }
 
         public <T, R> Actor<T, R, S> newActorWithReturn(Function<T, R> actorLogic) {
-            return (Actor<T, R, S>) strategy.start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse)), initialState));
+            return (Actor<T, R, S>) strategy.start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse)), initialState, finalizer));
         }
 
         public <T, R> Actor<T, R, S> newActorWithReturn(BiFunction<T, PartialActor<T, S>, R> actorBiLogic) {
             AtomicReference<Actor<T, Void, S>> ref = new AtomicReference<>();
             Function<T, R> actorLogic = message -> actorBiLogic.apply(message, ref.get());
 
-            return (Actor<T, R, S>) strategy.start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse)), initialState));
+            return (Actor<T, R, S>) strategy.start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse)), initialState, finalizer));
         }
 
         public <T, R> ReceivingActor<T, R, S> newReceivingActorWithReturn(BiFunction<MessageReceiver<T>, T, R> actorBiLogic) {
             MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>, T> bag = ReceivingActor.<T, R, S>queueToBag(getOrCreateActorQueue(registerActorName(name, allowReuse)));
             MessageReceiver<T> receiver = ReceivingActor.convertBag(bag);
 
-            return (ReceivingActor<T, R, S>) strategy.start(new ReceivingActor<>(actorBiLogic, bag, initialState));
+            return (ReceivingActor<T, R, S>) strategy.start(new ReceivingActor<>(actorBiLogic, bag, initialState, finalizer));
         }
     }
 
     // Name and strategy as supplied, initialState: null
     public static class NamedStrategyActorCreator extends NamedStateActorCreator<Void> {
         private NamedStrategyActorCreator(String name, CreationStrategy strategy) {
-            super(name, strategy, null, false);
+            super(name, strategy, null, false, null);
         }
 
         public <S> NamedStateActorCreator<S> initialState(S state) {
-            return new NamedStateActorCreator<>(name, strategy, state, false);
+            return new NamedStateActorCreator<>(name, strategy, state, false, null);
+        }
+
+        /**
+         * @param state Initial state
+         * @param finalizer Finalizer called after the actor finished to process all its message
+         * @return an object part of the fluent interface
+         */
+        public <S> NamedStateActorCreator<S> initialState(S state, Consumer<S> finalizer) {
+            return new NamedStateActorCreator<>(name, strategy, state, false, finalizer);
         }
 
         public <S> ActorPoolCreator<S> poolParams(PoolParameters params, Supplier<S> stateSupplier) {
-            return new ActorPoolCreator<>(strategy, name, params, stateSupplier);
+            return new ActorPoolCreator<>(strategy, name, params, stateSupplier, null);
+        }
+
+        /**
+         * @param params Parameters to create the pool
+         * @param stateSupplier Supplier of states, as the pool will probably need more than one
+         * @param finalizer Finalizer called after the actor finished to process all its message
+         * @return an object part of the fluent interface
+         */
+
+        public <S> ActorPoolCreator<S> poolParams(PoolParameters params, Supplier<S> stateSupplier, Consumer<S> finalizer) {
+            return new ActorPoolCreator<>(strategy, name, params, stateSupplier, finalizer);
         }
     }
 

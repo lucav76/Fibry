@@ -13,9 +13,9 @@ import java.util.function.Consumer;
 public class PoolActorLeader<T, R, S> extends Actor<T, R, S> {
     private final MultiExitable groupExit;
 
-    PoolActorLeader(BlockingDeque<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState, MultiExitable groupExit) {
+    PoolActorLeader(BlockingDeque<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState, MultiExitable groupExit, Consumer<S> finalizer) {
         super(msg -> {
-        }, queue, initialState);
+        }, queue, initialState, finalizer);
         this.groupExit = groupExit;
     }
 
@@ -24,6 +24,9 @@ public class PoolActorLeader<T, R, S> extends Actor<T, R, S> {
         Exceptions.log(() -> {
             SystemUtils.sleep(10);
         });
+
+        if (finalizer!=null)
+            finalizer.accept(state);
     }
 
     @Override

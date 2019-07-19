@@ -21,8 +21,8 @@ public class Actor<T, R, S> extends BaseActor<T, R, S> {
      * @param queue        queue
      * @param initialState optional initial state
      */
-    Actor(Consumer<T> actorLogic, BlockingDeque<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState) {
-        super(queue);
+    Actor(Consumer<T> actorLogic, BlockingDeque<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState, Consumer<S> finalizer) {
+        super(queue, finalizer);
 
         Function<T, R> tmpLogicReturn = ActorUtils.discardingToReturning(actorLogic);
 
@@ -39,8 +39,8 @@ public class Actor<T, R, S> extends BaseActor<T, R, S> {
      * @param queue queue
      * @param initialState optional initial state
      */
-    Actor(Function<T, R> actorLogicReturn, BlockingDeque<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState) {
-        super(queue);
+    Actor(Function<T, R> actorLogicReturn, BlockingDeque<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState, Consumer<S> finalizer) {
+        super(queue, finalizer);
         this.actorLogic = ActorUtils.returningToDiscarding(actorLogicReturn);
         this.actorLogicReturn = mwr -> mwr.answers.complete(actorLogicReturn.apply(mwr.message));
         this.queue = queue;
@@ -56,6 +56,9 @@ public class Actor<T, R, S> extends BaseActor<T, R, S> {
                 message.ifEither(cns -> cns.accept(this), actorLogic::accept, actorLogicReturn::accept);
             });
         }
+
+        if (finalizer!=null)
+            finalizer.accept(state);
 
         notifyFinished();
     }

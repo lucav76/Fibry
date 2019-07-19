@@ -290,7 +290,10 @@ public class Stereotypes {
                         Socket clientSocket = serverSocket.accept();
 
                         // The socket can be null by design; as consequence of the SO_TIMEOUT; this will give the actor a chance to exit even if there are no clients connecting
-                        Actor<Socket, Void, S> worker = anonymous().initialState(stateSupplier == null ? null : stateSupplier.get()).newActor(workersLogic);
+                        Actor<Socket, Void, S> worker = anonymous().initialState(stateSupplier == null ? null : stateSupplier.get()).newActor(socket -> {
+                            workersLogic.accept(socket);
+                            SystemUtils.close(socket);
+                        });
 
                         // Lose ownership of the socket, it will be managed by the worker
                         worker.sendMessage(clientSocket);

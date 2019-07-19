@@ -20,8 +20,8 @@ public class ReceivingActor<T, R, S> extends BaseActor<T, R, S> {
      * @param messageBag   Bag
      * @param initialState optional initial state
      */
-    ReceivingActor(BiConsumer<MessageReceiver<T>, T> actorLogic, MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>, T> messageBag, S initialState) {
-        super(messageBag);
+    ReceivingActor(BiConsumer<MessageReceiver<T>, T> actorLogic, MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>, T> messageBag, S initialState, Consumer<S> finalizer) {
+        super(messageBag, finalizer);
         BiFunction<MessageReceiver<T>, T, R> tmpLogicReturn = ActorUtils.discardingToReturning(actorLogic);
 
         this.bag=messageBag;
@@ -42,8 +42,8 @@ public class ReceivingActor<T, R, S> extends BaseActor<T, R, S> {
      * @param messageBag Bag
      * @param initialState optional initial state
      */
-    ReceivingActor(BiFunction<MessageReceiver<T>,T, R> actorLogicReturn, MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>, T> messageBag, S initialState) {
-        super(messageBag);
+    ReceivingActor(BiFunction<MessageReceiver<T>,T, R> actorLogicReturn, MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>, T> messageBag, S initialState, Consumer<S> finalizer) {
+        super(messageBag, finalizer);
 
         this.bag=messageBag;
         this.bagConverter = convertBag(this.bag);
@@ -80,6 +80,9 @@ public class ReceivingActor<T, R, S> extends BaseActor<T, R, S> {
                 message.ifEither(cns -> cns.accept(this), msg -> actorLogic.accept(bagConverter, msg), msg -> actorLogicReturn.accept(bagConverter, msg));
             });
         }
+
+        if (finalizer!=null)
+            finalizer.accept(state);
 
         notifyFinished();
     }

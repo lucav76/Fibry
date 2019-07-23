@@ -131,7 +131,7 @@ public class Stereotypes {
 
         /**
          * Opens a Java embedded HTTP server (yes, com.sun.net.httpserver.HttpServer), where each request is server by an actor.
-         * The workers need to implement Function<HttpExchange, String>, therefore they can just return a string (so they are only useful on very simple cases).
+         * The workers need to implement Function&lt;HttpExchange, String&gt;, therefore they can just return a string (so they are only useful on very simple cases).
          * This method is not recommended for a real server, but if you need something simple, it can be useful.
          *
          * @param port HTTP port to open

@@ -1,0 +1,78 @@
+task sourceJar(type: Jar) {
+    classifier "sources"
+    from sourceSets.main.allJava
+}
+
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier "javadoc"
+    from javadoc.destinationDir
+}
+
+artifacts {
+    archives jar
+    archives sourceJar
+    archives javadocJar
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            group 'eu.lucaventuri'
+            artifactId = 'fibry'
+            from components.java
+
+            versionMapping {
+                usage('java-api') {
+                    fromResolutionOf('runtimeClasspath')
+                }
+                usage('java-runtime') {
+                    fromResolutionResult()
+                }
+            }
+            pom {
+                name = 'Fibry'
+                description = 'The first Java Actor System supporting fibers from Project Loom'
+                url = 'https://github.com/lucav76/Fibry'
+                licenses {
+                    license {
+                        name = 'MIT License'
+                        url = 'https://github.com/lucav76/Fibry/blob/master/LICENSE'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'lucav76'
+                        name = 'Luca Venturi'
+                        email = 'luca@lucaventuri.eu'
+                    }
+                }
+                scm {
+                    connection = 'scm:git:git://github.com/lucav76/Fibry.git'
+                    developerConnection = 'scm:git:ssh://git@github.com:lucav76/Fibry.git'
+                    url = 'https://github.com/lucav76/Fibry/'
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            url "https://oss.sonatype.org/service/local/staging/deploy/maven2"
+            credentials {
+                username 'lucav76'
+                password System.properties['mavenCentraPassword']
+            }
+        }
+    }
+}
+
+// Signing credentials from gradle.properties
+signing {
+    sign publishing.publications.mavenJava
+}
+
+
+javadoc {
+    if(JavaVersion.current().isJava9Compatible()) {
+        options.addBooleanOption('html5', true)
+    }
+}

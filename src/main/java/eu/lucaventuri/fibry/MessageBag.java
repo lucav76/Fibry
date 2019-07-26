@@ -14,17 +14,17 @@ import java.util.function.Predicate;
  * Thread safety is achieved using the blocking queue, while receive() uses the ClassifiedMap.
  * To improve performance, a lock-less blocking queue "with nodes" should be implemented to get both the retrieval behaviors from a single object
  */
-public class MessageBag<T, CONV> extends AbstractQueue<T> implements MessageReceiver<T> {
-    private final BlockingQueue<T> queue;
+public class MessageBag<T, CONV> extends AbstractQueue<T> implements MessageReceiver<T>, MiniQueue<T> {
+    private final MiniQueue<T> queue;
     private final ClassifiedMap map = new ClassifiedMap();
     private final Function<T, CONV> converter;
 
-    public MessageBag(BlockingQueue<T> queue, Function<T, CONV> converter) {
+    public MessageBag(MiniQueue<T> queue, Function<T, CONV> converter) {
         this.queue = queue;
         this.converter = converter;
     }
 
-    public MessageBag(BlockingQueue<T> queue) {
+    public MessageBag(MiniQueue<T> queue) {
         this.queue = queue;
         this.converter = null;
     }
@@ -121,6 +121,11 @@ public class MessageBag<T, CONV> extends AbstractQueue<T> implements MessageRece
     @Override
     public Iterator<T> iterator() {
         throw new UnsupportedOperationException("Iterator not available in " + this.getClass().getName());
+    }
+
+    @Override
+    public T take() throws InterruptedException {
+        return readMessage();
     }
 
     @Override

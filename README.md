@@ -25,7 +25,7 @@ I might do a better round of benchmark in the future, and disclose the character
 - Sync messages per second, between 2 threads (requires thread switching): 8.5K
 - Sync messages per second, between 2 threads (requires fiber switching): 64K (**7.5X better**)
 
-As an indication, Fibry can send around 4-5M of messages per second.
+As an indication, Fibry can send around 3-6M of messages per second per core, under low thread contention.
 
 Simplicity first
 ===
@@ -138,6 +138,38 @@ This is a very simple HTTP Hello World:
 ```java
 Stereotypes.auto().embeddedHttpServer(8080, new Stereotypes.HttpStringWorker("/", ex -> "Hello world!"));
 ```
+
+Extending CustomActor and CustomActorWithResult
+===
+For maximum flexibility, sometimes you might want to just be an actor, instead of implementing some interface and struggle to customize its behavior.
+It is possible to do so extending **CustomActor** or **CustomActorWithResult**, depending on the type of actor that you need. The only method required is **onMessage()**.
+Just remember to call **CreationStrategy.start()** to start it.
+
+Shutting down the actors
+===
+Shutting down the actors is a bit complicated, depending on which goal you want to achieve.
+One way is to call **askExit()**, which will ask the actor to terminate as soon as possible, which by default means after finishing the current message; long running actors should check for their **isExiting()** method. This will however loose the messages on the queue (and the actor will clear the queue). 
+Another way is to call **sendPoisonPill()**, which will queue a message able to shut down the actor: the messages after the poison pill will be lost, the ones before it will be processed.
+The actors are Closeable(), so they can be put in a try-with-resources block. Please keep in mind that the default behavior is to call **askExit()**, so when the code leaves the try-with-resources block the actor might still be alive and working. This behavior can be customised using a different ClosingStrategy. For example, SEND_POISON_PILL_AND_WAIT will block in the try catch until all the messages in the queue (before the poison pill) are processed.
+The ClosingStrategy can be set using the strategy() call in ActorSystem, which can also set creation strategy.
+Using blocking try-with resources with more than one actor might be a bit complicated, an might not be worth it. If that's the chosen strategy, it might be better to have only one actor blocking on close, to avoid race conditions.
+
+For more information, please look at the Exitable class.
+
+Named Actors
+===
+Named actors can allow clients to send messages even before they are created. This means the messages are queued.
+Unfortunately, it means that if the actor is terminated and thequeue is removed, clients could still recreate the queue and cause an OOM.
+To avoid this, when named actors are created "queue protection" can be activated. This will create a fake queue that does not accept new messages. Unfortunately it still use some small memory, for each actor.
+
+In practice, if you plan to have millions of named actors you could either:
+- call *ActorSystem.sendMessage()* with forceDelivery==false, and avoid queue protection, which would save memory but would not allow clients to send messages before the actor is created.
+- call *ActorSystem.sendMessage()* with forceDelivery==true, and use queue protection, which would use some more memory while allowing clients to send messages before the actor is created.
+
+
+  
+ 
+ 
 
 Actor Pools
 ===

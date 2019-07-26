@@ -8,7 +8,7 @@ public enum CreationStrategy {
     /** One thread per actor */
     THREAD {
         @Override
-        <T, R, S> BaseActor<T, R, S> start(BaseActor<T, R, S> actor) {
+        public <T, R, S> BaseActor<T, R, S> start(BaseActor<T, R, S> actor) {
             new Thread(actor::processMessages).start();
 
             return actor;
@@ -17,10 +17,8 @@ public enum CreationStrategy {
     /** One fiber per actor */
     FIBER {
         @Override
-        <T, R, S> BaseActor<T, R, S> start(BaseActor<T, R, S> actor) {
-            ActorUtils.runAsFiber(() -> {
-                actor.processMessages();
-            });
+        public <T, R, S> BaseActor<T, R, S> start(BaseActor<T, R, S> actor) {
+            ActorUtils.runAsFiber(actor::processMessages);
 
             return actor;
         }
@@ -28,13 +26,13 @@ public enum CreationStrategy {
     /** If fibers are available, the it uses FIBER else it uses THREAD */
     AUTO {
         @Override
-        <T, R, S> BaseActor<T, R, S> start(BaseActor<T, R, S> actor) {
+        public <T, R, S> BaseActor<T, R, S> start(BaseActor<T, R, S> actor) {
             return ActorUtils.areFibersAvailable() ? FIBER.start(actor) : THREAD.start(actor);
         }
     };
 
     /** Starts an actor */
-    abstract <T, R, S> BaseActor<T, R, S> start(BaseActor<T, R, S> actor);
+    public abstract <T, R, S> BaseActor<T, R, S> start(BaseActor<T, R, S> actor);
 
     /** Return the strategies that are available */
     public Iterable<CreationStrategy> available() {

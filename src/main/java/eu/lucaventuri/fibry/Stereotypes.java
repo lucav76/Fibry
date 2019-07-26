@@ -4,6 +4,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import eu.lucaventuri.common.Exceptions;
+import eu.lucaventuri.common.Exitable;
 import eu.lucaventuri.common.SystemUtils;
 import eu.lucaventuri.fibry.ActorSystem.NamedStateActorCreator;
 import eu.lucaventuri.fibry.ActorSystem.NamedStrategyActorCreator;
@@ -53,9 +54,11 @@ public class Stereotypes {
 
     public static class NamedStereotype {
         private final CreationStrategy strategy;
+        private final Exitable.CloseStrategy closeStrategy;
 
-        public NamedStereotype(CreationStrategy strategy) {
+        public NamedStereotype(CreationStrategy strategy, Exitable.CloseStrategy closeStrategy) {
             this.strategy = strategy;
+            this.closeStrategy = closeStrategy;
         }
 
         /**
@@ -135,9 +138,28 @@ public class Stereotypes {
          * This method is not recommended for a real server, but if you need something simple, it can be useful.
          *
          * @param port HTTP port to open
-         * @param workers pairs of context and handler, associating a path to a worker
+         * @param otherWorkers pairs of context and handler, associating a path to a worker
          * @throws IOException
          */
+        public void embeddedHttpServer(int port, Function<HttpExchange, String> rootWorker, HttpStringWorker... otherWorkers) throws IOException {
+            HttpStringWorker workers[] = new HttpStringWorker[otherWorkers.length+1];
+
+            workers[0] = new HttpStringWorker("/", rootWorker);
+            for(int i=0; i<otherWorkers.length; i++)
+              workers[i+1] = otherWorkers[i];
+
+            embeddedHttpServer(port, workers);
+        }
+
+            /**
+             * Opens a Java embedded HTTP server (yes, com.sun.net.httpserver.HttpServer), where each request is server by an actor.
+             * The workers need to implement Function&lt;HttpExchange, String&gt;, therefore they can just return a string (so they are only useful on very simple cases).
+             * This method is not recommended for a real server, but if you need something simple, it can be useful.
+             *
+             * @param port HTTP port to open
+             * @param workers pairs of context and handler, associating a path to a worker
+             * @throws IOException
+             */
         public void embeddedHttpServer(int port, HttpStringWorker... workers) throws IOException {
             NamedStateActorCreator<Void> config = anonymous().initialState(null);
             HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
@@ -172,8 +194,10 @@ public class Stereotypes {
         public <S> SinkActor<S> sink(S state) {
             NamedStateActorCreator<S> config = anonymous().initialState(state);
 
-            return config.newActor(message -> {
+            Actor<Object, Void, S> actor = config.newActor(message -> {
             });
+
+            return actor;
         }
 
         /** Creates an actor that runs a Runnable, once */
@@ -183,6 +207,7 @@ public class Stereotypes {
             actor.execAsync(() -> {
                 run.run();
                 actor.askExit();
+                System.out.println("runOnce done:" + actor.isExiting());
             });
 
             return actor;
@@ -210,7 +235,10 @@ public class Stereotypes {
 
         /** Creates an actor that runs a Runnable maxTimes or until somebody asks for exit (this is controlled only in between executions); the actor is scheduled to run every scheduleMs ms */
         public SinkActorSingleMessage<Void> schedule(Runnable run, long scheduleMs, long maxTimes) {
-            SinkActor<Void> actor = sink(null);
+            Actor<Object, Void, Void> actor = (Actor<Object, Void, Void>)sink((Void)null);
+
+            // Deadlock prevention
+            actor.setCloseStrategy(Exitable.CloseStrategy.ASK_EXIT);
 
             actor.execAsync(() -> {
                 long prev = System.currentTimeMillis();
@@ -257,7 +285,7 @@ public class Stereotypes {
                 while (!thisActor.isExiting()) {
                     Optional<ServerSocket> serverSocket = createServerSocketWithTimeout(port, latchSocketCreation, exception, 1000);
 
-                    serverSocket.ifPresent(socket -> acceptConnections(workersLogic, stateSupplier, thisActor, socket));
+                    serverSocket.ifPresent(socket -> acceptTcpConnections(workersLogic, stateSupplier, thisActor, socket));
 
                     SystemUtils.close(serverSocket);
                     // Slows down a bit in case of continuous exceptions. A circuit breaker would also be an option
@@ -283,7 +311,7 @@ public class Stereotypes {
             return actor;
         }
 
-        private <S> void acceptConnections(Consumer<Socket> workersLogic, Supplier<S> stateSupplier, SinkActor<Void> thisActor, ServerSocket serverSocket) {
+        private <S> void acceptTcpConnections(Consumer<Socket> workersLogic, Supplier<S> stateSupplier, SinkActor<Void> thisActor, ServerSocket serverSocket) {
             try {
                 while (!thisActor.isExiting()) {
                     try {
@@ -324,26 +352,33 @@ public class Stereotypes {
         }
 
         private NamedStrategyActorCreator anonymous() {
-            return ActorSystem.anonymous().strategy(strategy);
+            return ActorSystem.anonymous().strategy(strategy, closeStrategy);
         }
 
         private NamedStrategyActorCreator named(String name) {
-            return ActorSystem.named(name).strategy(strategy);
+            return ActorSystem.named(name).strategy(strategy, closeStrategy);
         }
     }
 
     public static NamedStereotype threads() {
-        return new NamedStereotype(THREAD);
+        return new NamedStereotype(THREAD, null);
     }
 
     public static NamedStereotype auto() {
-        return new NamedStereotype(AUTO);
+        return new NamedStereotype(AUTO, null);
     }
 
-    public static NamedStereotype fibers() {
+    public static NamedStereotype fibers() { return new NamedStereotype(FIBER, null); }
 
-        return new NamedStereotype(FIBER);
+    public static NamedStereotype threads(Exitable.CloseStrategy closeStrategy) {
+        return new NamedStereotype(THREAD, closeStrategy);
     }
+
+    public static NamedStereotype auto(Exitable.CloseStrategy closeStrategy) {
+        return new NamedStereotype(AUTO, closeStrategy);
+    }
+
+    public static NamedStereotype fibers(Exitable.CloseStrategy closeStrategy) { return new NamedStereotype(FIBER, closeStrategy); }
 
     public static void setDebug(boolean activateDebug) {
         debug.set(activateDebug);

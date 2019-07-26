@@ -11,7 +11,12 @@ public interface SinkActor<S> extends SinkActorSingleMessage {
     }
 
     /** Queue a request to exit, that will be processed after all the messages currently in the queue */
-    default void sendPoisonPill() {
-        execAsync(this::askExit);
+    default boolean sendPoisonPill() {
+        try {
+            execAsync(this::askExit);
+            return true;
+        } catch (IllegalStateException e) {
+            return false;
+        }
     }
 }

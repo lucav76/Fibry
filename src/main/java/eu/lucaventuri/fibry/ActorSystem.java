@@ -1,15 +1,14 @@
 package eu.lucaventuri.fibry;
 
 import eu.lucaventuri.common.ConcurrentHashSet;
+import eu.lucaventuri.common.Exitable.CloseStrategy;
 import eu.lucaventuri.common.MultiExitable;
 import eu.lucaventuri.functional.Either;
 import eu.lucaventuri.functional.Either3;
 
 import java.util.Set;
-import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.*;
@@ -19,9 +18,11 @@ import java.util.function.*;
  * Receiving actors can perform a 'receive' operation and ask for specific messages.
  */
 public class ActorSystem {
-    private static final ConcurrentHashMap<String, BlockingDeque> namedQueues = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, MiniFibryQueue> namedQueues = new ConcurrentHashMap<>();
     private static final Set<String> actorNamesInUse = ConcurrentHashSet.build();
     private static final AtomicLong progressivePoolId = new AtomicLong();
+    private static final int defaultQueueCapacity = Integer.MAX_VALUE;
+    static final MiniFibryQueue DROPPING_QUEUE = MiniFibryQueue.dropping();
 
     public static class ActorPoolCreator<S> {
         private final CreationStrategy strategy;
@@ -41,7 +42,9 @@ public class ActorSystem {
         // By design, group pools logic should not have access to the actor itself
         private <T, R> PoolActorLeader<T, R, S> createFixedPool(Either<Consumer<T>, Function<T, R>> actorLogic) {
             MultiExitable groupExit = new MultiExitable();
-            PoolActorLeader<T, R, S> groupLeader = new PoolActorLeader<T, R, S>(getOrCreateActorQueue(registerActorName(name, false)), (S) null, groupExit, finalizer);
+            // As the leader has no state, it cannot run the finalizer
+            // We add queue protection because it's unlikely to have millions of pools
+            PoolActorLeader<T, R, S> groupLeader = new PoolActorLeader<T, R, S>(getOrCreateActorQueue(registerActorName(name, false), defaultQueueCapacity), (S) null, groupExit, getQueueFinalizer(name, null, true));
 
             for (int i = 0; i < poolParams.minSize; i++)
                 createNewWorkerAndAddToPool(groupLeader, actorLogic);
@@ -50,11 +53,11 @@ public class ActorSystem {
         }
 
         private <T, R> void createNewWorkerAndAddToPool(PoolActorLeader<T, R, S> groupLeader, Either<Consumer<T>, Function<T, R>> actorLogic) {
-            NamedStateActorCreator<S> creator = new NamedStateActorCreator<>(name, strategy, stateSupplier == null ? null : stateSupplier.get(), true, finalizer);
+            NamedStateActorCreator<S> creator = new NamedStateActorCreator<>(name, strategy, stateSupplier == null ? null : stateSupplier.get(), true, finalizer, null, defaultQueueCapacity, true);
             actorLogic.ifEither(logic -> {
-                groupLeader.getGroupExit().add(creator.newActor(logic));
+                groupLeader.getGroupExit().add(creator.newActor(logic).setExitSendsPoisonPill(false));
             }, logic -> {
-                groupLeader.getGroupExit().add(creator.newActorWithReturn(logic));
+                groupLeader.getGroupExit().add(creator.newActorWithReturn(logic).setExitSendsPoisonPill(false));
             });
         }
 
@@ -72,6 +75,7 @@ public class ActorSystem {
 
             Stereotypes.auto().schedule(() -> {
                 long queueSize = leader.getQueueLength();
+                //System.out.println("Queue size: " + queueSize);
 
                 if (queueSize >= poolParams.scalingUpThreshold) {
                     for (int i = 0; i < poolParams.scalingSpeed && groupExit.size() < poolParams.maxSize; i++)
@@ -98,62 +102,70 @@ public class ActorSystem {
         final String name;  // Can be null
         final boolean allowReuse;
         final Consumer<S> finalizer;
+        final CloseStrategy closeStrategy;
+        final int queueCapacity;
 
-        private NamedStateActorCreator(String name, CreationStrategy strategy, S initialState, boolean allowReuse, Consumer<S> finalizer) {
+        private NamedStateActorCreator(String name, CreationStrategy strategy, S initialState, boolean allowReuse, Consumer<S> finalizer, CloseStrategy closeStrategy, int queueCapacity, boolean queueProtection) {
             this.name = name;
             this.strategy = strategy;
             this.initialState = initialState;
             this.allowReuse = allowReuse;
-            this.finalizer = finalizer;
+            this.finalizer = getQueueFinalizer(name, finalizer, queueProtection);
+            this.closeStrategy = closeStrategy;
+            this.queueCapacity = queueCapacity;
         }
 
         public <T> Actor<T, Void, S> newActor(Consumer<T> actorLogic) {
-            return (Actor<T, Void, S>) strategy.<T, Void, S>start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse)), initialState, finalizer));
+            return (Actor<T, Void, S>) strategy.<T, Void, S>start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, finalizer, closeStrategy));
         }
 
         public <T> Actor<T, Void, S> newActor(BiConsumer<T, PartialActor<T, S>> actorBiLogic) {
             AtomicReference<Actor<T, Void, S>> ref = new AtomicReference<>();
             Consumer<T> actorLogic = message -> actorBiLogic.accept(message, ref.get());
 
-            ref.set((Actor<T, Void, S>) strategy.<T, Void, S>start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse)), initialState, finalizer)));
+            ref.set((Actor<T, Void, S>) strategy.<T, Void, S>start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, finalizer, closeStrategy)));
 
             return ref.get();
         }
 
         public <T> ReceivingActor<T, Void, S> newReceivingActor(BiConsumer<MessageReceiver<T>, T> actorBiLogic) {
-            MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, Void>>, T> bag = ReceivingActor.<T, Void, S>queueToBag(getOrCreateActorQueue(registerActorName(name, allowReuse)));
+            MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, Void>>, T> bag = ReceivingActor.<T, Void, S>queueToBag(getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity));
             MessageReceiver<T> receiver = ReceivingActor.convertBag(bag);
 
-            return (ReceivingActor<T, Void, S>) strategy.start(new ReceivingActor<>(actorBiLogic, bag, initialState, finalizer));
+            return (ReceivingActor<T, Void, S>) strategy.start(new ReceivingActor<>(actorBiLogic, bag, initialState, finalizer, closeStrategy));
         }
 
         public <T, R> Actor<T, R, S> newActorWithReturn(Function<T, R> actorLogic) {
-            return (Actor<T, R, S>) strategy.start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse)), initialState, finalizer));
+            return (Actor<T, R, S>) strategy.start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, finalizer, closeStrategy));
         }
 
         public <T, R> Actor<T, R, S> newActorWithReturn(BiFunction<T, PartialActor<T, S>, R> actorBiLogic) {
             AtomicReference<Actor<T, Void, S>> ref = new AtomicReference<>();
             Function<T, R> actorLogic = message -> actorBiLogic.apply(message, ref.get());
 
-            return (Actor<T, R, S>) strategy.start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse)), initialState, finalizer));
+            return (Actor<T, R, S>) strategy.start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, finalizer, closeStrategy));
         }
 
         public <T, R> ReceivingActor<T, R, S> newReceivingActorWithReturn(BiFunction<MessageReceiver<T>, T, R> actorBiLogic) {
-            MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>, T> bag = ReceivingActor.<T, R, S>queueToBag(getOrCreateActorQueue(registerActorName(name, allowReuse)));
+            MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>, T> bag = ReceivingActor.<T, R, S>queueToBag(getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity));
             MessageReceiver<T> receiver = ReceivingActor.convertBag(bag);
 
-            return (ReceivingActor<T, R, S>) strategy.start(new ReceivingActor<>(actorBiLogic, bag, initialState, finalizer));
+            return (ReceivingActor<T, R, S>) strategy.start(new ReceivingActor<>(actorBiLogic, bag, initialState, finalizer, closeStrategy));
         }
     }
 
     // Name and strategy as supplied, initialState: null
     public static class NamedStrategyActorCreator extends NamedStateActorCreator<Void> {
-        private NamedStrategyActorCreator(String name, CreationStrategy strategy) {
-            super(name, strategy, null, false, null);
+        final boolean queueProtection;
+
+        private NamedStrategyActorCreator(String name, CreationStrategy strategy, CloseStrategy closeStrategy, int queueCapacity, boolean queueProtection) {
+            super(name, strategy, null, false, null, closeStrategy, queueCapacity, queueProtection);
+
+            this.queueProtection = queueProtection;
         }
 
         public <S> NamedStateActorCreator<S> initialState(S state) {
-            return new NamedStateActorCreator<>(name, strategy, state, false, null);
+            return new NamedStateActorCreator<>(name, strategy, state, false, null, closeStrategy, queueCapacity, queueProtection);
         }
 
         /**
@@ -162,7 +174,7 @@ public class ActorSystem {
          * @return an object part of the fluent interface
          */
         public <S> NamedStateActorCreator<S> initialState(S state, Consumer<S> finalizer) {
-            return new NamedStateActorCreator<>(name, strategy, state, false, finalizer);
+            return new NamedStateActorCreator<>(name, strategy, state, false, finalizer, closeStrategy, queueCapacity, queueProtection);
         }
 
         public <S> ActorPoolCreator<S> poolParams(PoolParameters params, Supplier<S> stateSupplier) {
@@ -183,21 +195,45 @@ public class ActorSystem {
 
     // Name as supplied, strategy: auto and initialState: null
     public static class NamedActorCreator extends NamedStrategyActorCreator {
-        private NamedActorCreator(String name) {
-            super(name, CreationStrategy.AUTO);
+        private NamedActorCreator(String name, int queueCapacity, boolean queueProtection) {
+            super(name, CreationStrategy.AUTO, null, queueCapacity, queueProtection);
         }
 
         public NamedStrategyActorCreator strategy(CreationStrategy strategy) {
-            return new NamedStrategyActorCreator(name, strategy);
+            return new NamedStrategyActorCreator(name, strategy, null, queueCapacity, queueProtection);
+        }
+
+        public NamedStrategyActorCreator strategy(CreationStrategy strategy, CloseStrategy closeStrategy) {
+            return new NamedStrategyActorCreator(name, strategy, closeStrategy, queueCapacity, queueProtection);
+        }
+
+        public NamedStrategyActorCreator strategy(CloseStrategy closeStrategy) {
+            return new NamedStrategyActorCreator(name, CreationStrategy.AUTO, closeStrategy, queueCapacity, queueProtection);
         }
     }
 
     public static NamedActorCreator named(String name) {
-        return new NamedActorCreator(name);
+        return new NamedActorCreator(name, defaultQueueCapacity, false);
+    }
+
+    public static NamedActorCreator named(String name, boolean queueProtection) {
+        return new NamedActorCreator(name, defaultQueueCapacity, queueProtection);
+    }
+
+    public static NamedActorCreator named(String name, int queueCapacity) {
+        return new NamedActorCreator(name, queueCapacity, false);
+    }
+
+    public static NamedActorCreator named(String name, int queueCapacity, boolean queueProtection) {
+        return new NamedActorCreator(name, queueCapacity, queueProtection);
     }
 
     public static NamedActorCreator anonymous() {
-        return new NamedActorCreator(null);
+        return new NamedActorCreator(null, defaultQueueCapacity, false);
+    }
+
+    public static NamedActorCreator anonymous(int queueCapacity) {
+        return new NamedActorCreator(null, queueCapacity, false);
     }
 
     protected static String registerActorName(String actorName, boolean allowReuse) {
@@ -214,11 +250,11 @@ public class ActorSystem {
         return actorName;
     }
 
-    private static <T, R, S> BlockingDeque<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> getOrCreateActorQueue(String actorName) {
+    private static <T, R, S> MiniFibryQueue<T, R, S> getOrCreateActorQueue(String actorName, int capacity) {
         if (actorName == null)
-            return new LinkedBlockingDeque<>();
+            return new FibryQueue<>(capacity);
 
-        return namedQueues.computeIfAbsent(actorName, name -> new LinkedBlockingDeque<>());
+        return namedQueues.computeIfAbsent(actorName, name -> new FibryQueue(capacity));
     }
 
     private static void enforceName(String actorName) {
@@ -226,28 +262,55 @@ public class ActorSystem {
             throw new IllegalArgumentException("The actor name cannot be null as this method cannot support anonymous actors");
     }
 
-    public static <T> void sendMessage(String actorName, T message) {
+    public static <T> void sendMessage(String actorName, T message, boolean forceDelivery) {
         enforceName(actorName);
-        ActorUtils.sendMessage(getOrCreateActorQueue(actorName), message);
+        ActorUtils.sendMessage(getOrCreateActorQueue(actorName, defaultQueueCapacity), message);
     }
 
-    public static <T, R> CompletableFuture<R> sendMessageReturn(String actorName, T message) {
+    public static <T, R> CompletableFuture<R> sendMessageReturn(String actorName, T message, boolean forceDelivery) {
         enforceName(actorName);
-        return ActorUtils.sendMessageReturn(getOrCreateActorQueue(actorName), message);
+        return ActorUtils.sendMessageReturn(getOrCreateActorQueue(actorName, defaultQueueCapacity), message);
     }
 
     public static <S> void execAsync(String actorName, Consumer<S> worker) {
         enforceName(actorName);
-        ActorUtils.execAsync(getOrCreateActorQueue(actorName), worker);
+        ActorUtils.execAsync(getOrCreateActorQueue(actorName, defaultQueueCapacity), worker);
     }
 
     public static <S> void execAndWait(String actorName, Consumer<S> worker) {
         enforceName(actorName);
-        ActorUtils.execAndWait(getOrCreateActorQueue(actorName), worker);
+        ActorUtils.execAndWait(getOrCreateActorQueue(actorName, defaultQueueCapacity), worker);
     }
 
     public static <T, S> CompletableFuture<Void> execFuture(String actorName, Consumer<S> worker) {
         enforceName(actorName);
-        return ActorUtils.execFuture(getOrCreateActorQueue(actorName), worker);
+        return ActorUtils.execFuture(getOrCreateActorQueue(actorName, defaultQueueCapacity), worker);
+    }
+
+    public static boolean isActorAvailable(String name) {
+        return namedQueues.containsKey(name);
+    }
+
+    static int getActorQueueSize(String name) {
+        MiniQueue queue = namedQueues.get(name);
+
+        if (queue == null)
+            return -1;
+
+        return queue.size();
+    }
+
+    private static <S> Consumer<S> getQueueFinalizer(String queueToDelete, Consumer<S> finalizer, boolean queueRecreationProtection) {
+        if (queueToDelete == null)
+            return finalizer;
+
+        Consumer<S> consumer = state -> {
+            if (queueRecreationProtection)
+                namedQueues.put(queueToDelete, DROPPING_QUEUE);
+            else
+                namedQueues.remove(queueToDelete);
+        };
+
+        return finalizer == null ? consumer : consumer.andThen(finalizer);
     }
 }

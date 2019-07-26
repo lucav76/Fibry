@@ -36,4 +36,6 @@ Debug/
 *.key
 *.txt
 loom.sh
+loom2.sh
+out/
 

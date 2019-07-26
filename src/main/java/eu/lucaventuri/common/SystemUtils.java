@@ -3,10 +3,7 @@ package eu.lucaventuri.common;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Random;
+import java.util.*;
 import java.util.stream.Stream;
 import java.util.stream.Stream.Builder;
 
@@ -114,6 +111,22 @@ public final class SystemUtils {
      *
      * @param clo closeable to close
      */
+    public static void close(AutoCloseable clo) {
+        if (clo == null)
+            return;
+
+        try {
+            clo.close();
+        } catch (Exception e) {
+            System.err.println(e);
+        }
+    }
+
+    /**
+     * Close without exceptions
+     *
+     * @param clo closeable to close
+     */
     public static void close(Closeable clo) {
         if (clo == null)
             return;
@@ -169,6 +182,17 @@ public final class SystemUtils {
         run.run();
 
         return System.currentTimeMillis() - start;
+    }
+
+    public static <E extends Exception> BenchmarkResult benchmarkEx(RunnableEx<E> run, int numRunning) throws E {
+        long times[] = new long[numRunning];
+
+        for(int i=0; i<numRunning; i++) {
+            System.out.println("Round " + (i+1) + " of " + numRunning);
+            times[i] = timeEx(run);
+        }
+
+        return new BenchmarkResult(times);
     }
 
     public static long printTime(Runnable run, String description) {

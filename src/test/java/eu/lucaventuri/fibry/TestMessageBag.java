@@ -14,7 +14,7 @@ class B extends A {}
 public class TestMessageBag {
     @Test
     public void testEmpty() {
-        LinkedBlockingQueue<String> queue = new LinkedBlockingQueue<>();
+        MiniQueue<String> queue = MiniQueue.blocking();
         MessageBag<String, String> silo = new MessageBag<>(queue);
 
         new Thread(() -> {
@@ -27,7 +27,7 @@ public class TestMessageBag {
 
     @Test
     public void testInOrder() {
-        LinkedBlockingQueue<String> queue = new LinkedBlockingQueue<>();
+        MiniQueue<String> queue = MiniQueue.blocking();
         MessageBag<String, String> silo = new MessageBag<>(queue);
 
         new Thread(() -> {
@@ -48,7 +48,7 @@ public class TestMessageBag {
 
     @Test
     public void testReceive() {
-        LinkedBlockingQueue<Object> queue = new LinkedBlockingQueue<>();
+        MiniQueue<Object> queue = MiniQueue.blocking();
         MessageBag<Object, Object> silo = new MessageBag<>(queue);
 
         new Thread(() -> {
@@ -106,7 +106,7 @@ public class TestMessageBag {
 
     @Test
     public void testReceiveConverter() {
-        LinkedBlockingQueue<Either> queue = new LinkedBlockingQueue<>();
+        MiniQueue<Either> queue = MiniQueue.blocking();
         Function<Either, Object> converter = e -> e.left();
         MessageBag<Either, Object> silo = new MessageBag<>(queue, converter);
 
@@ -167,7 +167,7 @@ public class TestMessageBag {
 
     @Test
     public void testInheritance() {
-        LinkedBlockingQueue<Object> queue = new LinkedBlockingQueue<>();
+        MiniQueue<Object> queue = MiniQueue.blocking();
         MessageBag<Object, Object> silo = new MessageBag<>(queue);
         A a1 = new A();
         A a2 = new A();

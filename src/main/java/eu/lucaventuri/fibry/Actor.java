@@ -1,9 +1,7 @@
 package eu.lucaventuri.fibry;
 
-import eu.lucaventuri.common.Exceptions;
 import eu.lucaventuri.functional.Either3;
 
-import java.util.concurrent.BlockingDeque;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -11,24 +9,23 @@ import java.util.function.Function;
 
 /** Actor that can process messages of type T, or execute code (supplied by a caller) inside its thread/fiber */
 public class Actor<T, R, S> extends BaseActor<T, R, S> {
-    protected final BlockingDeque<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue;
     protected final Consumer<T> actorLogic;
     protected final Consumer<MessageWithAnswer<T, R>> actorLogicReturn;
 
     /**
      * Constructor creating an actor that process messages without returning any value
-     * @param actorLogic   Logic associated to the actor
-     * @param queue        queue
+     *
+     * @param actorLogic Logic associated to the actor
+     * @param queue queue
      * @param initialState optional initial state
      */
-    Actor(Consumer<T> actorLogic, BlockingDeque<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState, Consumer<S> finalizer) {
-        super(queue, finalizer);
+    protected Actor(Consumer<T> actorLogic, MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState, Consumer<S> finalizer, CloseStrategy closeStrategy) {
+        super(queue, finalizer, closeStrategy);
 
         Function<T, R> tmpLogicReturn = ActorUtils.discardingToReturning(actorLogic);
 
         this.actorLogic = actorLogic;
-        this.actorLogicReturn = mwr -> mwr.answers.complete(tmpLogicReturn.apply(mwr.message));
-        this.queue = queue;
+        this.actorLogicReturn = mwr -> mwr.answer.complete(tmpLogicReturn.apply(mwr.message));
         this.state = initialState;
     }
 
@@ -39,27 +36,30 @@ public class Actor<T, R, S> extends BaseActor<T, R, S> {
      * @param queue queue
      * @param initialState optional initial state
      */
-    Actor(Function<T, R> actorLogicReturn, BlockingDeque<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState, Consumer<S> finalizer) {
-        super(queue, finalizer);
+    protected Actor(Function<T, R> actorLogicReturn, MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState, Consumer<S> finalizer, CloseStrategy closeStrategy) {
+        super(queue, finalizer, closeStrategy);
         this.actorLogic = ActorUtils.returningToDiscarding(actorLogicReturn);
-        this.actorLogicReturn = mwr -> mwr.answers.complete(actorLogicReturn.apply(mwr.message));
-        this.queue = queue;
+        this.actorLogicReturn = mwr -> mwr.answer.complete(actorLogicReturn.apply(mwr.message));
         this.state = initialState;
     }
 
     @Override
-    void processMessages() {
-        while (!isExiting()) {
-            Exceptions.log(() -> {
-                Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>> message = queue.takeFirst();
+    // Just return a more specific type
+    public Actor<T, R, S> closeOnExit(AutoCloseable... closeables) {
+        return (Actor<T, R, S>) super.closeOnExit(closeables);
+    }
 
-                message.ifEither(cns -> cns.accept(this), actorLogic::accept, actorLogicReturn::accept);
-            });
-        }
+    protected void takeAndProcessSingleMessage() throws InterruptedException {
+        Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>> message = queue.take();
 
-        if (finalizer!=null)
-            finalizer.accept(state);
+        message.ifEither(cns -> cns.accept(this), actorLogic::accept, actorLogicReturn::accept);
+    }
 
-        notifyFinished();
+    @Override
+    // Just return a more specific type
+    public Actor<T, R, S> sendMessage(T message) {
+        if (!isExiting())
+            ActorUtils.sendMessage(queue, message);
+        return this;
     }
 }

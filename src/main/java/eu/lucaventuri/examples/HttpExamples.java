@@ -1,5 +1,6 @@
 package eu.lucaventuri.examples;
 
+import eu.lucaventuri.fibry.ActorSystem;
 import eu.lucaventuri.fibry.ActorUtils;
 import eu.lucaventuri.fibry.Stereotypes;
 

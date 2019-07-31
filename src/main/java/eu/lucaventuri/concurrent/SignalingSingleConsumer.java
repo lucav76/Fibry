@@ -7,8 +7,7 @@ import java.util.function.Consumer;
 /** Runnable that can run only once, and that can signal when it has run */
 public class SignalingSingleConsumer<S> implements Consumer<S> {
     private final CountDownLatch latch = new CountDownLatch(1);
-    private final Consumer worker
-            ;
+    private final Consumer worker;
 
     private SignalingSingleConsumer(Consumer worker) {
         this.worker = worker;

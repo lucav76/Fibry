@@ -9,6 +9,21 @@ Fibry also works from any version of Java **starting from Java 8**, but you will
 Fibry aims to replicate some of the features of the Erlang Actor System in Java.
 Fibry support of thread confinement allow you to send code to be execute in the thread/fiber of the actor.
 
+Simplicity first
+===
+*Fibry* has been designed to be simple yet flexible:
+- Your actor can and should use synchronous logic
+- There is a series of Stereotypes to handle common scenarios
+- You actors don't need to extend any particular class but they can just implement **Consumer** or **Function**
+- You actors also have the option to extend **CustomActor** and **CustomActorWithResult**, if it suits you best 
+- If you choose to simply implements **Consumer** and **Function**, your actors can also be used "transparently" in code that knows nothing about Fibry
+- It is simple to retrieve the result of a message
+- It is possible to send messages to named actors even before they are created, potentially simplifying your logic; the messages can be discarded or processed when the actor will be available 
+- There is a fluid interface to build the actors
+- You can receive messages of your choice while processing a message  
+- You can "send code" to be executed in the thread/fiber of the actor (Chromium uses a similar mechanism)
+- **Fibry has no dependencies**, so no conflicts, no surprises and just a tiny jar available in the Maven Central repository
+
 Some numbers
 ===
 So, fibers are better than threads. Got it. How much better?
@@ -27,18 +42,23 @@ I might do a better round of benchmark in the future, and disclose the character
 
 As an indication, Fibry can send around 3-6M of messages per second per core, under low thread contention.
 
-Simplicity first
+Including Fibry in your projects
 ===
-*Fibry* has been designed to be simple:
-- Your actor can and should use synchronous logic
-- There is a series of Stereotypes to handle common scenarios
-- You actors don't need to extend any particular class but just implement Consumer or Function
-- Your actors can be used "transparently" in code that knows nothing about your actors, as the implement Consumer and Function
-- It is simple to retrieve the result of a message
-- There is a fluid interface
-- You can receive messages of your choice while processing a message  
-- You can send code to be executed in the thread/fiber of the actor (Chromium uses a similar mechanism)
-- **Fibry has no dependencies**, so no conflicts, no surprises and just a tiny jar
+You can find Fibry on Maven Central.
+
+To include it using Gradle:
+```gradle
+compile group: 'eu.lucaventuri', name: 'fibry', version: '1.0'
+```
+
+To include it using Maven:
+```xml
+<dependency>
+    <groupId>eu.lucaventuri</groupId>
+    <artifactId>fibry</artifactId>
+    <version>1.0</version>
+</dependency>
+```
 
 Why fibers?
 ===
@@ -66,6 +86,8 @@ make images
 ```
 
 Please consider that to compile Loom you need a "bootstrap JDK" that should be Java 12 or 13 (I guess 14 also works as Looms is already on JDK 14). I used Zulu 12 for my tests.
+Most likely you will need to install some packages, but *sh configure* kindly tells you the command to run.
+When you are done, you will have a new JVM at your disposal. Mine was on this path: **build/linux-x86_64-server-release/images/jdk/bin/java**
 
 More info in [Loom Wiki](https://wiki.openjdk.java.net/display/loom/Main#Main-DownloadandBuildfromSource)
 On Windows you might have to use a Virtual Machine, and I would recommend to avoid shared folders as they can be issues with symbolic links.
@@ -195,7 +217,7 @@ Fibry is experimental, and to leverage its potential you need to use Loom, which
 I suspect that Loom has some bugs, as I saw some errors popping up when exchanging sync messages between a thread and a fiber, so it might be better to not mix them for now.
 If you start to use Fibry and find some bugs, please notify me.
 
-Not every network operation is *fiber friendly*, at the moment. You can find a list of what works and what does not [here](https://wiki.openjdk.java.net/display/loom/Networking+IO). 
+As of today, not every network operation is *fiber friendly*. You can find a list of what works and what does not [here](https://wiki.openjdk.java.net/display/loom/Networking+IO). 
 In particular UDP is only partially supported. Selectors are also not supported, but as avoiding non-blocking operation is a key goal of fibers, this should not be a concern.
 
 At the moment I have no plans to make a distributed version of Fibry, but if there is real interest I would be happy to do it.

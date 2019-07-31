@@ -328,7 +328,6 @@ public class Stereotypes {
                         worker.sendPoisonPill();
                     } catch (SocketTimeoutException e) {
                         /** By design */
-                        System.err.println(e);
                     }
                 }
             } catch (IOException e) {

@@ -140,10 +140,12 @@ public class ActorSystem {
         }
 
         public <T, R> Actor<T, R, S> newActorWithReturn(BiFunction<T, PartialActor<T, S>, R> actorBiLogic) {
-            AtomicReference<Actor<T, Void, S>> ref = new AtomicReference<>();
+            AtomicReference<Actor<T, R, S>> ref = new AtomicReference<>();
             Function<T, R> actorLogic = message -> actorBiLogic.apply(message, ref.get());
 
-            return (Actor<T, R, S>) strategy.start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, finalizer, closeStrategy));
+            ref.set((Actor<T, R, S>) strategy.start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, finalizer, closeStrategy)));
+
+            return ref.get();
         }
 
         public <T, R> ReceivingActor<T, R, S> newReceivingActorWithReturn(BiFunction<MessageReceiver<T>, T, R> actorBiLogic) {
@@ -262,13 +264,33 @@ public class ActorSystem {
             throw new IllegalArgumentException("The actor name cannot be null as this method cannot support anonymous actors");
     }
 
+    /**
+     * Sends a message to a named actor using only its name
+     *
+     * @param actorName Name of the actor
+     * @param message Message to be sent
+     * @param forceDelivery True to
+     * @param <T>
+     */
     public static <T> void sendMessage(String actorName, T message, boolean forceDelivery) {
         enforceName(actorName);
+
+        if (!forceDelivery && !isActorAvailable(actorName))
+            return;
+
         ActorUtils.sendMessage(getOrCreateActorQueue(actorName, defaultQueueCapacity), message);
     }
 
     public static <T, R> CompletableFuture<R> sendMessageReturn(String actorName, T message, boolean forceDelivery) {
         enforceName(actorName);
+
+        if (!forceDelivery && !isActorAvailable(actorName)) {
+            CompletableFuture<R> r = new CompletableFuture<>();
+            r.completeExceptionally(new RuntimeException("Actors not existing and force delivery not enabled"));
+
+            return r;
+        }
+
         return ActorUtils.sendMessageReturn(getOrCreateActorQueue(actorName, defaultQueueCapacity), message);
     }
 
@@ -287,6 +309,9 @@ public class ActorSystem {
         return ActorUtils.execFuture(getOrCreateActorQueue(actorName, defaultQueueCapacity), worker);
     }
 
+    /**
+     * Return true if the actor is potentially available, as this method just checks if the queue is present;
+     */
     public static boolean isActorAvailable(String name) {
         return namedQueues.containsKey(name);
     }

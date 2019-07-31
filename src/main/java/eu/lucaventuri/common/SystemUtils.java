@@ -3,7 +3,10 @@ package eu.lucaventuri.common;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.Random;
 import java.util.stream.Stream;
 import java.util.stream.Stream.Builder;
 
@@ -185,11 +188,18 @@ public final class SystemUtils {
     }
 
     public static <E extends Exception> BenchmarkResult benchmarkEx(RunnableEx<E> run, int numRunning) throws E {
+        return benchmarkEx(run, null, numRunning);
+    }
+
+    public static <E extends Exception> BenchmarkResult benchmarkEx(RunnableEx<E> run, RunnableEx<E> cleanup, int numRunning) throws E {
         long times[] = new long[numRunning];
 
-        for(int i=0; i<numRunning; i++) {
-            System.out.println("Round " + (i+1) + " of " + numRunning);
+        for (int i = 0; i < numRunning; i++) {
+            System.out.println("Round " + (i + 1) + " of " + numRunning);
             times[i] = timeEx(run);
+
+            if (cleanup != null)
+                cleanup.run();
         }
 
         return new BenchmarkResult(times);

@@ -91,6 +91,14 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Consumer<T>
             ActorUtils.execAndWait(queue, worker);
     }
 
+    public void execAsyncState(Consumer<S> worker) {
+        execAsync(actor -> worker.accept(actor.getState()));
+    }
+
+    public void execAndWaitState(Consumer<S> worker) {
+        execAndWait(actor -> worker.accept(actor.getState()));
+    }
+
     /** Asynchronously executes some logic in the actor; the parameter supplied is the actor itself. The returned Future can be used to check if the task has been completed. */
     public CompletableFuture<Void> execFuture(Consumer<PartialActor<T, S>> worker) {
         if (isExiting())

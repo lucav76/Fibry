@@ -21,6 +21,13 @@ publishing {
             artifactId = 'fibry'
             from components.java
 
+            artifact(sourceJar) {
+                classifier = 'sources'
+            }
+            artifact(javadocJar) {
+                classifier = 'javadoc'
+            }
+
             versionMapping {
                 usage('java-api') {
                     fromResolutionOf('runtimeClasspath')

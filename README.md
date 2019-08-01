@@ -5,9 +5,9 @@ Fibry is an experimental Actor System built to be simple and flexible to use. Ho
 Fibry is the the **first Java Actor System using fibers from [Project Loom](https://openjdk.java.net/projects/loom/)**.
 
 Project Loom is an OpenJDK project that is expected to bring fibers (green threads) and continuations (co-routines) to Java.
-Fibry also works from any version of Java **starting from Java 8**, but you will need to use Loom if you want to leverage the power of fibers.
+Fibry works from any version of Java **starting from Java 8**, but you will need to use Loom if you want to leverage the power of fibers.
 Fibry aims to replicate some of the features of the Erlang Actor System in Java.
-Fibry support of thread confinement allow you to send code to be execute in the thread/fiber of the actor.
+Fibry allows you to send code to be execute in the thread/fiber of an actor, a mechanism similar to the one used in Chromium.
 
 Simplicity first
 ===
@@ -21,7 +21,7 @@ Simplicity first
 - It is possible to send messages to named actors even before they are created, potentially simplifying your logic; the messages can be discarded or processed when the actor will be available 
 - There is a fluid interface to build the actors
 - You can receive messages of your choice while processing a message  
-- You can "send code" to be executed in the thread/fiber of the actor (Chromium uses a similar mechanism)
+- You can "send code" to be executed in the thread/fiber of an actor
 - **Fibry has no dependencies**, so no conflicts, no surprises and just a tiny jar available in the Maven Central repository
 
 Some numbers
@@ -30,17 +30,16 @@ So, fibers are better than threads. Got it. How much better?
 Very much. Depending on your problem, you can consider them 10X-100X better than threads.
 Please remember that Fibry is not optimized for performance, though performance have been taken into high consideration.
 Also Loom is not completed yet, so its performance can change.
-I would not call the following numbers real benchmarks, as they have not been taken in a properly configured system, but the difference between threads and fibers is so high that a pattern will clearly emerge. I used my development laptop for these measures.
-I might do a better round of benchmark in the future, and disclose the characteristics of the system.
+I took some informal benchmarks using a C5.2xlarge VM instance, without tuning of the OS or of Loom:
 
-- Number of concurrent threads that can be created without OS tuning: around 10K
+- Number of concurrent threads that can be created without OS tuning: around 3K
 - Number of concurrent fibers that can be created: more than 3M (**300x better**)
-- Threads created per second: 3.5K
-- Fibers created per second: 130K (**37x better**)
-- Sync messages per second, between 2 threads (requires thread switching): 8.5K
-- Sync messages per second, between 2 threads (requires fiber switching): 64K (**7.5X better**)
+- Threads created per second: 15K
+- Fibers created per second: 600K (**40x better**)
+- Sync messages per second, between 2 threads (requires thread switching): 50K
+- Sync messages per second, between 2 threads (requires fiber switching): 150K (**3x better**)
 
-As an indication, Fibry can send around 3-6M of messages per second per core, under low thread contention.
+As an indication, Fibry can send around 7-8M of messages per second from a single core, under low thread contention.
 
 Including Fibry in your projects
 ===
@@ -74,7 +73,7 @@ That's why **Fibry** was born: to let you write simple actors with synchronous l
 
 Project Loom?
 ===
-Yes, that's the trick. Project Loom enable fibers. While fibers are nice but themselves, they were not very useful to do network operations until JDK 13 (due in September 2019) merged [JEP 353](https://openjdk.java.net/jeps/353), that rewrote part the network stack of Java to be Fiber friendly.
+That's the trick. Project Loom enable fibers. While fibers are nice but themselves, they were not very useful to do network operations until JDK 13 (due in September 2019) merged [JEP 353](https://openjdk.java.net/jeps/353), that rewrote part the network stack of Java to be Fiber friendly.
 Unfortunately, Loom is not yet merged into the OpenJDK, so you will have to build it by yourself. This might sounds scaring, but it is not.
 On Linux, building Loom is a matter of running a few commands and waiting:
 ```bash
@@ -106,10 +105,10 @@ You can supply an initial state, which is mostly useful for thread confinement.
 You can create 4 type of actor (ok, 6...):
 - Normal Actors: they receive messages without returning any result; they need to implement Consumer or BiConsumer (if you need access to the actor)
 - Returning Actors: they compute a result and return a CompletableFuture for each message; they need to implement Function or BiFunction  (if you need access to the actor)
-- Receiving actors: they are norman actor that can also "receive", meaning that they can ask the actor system to deliver some particular message while processing another message, e.g. if you are waiting for another actor to provide some information; they need to implement BiConsumer
+- Receiving actors: they are normal actor that can also "receive", meaning that they can ask the actor system to deliver some particular message while processing another message, e.g. if you are waiting for another actor to provide some information; they need to implement BiConsumer
 - Receiving and returning actors: the are receiving actors that can also return a result;     they need to implement BiFunction
 
-Please take into consideration that while Receiving actors are the most powerful, there is some overhead in their use, and the receive operation must be use carefully as in the worst case it might have to scan all the message in the queue. In fact, I expect many cases to be covered with returning actors (e.g. you ask something to another actor and wait for the result), and they should be preferred.
+Please take into consideration that while Receiving actors are the most powerful, there is some overhead in their use, and the receive operation must be used carefully as in the worst case it might have to scan all the message in the queue. In fact, I expect many cases to be covered with returning actors (e.g. you ask something to another actor and wait for the result), and they should be preferred.
 
 Let's see now how to create ac actor:
 ```Java
@@ -158,7 +157,7 @@ Please check the **examples** package for inspiration.
 
 This is a very simple HTTP Hello World:
 ```java
-Stereotypes.auto().embeddedHttpServer(8080, new Stereotypes.HttpStringWorker("/", ex -> "Hello world!"));
+Stereotypes.def().embeddedHttpServer(8080, new Stereotypes.HttpStringWorker("/", ex -> "Hello world!"));
 ```
 
 Extending CustomActor and CustomActorWithResult
@@ -172,8 +171,8 @@ Shutting down the actors
 Shutting down the actors is a bit complicated, depending on which goal you want to achieve.
 One way is to call **askExit()**, which will ask the actor to terminate as soon as possible, which by default means after finishing the current message; long running actors should check for their **isExiting()** method. This will however loose the messages on the queue (and the actor will clear the queue). 
 Another way is to call **sendPoisonPill()**, which will queue a message able to shut down the actor: the messages after the poison pill will be lost, the ones before it will be processed.
-The actors are Closeable(), so they can be put in a try-with-resources block. Please keep in mind that the default behavior is to call **askExit()**, so when the code leaves the try-with-resources block the actor might still be alive and working. This behavior can be customised using a different ClosingStrategy. For example, SEND_POISON_PILL_AND_WAIT will block in the try catch until all the messages in the queue (before the poison pill) are processed.
-The ClosingStrategy can be set using the strategy() call in ActorSystem, which can also set creation strategy.
+The actors are Closeable(), so they can be put in a try-with-resources block. Please keep in mind that the default behavior is to call **askExit()**, so when the code leaves the try-with-resources block the actor might still be alive and working. This behavior can be customised using a different ClosingStrategy. For example, **SEND_POISON_PILL_AND_WAIT** will block in the try catch until all the messages in the queue (before the poison pill) are processed.
+The ClosingStrategy can be set using the **strategy()** call in ActorSystem, which can also set creation strategy.
 Using blocking try-with resources with more than one actor might be a bit complicated, an might not be worth it. If that's the chosen strategy, it might be better to have only one actor blocking on close, to avoid race conditions.
 
 For more information, please look at the Exitable class.
@@ -202,13 +201,13 @@ The leader can be used as a normal actor, and will take care to send the message
 
 This code creates a fixed pool of 3 actors:
 ```java
-var leader = ActorSystem.anonymous().strategy(CreationStrategy.THREAD).<String>poolParams(PoolParameters.fixedSize(3), null).<String>newPool(actorLogic);
+var leader = ActorSystem.anonymous().<String>poolParams(PoolParameters.fixedSize(3), null).<String>newPool(actorLogic);
 
 ```  
 
 And the following code creates a scalable pool from 3 to 10 actors:
 ```java
-var leader = ActorSystem.anonymous().strategy(CreationStrategy.THREAD).<String>poolParams(PoolParameters.scaling(3, 10, 100, 0, 1, 500), null).<String>newPool(actorLogic);
+var leader = ActorSystem.anonymous().<String>poolParams(PoolParameters.scaling(3, 10, 100, 0, 1, 500), null).<String>newPool(actorLogic);
 ```
  
 Some warnings

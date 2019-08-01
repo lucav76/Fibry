@@ -19,7 +19,7 @@ public class TestPools {
         Set<Thread> actors = new HashSet<>();
         CountDownLatch latch = new CountDownLatch(3);
         CountDownLatch latch2 = new CountDownLatch(1);
-        PoolActorLeader<String, Void, String> leader = (PoolActorLeader<String, Void, String>) ActorSystem.anonymous().strategy(CreationStrategy.THREAD).<String>poolParams(PoolParameters.fixedSize(3), null).<String>newPool(msg -> {
+        PoolActorLeader<String, Void, String> leader = (PoolActorLeader<String, Void, String>) ActorSystem.anonymous().<String>poolParams(PoolParameters.fixedSize(3), null).<String>newPool(msg -> {
             actors.add(Thread.currentThread());
             System.out.println(Thread.currentThread() + " - " + latch.getCount() + " - " + actors.size());
             latch.countDown();
@@ -52,7 +52,7 @@ public class TestPools {
     public void testScaling() throws ExecutionException, InterruptedException {
         int maxActors = 10;
         Set<Thread> actors = new HashSet<>();
-        PoolActorLeader<String, Void, String> leader = (PoolActorLeader<String, Void, String>) ActorSystem.anonymous().strategy(CreationStrategy.THREAD).<String>poolParams(PoolParameters.scaling(3, maxActors, 10, 2, 1, 5), null).<String>newPool(msg -> {
+        PoolActorLeader<String, Void, String> leader = (PoolActorLeader<String, Void, String>) ActorSystem.anonymous().<String>poolParams(PoolParameters.scaling(3, maxActors, 10, 2, 1, 5), null).<String>newPool(msg -> {
             actors.add(Thread.currentThread());
             SystemUtils.sleep(30);
         });

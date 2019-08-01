@@ -4,6 +4,7 @@ package eu.lucaventuri.common;
 
 import java.util.Arrays;
 import java.util.concurrent.Callable;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -43,6 +44,15 @@ final public class Exceptions {
                 return call.call();
             } catch (Throwable t) {
                 return valueOnException;
+            }
+        };
+    }
+
+    public static <T> Consumer<T> silentConsumer(ConsumerEx<T, ? extends Throwable> consumer) {
+        return input -> {
+            try {
+                consumer.accept(input);
+            } catch (Throwable throwable) {
             }
         };
     }

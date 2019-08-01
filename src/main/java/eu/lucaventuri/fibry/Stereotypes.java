@@ -3,9 +3,7 @@ package eu.lucaventuri.fibry;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
-import eu.lucaventuri.common.Exceptions;
-import eu.lucaventuri.common.Exitable;
-import eu.lucaventuri.common.SystemUtils;
+import eu.lucaventuri.common.*;
 import eu.lucaventuri.fibry.ActorSystem.NamedStateActorCreator;
 import eu.lucaventuri.fibry.ActorSystem.NamedStrategyActorCreator;
 
@@ -26,9 +24,7 @@ import java.util.function.Supplier;
 
 import static eu.lucaventuri.fibry.CreationStrategy.*;
 
-// Connection acceptor
-// Embedded web server acceptor
-// Anonymous workers
+/** Class providing functions for common use cases */
 public class Stereotypes {
     private static AtomicBoolean debug = new AtomicBoolean(false);
 
@@ -213,6 +209,11 @@ public class Stereotypes {
             return actor;
         }
 
+        /** Creates an actor that runs a RunnableEx, once, discarding any exception */
+        public <E extends Throwable> SinkActorSingleMessage<Void> runOnceSilent(RunnableEx<E> run) {
+            return runOnce(Exceptions.silentRunnable(run));
+        }
+
         /**
          * Creates an actor that runs a Consumer, once.
          * The consumer receives the actor itself, which sometimes can be useful (e.g. to check if somebody ask to exit)
@@ -311,6 +312,10 @@ public class Stereotypes {
             return actor;
         }
 
+        public <S, E extends Throwable> SinkActorSingleMessage<Void> tcpAcceptorSilent(int port, ConsumerEx<Socket, E> workersLogic, Supplier<S> stateSupplier) throws IOException {
+            return tcpAcceptor(port, Exceptions.silentConsumer(workersLogic), stateSupplier);
+        }
+
         private <S> void acceptTcpConnections(Consumer<Socket> workersLogic, Supplier<S> stateSupplier, SinkActor<Void> thisActor, ServerSocket serverSocket) {
             try {
                 while (!thisActor.isExiting()) {
@@ -359,24 +364,43 @@ public class Stereotypes {
         }
     }
 
+    /** Actors will be created using threads */
     public static NamedStereotype threads() {
         return new NamedStereotype(THREAD, null);
     }
 
+    /** Actors will be created using fibers if available, else with threads */
     public static NamedStereotype auto() {
         return new NamedStereotype(AUTO, null);
     }
 
+    /** Actors will be created using fibers */
     public static NamedStereotype fibers() { return new NamedStereotype(FIBER, null); }
 
+    /**
+     * Actors will be created using threads
+     *
+     * @param closeStrategy What to do when close() is called
+     * @return an object that can create actors with the requested characteristics
+     */
     public static NamedStereotype threads(Exitable.CloseStrategy closeStrategy) {
         return new NamedStereotype(THREAD, closeStrategy);
     }
 
+    /**
+     * Actors will be created using fibers if available, else with threads
+     * @param closeStrategy What to do when close() is called
+     * @return an object that can create actors with the requested characteristics
+     */
     public static NamedStereotype auto(Exitable.CloseStrategy closeStrategy) {
         return new NamedStereotype(AUTO, closeStrategy);
     }
 
+    /**
+     * Actors will be created using fibers
+     * @param closeStrategy What to do when close() is called
+     * @return an object that can create actors with the requested characteristics
+     */
     public static NamedStereotype fibers(Exitable.CloseStrategy closeStrategy) { return new NamedStereotype(FIBER, closeStrategy); }
 
     public static void setDebug(boolean activateDebug) {

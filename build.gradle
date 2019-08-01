@@ -6,7 +6,7 @@ plugins {
 }
 
 group 'eu.lucaventuri'
-version '1.0.1'
+version version
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8

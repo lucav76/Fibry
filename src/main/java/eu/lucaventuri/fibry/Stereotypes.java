@@ -377,6 +377,11 @@ public class Stereotypes {
     /** Actors will be created using fibers */
     public static NamedStereotype fibers() { return new NamedStereotype(FIBER, null); }
 
+    /** Actors will be created using the default strategy, set in ActorSystem */
+    public static NamedStereotype def() {
+        return new NamedStereotype(ActorSystem.defaultStrategy, null);
+    }
+
     /**
      * Actors will be created using threads
      *
@@ -402,6 +407,18 @@ public class Stereotypes {
      * @return an object that can create actors with the requested characteristics
      */
     public static NamedStereotype fibers(Exitable.CloseStrategy closeStrategy) { return new NamedStereotype(FIBER, closeStrategy); }
+
+    /**
+     * Actors will be created using the default strategy, set in ActorSystem
+     *
+     * @param closeStrategy What to do when close() is called
+     * @return an object that can create actors with the requested characteristics
+     */
+    public static NamedStereotype def(Exitable.CloseStrategy closeStrategy) {
+        return new NamedStereotype(ActorSystem.defaultStrategy, closeStrategy);
+    }
+
+
 
     public static void setDebug(boolean activateDebug) {
         debug.set(activateDebug);

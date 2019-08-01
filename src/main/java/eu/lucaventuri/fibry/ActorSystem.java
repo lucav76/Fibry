@@ -23,6 +23,7 @@ public class ActorSystem {
     private static final AtomicLong progressivePoolId = new AtomicLong();
     private static final int defaultQueueCapacity = Integer.MAX_VALUE;
     static final MiniFibryQueue DROPPING_QUEUE = MiniFibryQueue.dropping();
+    static volatile CreationStrategy defaultStrategy = CreationStrategy.AUTO;
 
     public static class ActorPoolCreator<S> {
         private final CreationStrategy strategy;
@@ -198,7 +199,7 @@ public class ActorSystem {
     // Name as supplied, strategy: auto and initialState: null
     public static class NamedActorCreator extends NamedStrategyActorCreator {
         private NamedActorCreator(String name, int queueCapacity, boolean queueProtection) {
-            super(name, CreationStrategy.AUTO, null, queueCapacity, queueProtection);
+            super(name, defaultStrategy, null, queueCapacity, queueProtection);
         }
 
         public NamedStrategyActorCreator strategy(CreationStrategy strategy) {
@@ -337,5 +338,13 @@ public class ActorSystem {
         };
 
         return finalizer == null ? consumer : consumer.andThen(finalizer);
+    }
+
+    public static CreationStrategy getDefaultStrategy() {
+        return defaultStrategy;
+    }
+
+    public static void setDefaultStrategy(CreationStrategy defaulStrategy) {
+        ActorSystem.defaultStrategy = defaulStrategy;
     }
 }

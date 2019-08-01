@@ -2,6 +2,7 @@ plugins {
     id 'java-library'
     id 'maven-publish'
     id 'signing'
+    id 'net.researchgate.release' version '2.6.0'
 }
 
 group 'eu.lucaventuri'

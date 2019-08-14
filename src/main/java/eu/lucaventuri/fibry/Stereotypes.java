@@ -203,8 +203,8 @@ public class Stereotypes {
         /**
          * Creates a map-reduce local system, using a pool of actors and a single reducer
          * @param params Parameters for the creation of the pool
-         * @param mapLogic Logic of the mapper (input -> output)
-         * @param reduceLogic Logic of the reducer (accumulator, newValue -> newAccumulator)
+         * @param mapLogic Logic of the mapper (input -&gt; output)
+         * @param reduceLogic Logic of the reducer (accumulator, newValue -&gt; newAccumulator)
          * @param initialReducerState Initial state of the reducer. Note: mappers should be stateless
          * @param <TM> Input type of the mapper
          * @param <RM> Output type of the mapper == Input type of the reducer
@@ -223,8 +223,8 @@ public class Stereotypes {
 
         /**
          * Creates a map-reduce local system, using one actor per request
-         * @param mapLogic Logic of the mapper (input -> output)
-         * @param reduceLogic Logic of the reducer (accumulator, newValue -> newAccumulator)
+         * @param mapLogic Logic of the mapper (input -&gt; output)
+         * @param reduceLogic Logic of the reducer (accumulator, newValue -&gt; newAccumulator)
          * @param initialReducerState Initial state of the reducer. Note: mappers should be stateless
          * @param <TM> Input type of the mapper
          * @param <RM> Output type of the mapper == Input type of the reducer

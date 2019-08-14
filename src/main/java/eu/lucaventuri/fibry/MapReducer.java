@@ -78,8 +78,6 @@ public class MapReducer<I, O> {
      *
      * @param forceComplete True to force complete. Normally you call complete() when ready
      * @return the result of the computation.
-     * @throws InterruptedException
-     * @throws ExecutionException
      */
     public O get(boolean forceComplete) {
         if (forceComplete)

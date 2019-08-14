@@ -100,9 +100,9 @@ public class Exitable implements Closeable {
     }
 
     /** Send a poison pill; this behavior is too specific, and therefore no default implementation is possible
-     * @return true if the pill ahs been sent*/
+     * @return true if the pill has been sent*/
     public boolean sendPoisonPill() {
-        throw new UnsupportedOperationException("sendPoisonPill() has not been implemented");
+        return false;
     }
 
     /**

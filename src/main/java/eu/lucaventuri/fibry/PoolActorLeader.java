@@ -9,13 +9,15 @@ import eu.lucaventuri.functional.Either3;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-/** The group leader of ana actor pool does not process messages by itself; its role is to propagate the exit calls */
+/**
+ * The group leader of ana actor pool does not process messages by itself; its role is to propagate the exit calls
+ */
 public class PoolActorLeader<T, R, S> extends Actor<T, R, S> {
     private final MultiExitable groupExit;
 
     PoolActorLeader(MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState, MultiExitable groupExit, Consumer<S> finalizer) {
         super(msg -> {
-        }, queue, initialState, finalizer, null);
+        }, queue, initialState, finalizer, null, Integer.MAX_VALUE);
         this.groupExit = groupExit;
     }
 
@@ -31,16 +33,20 @@ public class PoolActorLeader<T, R, S> extends Actor<T, R, S> {
 
     @Override
     public void askExit() {
+        groupExit.sendPoisonPill();
         groupExit.askExit();
+        super.askExit();
     }
 
     @Override
     public void askExitAndWait() {
-        groupExit.askExitAndWait();
+        askExit();
+        groupExit.waitForExit();
     }
 
     @Override
     public void askExitAndWait(long timeout, TimeUnit unit) {
+        askExit();
         groupExit.askExitAndWait(timeout, unit);
     }
 
@@ -60,5 +66,13 @@ public class PoolActorLeader<T, R, S> extends Actor<T, R, S> {
 
     MultiExitable getGroupExit() {
         return groupExit;
+    }
+
+    @Override
+    public boolean sendPoisonPill() {
+        groupExit.sendPoisonPill();
+        execAsync(state -> askExit());
+
+        return true;
     }
 }

@@ -18,13 +18,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
+import java.util.function.*;
 
 import static eu.lucaventuri.fibry.CreationStrategy.*;
 
-/** Class providing functions for common use cases */
+/**
+ * Class providing functions for common use cases
+ */
 public class Stereotypes {
     private static AtomicBoolean debug = new AtomicBoolean(false);
 
@@ -59,7 +59,7 @@ public class Stereotypes {
 
         /**
          * @param actorLogic Logic associated to each actor (no value returned as a result of the message)
-         * @param <T> Message type
+         * @param <T>        Message type
          * @return a supplier of actors that are going to use the specified logic
          */
         public <T> Supplier<Actor<T, Void, Void>> workersCreator(Consumer<T> actorLogic) {
@@ -70,7 +70,7 @@ public class Stereotypes {
 
         /**
          * @param actorLogic Logic associated to each actor
-         * @param <T> Message type
+         * @param <T>        Message type
          * @return a consumer that for each message accepted will create a new actor that will process it.
          * When appropriate, this is a simple way to run parallel processing, as long as you don't need to know the result
          */
@@ -82,8 +82,8 @@ public class Stereotypes {
 
         /**
          * @param actorLogic Logic associated to each actor (a value can be returned as a result of the message)
-         * @param <T> Message type
-         * @param <R> Return type
+         * @param <T>        Message type
+         * @param <R>        Return type
          * @return a supplier of actors that are going to use the specified logic
          */
         public <T, R> Supplier<Actor<T, R, Void>> workersWithReturnCreator(Function<T, R> actorLogic) {
@@ -94,7 +94,7 @@ public class Stereotypes {
 
         /**
          * @param actorLogic Logic associated to each actor
-         * @param <T> Message type
+         * @param <T>        Message type
          * @return a function that for each message accepted will create a new actor that will process it.
          * When appropriate, this is a simple way to run parallel processing
          */
@@ -109,7 +109,7 @@ public class Stereotypes {
          * The workers need to implement the HttpHandler interface.
          * This method is not recommended for a real server, but if you need something simple, it can be useful.
          *
-         * @param port HTTP port to open
+         * @param port    HTTP port to open
          * @param workers pairs of context and handler, associating a path to a worker
          * @throws IOException
          */
@@ -133,29 +133,29 @@ public class Stereotypes {
          * The workers need to implement Function&lt;HttpExchange, String&gt;, therefore they can just return a string (so they are only useful on very simple cases).
          * This method is not recommended for a real server, but if you need something simple, it can be useful.
          *
-         * @param port HTTP port to open
+         * @param port         HTTP port to open
          * @param otherWorkers pairs of context and handler, associating a path to a worker
          * @throws IOException
          */
         public void embeddedHttpServer(int port, Function<HttpExchange, String> rootWorker, HttpStringWorker... otherWorkers) throws IOException {
-            HttpStringWorker workers[] = new HttpStringWorker[otherWorkers.length+1];
+            HttpStringWorker workers[] = new HttpStringWorker[otherWorkers.length + 1];
 
             workers[0] = new HttpStringWorker("/", rootWorker);
-            for(int i=0; i<otherWorkers.length; i++)
-              workers[i+1] = otherWorkers[i];
+            for (int i = 0; i < otherWorkers.length; i++)
+                workers[i + 1] = otherWorkers[i];
 
             embeddedHttpServer(port, workers);
         }
 
-            /**
-             * Opens a Java embedded HTTP server (yes, com.sun.net.httpserver.HttpServer), where each request is server by an actor.
-             * The workers need to implement Function&lt;HttpExchange, String&gt;, therefore they can just return a string (so they are only useful on very simple cases).
-             * This method is not recommended for a real server, but if you need something simple, it can be useful.
-             *
-             * @param port HTTP port to open
-             * @param workers pairs of context and handler, associating a path to a worker
-             * @throws IOException
-             */
+        /**
+         * Opens a Java embedded HTTP server (yes, com.sun.net.httpserver.HttpServer), where each request is server by an actor.
+         * The workers need to implement Function&lt;HttpExchange, String&gt;, therefore they can just return a string (so they are only useful on very simple cases).
+         * This method is not recommended for a real server, but if you need something simple, it can be useful.
+         *
+         * @param port    HTTP port to open
+         * @param workers pairs of context and handler, associating a path to a worker
+         * @throws IOException
+         */
         public void embeddedHttpServer(int port, HttpStringWorker... workers) throws IOException {
             NamedStateActorCreator<Void> config = anonymous().initialState(null);
             HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
@@ -178,7 +178,9 @@ public class Stereotypes {
             server.start();
         }
 
-        /** Creates a named actor that does not receive messages; this is useful to execute code in a remote thread */
+        /**
+         * Creates a named actor that does not receive messages; this is useful to execute code in a remote thread
+         */
         public <S> SinkActor<S> sink(String name, S state) {
             NamedStateActorCreator<S> config = named(name).initialState(state);
 
@@ -186,7 +188,9 @@ public class Stereotypes {
             });
         }
 
-        /** Creates an actor that does not receive messages; this is useful to execute code in a remote thread */
+        /**
+         * Creates an actor that does not receive messages; this is useful to execute code in a remote thread
+         */
         public <S> SinkActor<S> sink(S state) {
             NamedStateActorCreator<S> config = anonymous().initialState(state);
 
@@ -196,7 +200,51 @@ public class Stereotypes {
             return actor;
         }
 
-        /** Creates an actor that runs a Runnable, once */
+        /**
+         * Creates a map-reduce local system, using a pool of actors and a single reducer
+         * @param params Parameters for the creation of the pool
+         * @param mapLogic Logic of the mapper (input -> output)
+         * @param reduceLogic Logic of the reducer (accumulator, newValue -> newAccumulator)
+         * @param initialReducerState Initial state of the reducer. Note: mappers should be stateless
+         * @param <TM> Input type of the mapper
+         * @param <RM> Output type of the mapper == Input type of the reducer
+         * @param <RR> Output type of the reducer
+         * @return a MapReducer
+         */
+        public <TM, RM, RR> MapReducer<TM, RR> mapReduce(PoolParameters params, Function<TM, RM> mapLogic, BiFunction<RR, RM, RR> reduceLogic, RR initialReducerState) {
+            Actor<RM, Void, RR> reducer = ActorSystem.anonymous().strategy(strategy).initialState(initialReducerState).newActor((data, thisActor) ->
+                    thisActor.setState(reduceLogic.apply(thisActor.getState() /** Accumulator */, data)));
+            PoolActorLeader<TM, Void, Object> poolLeader = anonymous().poolParams(params, null).newPool(data ->
+                    reducer.sendMessage(mapLogic.apply(data))
+            );
+
+            return new MapReducer<>(poolLeader, reducer);
+        }
+
+        /**
+         * Creates a map-reduce local system, using one actor per request
+         * @param mapLogic Logic of the mapper (input -> output)
+         * @param reduceLogic Logic of the reducer (accumulator, newValue -> newAccumulator)
+         * @param initialReducerState Initial state of the reducer. Note: mappers should be stateless
+         * @param <TM> Input type of the mapper
+         * @param <RM> Output type of the mapper == Input type of the reducer
+         * @param <RR> Output type of the reducer
+         * @return a MapReducer
+         */
+        public <TM, RM, RR> MapReducer<TM, RR> mapReduce(Function<TM, RM> mapLogic, BiFunction<RR, RM, RR> reduceLogic, RR initialReducerState) {
+            Actor<RM, Void, RR> reducer = ActorSystem.anonymous().strategy(strategy).initialState(initialReducerState).newActor((data, thisActor) ->
+                    thisActor.setState(reduceLogic.apply(thisActor.getState() /** Accumulator */, data)));
+            AtomicReference<Spawner<TM, Void, Object>> spawnerRef = new AtomicReference<>();
+            NamedStateActorCreator<Object> creator = ActorSystem.anonymous().strategy(strategy).initialState(null, state -> spawnerRef.get().finalizer().accept(state));
+            Spawner<TM, Void, Object> spawner = new Spawner<>(creator, data -> { reducer.sendMessage(mapLogic.apply(data)); return null; });
+            spawnerRef.set(spawner);
+
+            return new MapReducer<>(spawner, reducer);
+        }
+
+        /**
+         * Creates an actor that runs a Runnable, once
+         */
         public SinkActorSingleMessage<Void> runOnce(Runnable run) {
             SinkActor<Void> actor = sink(null);
 
@@ -209,7 +257,9 @@ public class Stereotypes {
             return actor;
         }
 
-        /** Creates an actor that runs a RunnableEx, once, discarding any exception */
+        /**
+         * Creates an actor that runs a RunnableEx, once, discarding any exception
+         */
         public <E extends Throwable> SinkActorSingleMessage<Void> runOnceSilent(RunnableEx<E> run) {
             return runOnce(Exceptions.silentRunnable(run));
         }
@@ -229,14 +279,18 @@ public class Stereotypes {
             return actor;
         }
 
-        /** Creates an actor that runs a Runnable forever, every scheduleMs ms */
+        /**
+         * Creates an actor that runs a Runnable forever, every scheduleMs ms
+         */
         public SinkActorSingleMessage<Void> schedule(Runnable run, long scheduleMs) {
             return schedule(run, scheduleMs, Long.MAX_VALUE);
         }
 
-        /** Creates an actor that runs a Runnable maxTimes or until somebody asks for exit (this is controlled only in between executions); the actor is scheduled to run every scheduleMs ms */
+        /**
+         * Creates an actor that runs a Runnable maxTimes or until somebody asks for exit (this is controlled only in between executions); the actor is scheduled to run every scheduleMs ms
+         */
         public SinkActorSingleMessage<Void> schedule(Runnable run, long scheduleMs, long maxTimes) {
-            Actor<Object, Void, Void> actor = (Actor<Object, Void, Void>)sink((Void)null);
+            Actor<Object, Void, Void> actor = (Actor<Object, Void, Void>) sink((Void) null);
 
             // Deadlock prevention
             actor.setCloseStrategy(Exitable.CloseStrategy.ASK_EXIT);
@@ -271,10 +325,10 @@ public class Stereotypes {
          * - They workers take ownership of the connection, however the acceptor will try to close it anyway. So the worker don't need to close it.
          * - After the connection, a poison pill will be sent, so the actor will die after processing one connection
          *
-         * @param port TCP port
-         * @param workersLogic Logic of each worker
+         * @param port          TCP port
+         * @param workersLogic  Logic of each worker
          * @param stateSupplier Supplier able to create a new state for each worker
-         * @param <S> Type of state
+         * @param <S>           Type of state
          * @return the acceptor actor
          * @throws IOException this is only thrown if it happens at the beginning, when the ServerSocket is created. Other exceptions will be sent to the console, and the socket will be created again. If the exception is thrown, the actor will also be killed, else it will keep going and retry
          */
@@ -364,20 +418,30 @@ public class Stereotypes {
         }
     }
 
-    /** Actors will be created using threads */
+    /**
+     * Actors will be created using threads
+     */
     public static NamedStereotype threads() {
         return new NamedStereotype(THREAD, null);
     }
 
-    /** Actors will be created using fibers if available, else with threads */
+    /**
+     * Actors will be created using fibers if available, else with threads
+     */
     public static NamedStereotype auto() {
         return new NamedStereotype(AUTO, null);
     }
 
-    /** Actors will be created using fibers */
-    public static NamedStereotype fibers() { return new NamedStereotype(FIBER, null); }
+    /**
+     * Actors will be created using fibers
+     */
+    public static NamedStereotype fibers() {
+        return new NamedStereotype(FIBER, null);
+    }
 
-    /** Actors will be created using the default strategy, set in ActorSystem */
+    /**
+     * Actors will be created using the default strategy, set in ActorSystem
+     */
     public static NamedStereotype def() {
         return new NamedStereotype(ActorSystem.defaultStrategy, null);
     }
@@ -394,6 +458,7 @@ public class Stereotypes {
 
     /**
      * Actors will be created using fibers if available, else with threads
+     *
      * @param closeStrategy What to do when close() is called
      * @return an object that can create actors with the requested characteristics
      */
@@ -403,10 +468,13 @@ public class Stereotypes {
 
     /**
      * Actors will be created using fibers
+     *
      * @param closeStrategy What to do when close() is called
      * @return an object that can create actors with the requested characteristics
      */
-    public static NamedStereotype fibers(Exitable.CloseStrategy closeStrategy) { return new NamedStereotype(FIBER, closeStrategy); }
+    public static NamedStereotype fibers(Exitable.CloseStrategy closeStrategy) {
+        return new NamedStereotype(FIBER, closeStrategy);
+    }
 
     /**
      * Actors will be created using the default strategy, set in ActorSystem
@@ -417,7 +485,6 @@ public class Stereotypes {
     public static NamedStereotype def(Exitable.CloseStrategy closeStrategy) {
         return new NamedStereotype(ActorSystem.defaultStrategy, closeStrategy);
     }
-
 
 
     public static void setDebug(boolean activateDebug) {

@@ -1,11 +1,8 @@
 package eu.lucaventuri.fibry;
 
-import eu.lucaventuri.common.Exceptions;
-import eu.lucaventuri.common.RunnableEx;
+import eu.lucaventuri.common.Stateful;
 
-public interface SinkActorSingleMessage<S> extends AutoCloseable {
-    public S getState();
-
+public interface SinkActorSingleMessage<S> extends AutoCloseable, Stateful<S> {
     public void askExit();
 
     public boolean isExiting();

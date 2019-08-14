@@ -3,15 +3,19 @@ package eu.lucaventuri.common;
 import java.util.List;
 import java.util.Vector;
 
-/** Class holding Multiple Exitable */
+/**
+ * Class holding Multiple Exitable
+ */
 public class MultiExitable extends Exitable {
     private final List<Exitable> list = new Vector<>();
 
     public void add(Exitable element) {
-        list.add(element);
-
-        if (isExiting() || isFinished())
+        if (isExiting()) {
+            element.sendPoisonPill();
             element.askExit();
+        }
+
+        list.add(element); // the element is not added if the group is exiting
     }
 
     public void remove(Exitable element) {
@@ -25,6 +29,8 @@ public class MultiExitable extends Exitable {
 
     @Override
     public boolean isFinished() {
+        if (list.size() == 0)
+            return false;
         for (Exitable elem : list) {
             if (!elem.isFinished())
                 return false;
@@ -61,5 +67,13 @@ public class MultiExitable extends Exitable {
 
             return chosen;
         }, null);
+    }
+
+    @Override
+    public boolean sendPoisonPill() {
+        for (Exitable elem : list)
+            elem.sendPoisonPill();
+
+        return true;
     }
 }

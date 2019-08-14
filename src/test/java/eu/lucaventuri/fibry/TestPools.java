@@ -95,4 +95,22 @@ public class TestPools {
         // Resized down
         assertEquals(3, leader.getGroupExit().size());
     }
+
+    @Test
+    public void testAskExit() {
+        fixedSink(10).askExitAndWait();
+    }
+
+    @Test
+    public void testPoisonPill() {
+        PoolActorLeader<Object, Void, Object> leader = fixedSink(10);
+
+        leader.sendPoisonPill();
+        leader.waitForExit();
+    }
+
+    private PoolActorLeader<Object, Void, Object> fixedSink(int numActors) {
+        return ActorSystem.anonymous().poolParams(PoolParameters.fixedSize(numActors), null).newPool(data -> {
+        });
+    }
 }

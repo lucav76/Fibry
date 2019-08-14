@@ -2,11 +2,14 @@ package eu.lucaventuri.fibry;
 
 import eu.lucaventuri.common.Exceptions;
 import eu.lucaventuri.common.RunnableEx;
+import eu.lucaventuri.common.Stateful;
 
 import java.util.function.Consumer;
 
-public interface SinkActor<S> extends SinkActorSingleMessage {
+public interface SinkActor<S> extends SinkActorSingleMessage<S> {
     public void execAsync(Runnable worker);
+
+    public void execAsyncStateful(Consumer<Stateful<S>> worker);
 
     default public <E extends Exception> void execAsyncEx(RunnableEx<E> worker) {
         execAsync(Exceptions.silentRunnable(worker));

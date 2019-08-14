@@ -2,6 +2,7 @@ package eu.lucaventuri.fibry;
 
 import eu.lucaventuri.common.Exceptions;
 import eu.lucaventuri.common.Exitable;
+import eu.lucaventuri.common.Stateful;
 import eu.lucaventuri.common.SystemUtils;
 import eu.lucaventuri.functional.Either3;
 
@@ -17,17 +18,14 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Consumer<T>
     protected S state;
     protected final Consumer<S> finalizer;
     protected final List<AutoCloseable> closeOnExit = new Vector<>();
-
-    public void setDrainMessagesOnExit(boolean drainMessagesOnExit) {
-        this.drainMessagesOnExit = drainMessagesOnExit;
-    }
-
     protected volatile boolean drainMessagesOnExit = true;
+    protected final int pollTimeoutMs;
 
-    BaseActor(MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> finalizer, CloseStrategy closeStrategy) {
+    BaseActor(MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
         this.queue = queue;
         this.finalizer = finalizer;
         this.sendPoisonPillWhenExiting = true;
+        this.pollTimeoutMs = pollTimeoutMs;
 
         if (closeStrategy != null)
             this.closeStrategy = closeStrategy;
@@ -36,12 +34,12 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Consumer<T>
     /** Asynchronously sends a message to the actor; theresult can be accessed using the CompletableFuture */
     public CompletableFuture<R> sendMessageReturn(T message) {
         if (isExiting())
-            return getrCompletableFutureWhenExiting();
+            return getCompletableFutureWhenExiting();
 
         return ActorUtils.sendMessageReturn(queue, message);
     }
 
-    private CompletableFuture getrCompletableFutureWhenExiting() {
+    private CompletableFuture getCompletableFutureWhenExiting() {
         assert isExiting();
         CompletableFuture cf = new CompletableFuture();
 
@@ -85,6 +83,10 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Consumer<T>
             ActorUtils.execAsync(queue, worker);
     }
 
+    public void execAsyncStateful(Consumer<Stateful<S>> worker) {
+        execAsync(worker::accept);
+    }
+
     /** Synchronously executes some logic in the actor; the parameter supplied is the actor itself. */
     public void execAndWait(Consumer<PartialActor<T, S>> worker) {
         if (!isExiting())
@@ -102,7 +104,7 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Consumer<T>
     /** Asynchronously executes some logic in the actor; the parameter supplied is the actor itself. The returned Future can be used to check if the task has been completed. */
     public CompletableFuture<Void> execFuture(Consumer<PartialActor<T, S>> worker) {
         if (isExiting())
-            return getrCompletableFutureWhenExiting();
+            return getCompletableFutureWhenExiting();
 
         return ActorUtils.execFuture(queue, worker);
     }
@@ -122,9 +124,19 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Consumer<T>
     /** Asynchronously executes some logic in the actor. The returned Future can be used to check if the task has been completed. */
     public CompletableFuture<Void> execFuture(Runnable worker) {
         if (isExiting())
-            return getrCompletableFutureWhenExiting();
+            return getCompletableFutureWhenExiting();
 
         return ActorUtils.execFuture(queue, state -> worker.run());
+    }
+
+    @Override
+    public Exitable setExitSendsPoisonPill(boolean send) {
+        return super.setExitSendsPoisonPill(send);
+    }
+
+    @Override
+    public void askExit() {
+        super.askExit();
     }
 
     /**
@@ -154,13 +166,21 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Consumer<T>
     }
 
     public final void processMessages() {
-        while (!isExiting())
-            Exceptions.log(this::takeAndProcessSingleMessage);
+        if (pollTimeoutMs==Integer.MAX_VALUE) {
+            while (!isExiting())
+                Exceptions.log(this::takeAndProcessSingleMessage);
+        }
+        else {
+            while (!isExiting())
+                Exceptions.log(this::takeAndProcessSingleMessageTimeout);
+        }
 
         finalOperations();
     }
 
-    protected abstract void takeAndProcessSingleMessage() throws Exception;
+    protected abstract void takeAndProcessSingleMessage() throws InterruptedException;
+
+    protected abstract void takeAndProcessSingleMessageTimeout() throws InterruptedException;
 
     public BaseActor<T, R, S> closeOnExit(AutoCloseable... closeables) {
         for (AutoCloseable closeable : closeables)
@@ -190,4 +210,16 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Consumer<T>
             ActorUtils.sendMessage(queue, message);
         return this;
     }
+
+    @Override
+    public void setState(S state) {
+        this.state = state;
+    }
+
+    public BaseActor<T, R, S> setDrainMessagesOnExit(boolean drainMessagesOnExit) {
+        this.drainMessagesOnExit = drainMessagesOnExit;
+
+        return this;
+    }
+
 }

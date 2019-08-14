@@ -18,7 +18,7 @@ public class TestStereotypes {
     @Test
     public void testWorkers() throws ExecutionException, InterruptedException {
         final AtomicInteger val = new AtomicInteger();
-           Supplier<Actor<Integer, Void, Void>> master = Stereotypes.auto().workersCreator(val::addAndGet);
+        Supplier<Actor<Integer, Void, Void>> master = Stereotypes.auto().workersCreator(val::addAndGet);
 
         master.get().sendMessageReturn(1).get();
         master.get().sendMessageReturn(2).get();
@@ -68,5 +68,50 @@ public class TestStereotypes {
         assertEquals(6, master.apply(3).get().intValue());
 
         assertEquals(6, val.get());
+    }
+
+    @Test
+    public void testMapReducePool() {
+        MapReducer<Integer, Integer> mr = Stereotypes.def().mapReduce(PoolParameters.fixedSize(4), (Integer n) -> n * n, Integer::sum, 0);
+
+        mr.map(1,2,3,4,5);
+        // 1+4+9+16+25 == 55
+        assertEquals(Integer.valueOf(55), mr.get(true));
+    }
+
+    @Test
+    public void testMapReducePool2() {
+        MapReducer<Integer, Integer> mr = Stereotypes.def().mapReduce(PoolParameters.fixedSize(4), (Integer n) -> n * n, Integer::sum, 0);
+        int num = 100_000;
+
+        for(int i=0; i<num; i++) {
+            mr.map(i%2);
+        }
+
+        System.out.println("Messages sent");
+
+        System.out.println(mr.get(true));
+        assertEquals(Integer.valueOf(num/2), mr.get(false));
+    }
+
+    @Test
+    public void testMapReduceSpawner() {
+        int res = Stereotypes.def().mapReduce((Integer n) -> n * n, Integer::sum, 0).map(1,2,3,4,5).get(true);
+
+        // 1+4+9+16+25 == 55
+        assertEquals(55, res);
+    }
+
+    @Test
+    public void testMapReduceSpawner2() {
+        MapReducer<Integer, Integer> mr = Stereotypes.def().mapReduce((Integer n) -> n * n, Integer::sum, 0);
+        int num = 1000; // Too slow without fibers
+
+        for(int i=0; i<num; i++) {
+            mr.map(i%2);
+        }
+
+        System.out.println(mr.get(true));
+        assertEquals(Integer.valueOf(num/2), mr.get(false));
     }
 }

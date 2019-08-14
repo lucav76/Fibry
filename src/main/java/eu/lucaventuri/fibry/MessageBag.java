@@ -6,6 +6,7 @@ import eu.lucaventuri.common.SystemUtils;
 import java.util.AbstractQueue;
 import java.util.Iterator;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -126,6 +127,14 @@ public class MessageBag<T, CONV> extends AbstractQueue<T> implements MessageRece
     @Override
     public T take() throws InterruptedException {
         return readMessage();
+    }
+
+    @Override
+    public T poll(long timeout, TimeUnit unit) throws InterruptedException {
+        if (map.isEmpty())
+            return queue.poll(timeout, unit);
+
+        return map.removeHead();
     }
 
     @Override

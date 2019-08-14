@@ -2,12 +2,15 @@ package eu.lucaventuri.fibry;
 
 import eu.lucaventuri.functional.Either3;
 
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
-/** Special actor that is also able to "receive messages", asking for them. As this has potential performance implications, this feature is kept separated from normal actors */
+/**
+ * Special actor that is also able to "receive messages", asking for them. As this has potential performance implications, this feature is kept separated from normal actors
+ */
 public class ReceivingActor<T, R, S> extends BaseActor<T, R, S> {
     protected final MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>, T> bag;
     protected final MessageReceiver<T> bagConverter;
@@ -17,12 +20,15 @@ public class ReceivingActor<T, R, S> extends BaseActor<T, R, S> {
     /**
      * Constructor creating an actor that process messages without returning any value
      *
-     * @param actorLogic Logic associated to the actor
-     * @param messageBag Bag
-     * @param initialState optional initial state
+     * @param actorLogic    Logic associated to the actor
+     * @param messageBag    Bag
+     * @param initialState  optional initial state
+     * @param finalizer     Code to execute when the actor is finishing its operations
+     * @param closeStrategy What to do when close() is called
+     * @param pollTimeoutMs Poll timeout (to allow the actor to exit without a poison pill); Integer.MAX_VALUE == no timeout
      */
-    protected ReceivingActor(BiConsumer<MessageReceiver<T>, T> actorLogic, MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>, T> messageBag, S initialState, Consumer<S> finalizer, CloseStrategy closeStrategy) {
-        super(messageBag, finalizer, closeStrategy);
+    protected ReceivingActor(BiConsumer<MessageReceiver<T>, T> actorLogic, MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>, T> messageBag, S initialState, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
+        super(messageBag, finalizer, closeStrategy, pollTimeoutMs);
         BiFunction<MessageReceiver<T>, T, R> tmpLogicReturn = ActorUtils.discardingToReturning(actorLogic);
 
         this.bag = messageBag;
@@ -41,11 +47,11 @@ public class ReceivingActor<T, R, S> extends BaseActor<T, R, S> {
      * Constructor creating an actor that process messages without returning any value
      *
      * @param actorLogicReturn Logic associated to the actor
-     * @param messageBag Bag
-     * @param initialState optional initial state
+     * @param messageBag       Bag
+     * @param initialState     optional initial state
      */
-    ReceivingActor(BiFunction<MessageReceiver<T>, T, R> actorLogicReturn, MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>, T> messageBag, S initialState, Consumer<S> finalizer, CloseStrategy closeStrategy) {
-        super(messageBag, finalizer, closeStrategy);
+    ReceivingActor(BiFunction<MessageReceiver<T>, T, R> actorLogicReturn, MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>, T> messageBag, S initialState, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
+        super(messageBag, finalizer, closeStrategy, pollTimeoutMs);
 
         this.bag = messageBag;
         this.bagConverter = convertBag(this.bag);
@@ -77,6 +83,14 @@ public class ReceivingActor<T, R, S> extends BaseActor<T, R, S> {
         Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>> message = bag.readMessage();
 
         message.ifEither(cns -> cns.accept(this), msg -> actorLogic.accept(bagConverter, msg), msg -> actorLogicReturn.accept(bagConverter, msg));
+    }
+
+    @Override
+    protected void takeAndProcessSingleMessageTimeout() throws InterruptedException {
+        Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>> message = queue.poll(pollTimeoutMs, TimeUnit.MILLISECONDS);
+
+        if (message != null)
+            message.ifEither(cns -> cns.accept(this), msg -> actorLogic.accept(bagConverter, msg), msg -> actorLogicReturn.accept(bagConverter, msg));
     }
 
     public <E extends T> E receive(Class<E> clz, Predicate<E> filter) {

@@ -6,6 +6,7 @@ import org.junit.Test;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
@@ -372,6 +373,35 @@ public class TestActors {
             System.out.println(s.n + " vs " + s.in.get());
             assertEquals(s.n, s.in.get());
         });
+    }
+
+    @Test
+    public void testThreadsActors2() throws InterruptedException {
+        int numThreads = 100;
+        int num = 10_000;
+        AtomicInteger numSent = new AtomicInteger();
+        CountDownLatch latch = new CountDownLatch(numThreads);
+        SinkActor<Integer> actor = Stereotypes.def().sink(0);
+
+        for (int i = 0; i < numThreads; i++) {
+            new Thread(() -> {
+                for (int j = 0; j < num; j++) {
+                    actor.execAsyncStateful(s -> s.setState(s.getState() + 1));
+                    numSent.incrementAndGet();
+                }
+
+                latch.countDown();
+            }).start();
+        }
+
+        while (latch.getCount() > 0) {
+            latch.await(250, TimeUnit.MILLISECONDS);
+            System.out.println(latch.getCount() + " - " + actor.getState() + " - " + numSent.get());
+        }
+        actor.sendPoisonPill();
+        actor.waitForExit();
+
+        assertEquals(numThreads * num, actor.getState().intValue());
     }
 
     @Test

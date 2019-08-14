@@ -1,6 +1,7 @@
 package eu.lucaventuri.fibry;
 
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
 
 public interface MiniQueue<T> {
     boolean add (T message);
@@ -12,6 +13,7 @@ public interface MiniQueue<T> {
         }
     }
     T take () throws InterruptedException ;
+    T poll(long timeout, TimeUnit unit) throws InterruptedException;
     void clear();
     int size();
     T peek();
@@ -34,6 +36,11 @@ public interface MiniQueue<T> {
             @Override
             public T take() throws InterruptedException {
                 throw new UnsupportedOperationException("This queue drops all the message and so cannot provide the take() operation ");
+            }
+
+            @Override
+            public T poll(long timeout, TimeUnit unit) {
+                throw new UnsupportedOperationException("This queue drops all the message and so cannot provide the poll() operation ");
             }
 
             @Override

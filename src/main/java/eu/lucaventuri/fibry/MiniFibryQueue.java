@@ -2,6 +2,7 @@ package eu.lucaventuri.fibry;
 
 import eu.lucaventuri.functional.Either3;
 
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 public interface MiniFibryQueue<T, R, S> extends MiniQueue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> {
@@ -15,6 +16,11 @@ public interface MiniFibryQueue<T, R, S> extends MiniQueue<Either3<Consumer<S>, 
             @Override
             public Either3<Consumer<S>, T, MessageWithAnswer<T, R>> take() throws InterruptedException {
                 throw new UnsupportedOperationException("This queue drops all the message and so cannot provide the take() operation ");
+            }
+
+            @Override
+            public Either3<Consumer<S>, T, MessageWithAnswer<T, R>> poll(long timeout, TimeUnit unit) throws InterruptedException {
+                throw new UnsupportedOperationException("This queue drops all the message and so cannot provide the poll() operation ");
             }
 
             @Override

@@ -23,6 +23,7 @@ Simplicity first
 - You can receive messages of your choice while processing a message  
 - You can "send code" to be executed in the thread/fiber of an actor
 - **Fibry has no dependencies**, so no conflicts, no surprises and just a tiny jar available in the Maven Central repository
+- Fibry implements a very simple map-reduce mechanism, limited to the local computer.
 
 Some numbers
 ===
@@ -208,6 +209,26 @@ var leader = ActorSystem.anonymous().<String>poolParams(PoolParameters.fixedSize
 And the following code creates a scalable pool from 3 to 10 actors:
 ```java
 var leader = ActorSystem.anonymous().<String>poolParams(PoolParameters.scaling(3, 10, 100, 0, 1, 500), null).<String>newPool(actorLogic);
+```
+
+Map-Reduce
+===
+Fibry implements two types of map-reduce: unbounded (one actor per computation) or bounded (backed by an acotrs pool).
+
+The following code a map-reduce job with 4 mappers that compute the square of a number, and one reduced that sum the results:
+
+```java
+MapReducer<Integer, Integer> mr = Stereotypes.def().mapReduce(PoolParameters.fixedSize(4), (Integer n) -> n * n, Integer::sum, 0);
+
+mr.map(1,2,3,4,5);
+assertEquals(Integer.valueOf(55), mr.get(true));
+```
+
+The following code does the same using one actor per computation, and a more compact syntax:
+```java
+int res = Stereotypes.def().mapReduce((Integer n) -> n * n, Integer::sum, 0).map(1,2,3,4,5).get(true);
+
+assertEquals(55, res);
 ```
  
 Some warnings

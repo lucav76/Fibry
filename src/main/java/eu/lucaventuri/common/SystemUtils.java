@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import java.util.stream.Stream.Builder;
 
@@ -40,6 +42,18 @@ public final class SystemUtils {
         } catch (InterruptedException e) {
         }
     }
+
+    /**
+     * Sleeps some ms
+     *
+     * @param done return true if the sleep is over
+     * @param msToSleepBetweenTests ms to sleep between each test
+     */
+    public static void sleepUntil(Supplier<Boolean> done, int msToSleepBetweenTests) {
+        while(!done.get())
+            sleep(msToSleepBetweenTests);
+    }
+
 
     /**
      * Sleeps some ms

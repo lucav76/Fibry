@@ -251,7 +251,6 @@ public class Stereotypes {
             actor.execAsync(() -> {
                 run.run();
                 actor.askExit();
-                System.out.println("runOnce done:" + actor.isExiting());
             });
 
             return actor;

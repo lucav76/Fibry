@@ -57,6 +57,10 @@ public class Stereotypes {
             this.closeStrategy = closeStrategy;
         }
 
+        public CreationStrategy getStrategy() {
+            return strategy;
+        }
+
         /**
          * @param actorLogic Logic associated to each actor (no value returned as a result of the message)
          * @param <T>        Message type
@@ -201,7 +205,7 @@ public class Stereotypes {
         }
 
         /**
-         * Creates a map-reduce local system, using a pool of actors and a single reducer
+         * Creates a map-reduce local system, using a pool of actors and a single reducer. This is preferred method to do a Map-reduce job.
          * @param params Parameters for the creation of the pool
          * @param mapLogic Logic of the mapper (input -&gt; output)
          * @param reduceLogic Logic of the reducer (accumulator, newValue -&gt; newAccumulator)
@@ -251,7 +255,6 @@ public class Stereotypes {
             actor.execAsync(() -> {
                 run.run();
                 actor.askExit();
-                System.out.println("runOnce done:" + actor.isExiting());
             });
 
             return actor;

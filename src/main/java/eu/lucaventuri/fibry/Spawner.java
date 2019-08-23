@@ -6,6 +6,7 @@ import eu.lucaventuri.common.Exitable;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+/** Class able to create new actors with a predefined logic*/
 class Spawner<T, R, S> extends CountingExitable {
     private final Function<T, R> logic;
     private final ActorSystem.NamedStateActorCreator<S> creator;

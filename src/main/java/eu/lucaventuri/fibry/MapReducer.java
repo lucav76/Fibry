@@ -83,13 +83,9 @@ public class MapReducer<I, O> {
         if (forceComplete)
             completed();
 
-        System.out.println("Waiting for exitableMapper");
         exitableMapper.waitForExit();
-        System.out.println("Sending poison pill");
         reducer.sendPoisonPill();
-        System.out.println("Waiting for reducer");
         reducer.waitForExit();
-        System.out.println("Done");
 
         return reducer.getState();
     }

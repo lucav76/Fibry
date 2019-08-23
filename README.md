@@ -23,7 +23,8 @@ Simplicity first
 - You can receive messages of your choice while processing a message  
 - You can "send code" to be executed in the thread/fiber of an actor
 - **Fibry has no dependencies**, so no conflicts, no surprises and just a tiny jar available in the Maven Central repository
-- Fibry implements a very simple map-reduce mechanism, limited to the local computer.
+- Fibry implements a very simple Map/Reduce mechanism, limited to the local computer.
+- Fibry implements a very simple Pub/Sub mechanism, limited to the local computer.
 
 Some numbers
 ===
@@ -230,11 +231,25 @@ int res = Stereotypes.def().mapReduce((Integer n) -> n * n, Integer::sum, 0).map
 
 assertEquals(55, res);
 ```
+
+Pub/Sub
+===
+Fibry provides a very simple Pub/Sub system, through the PubSub class, with different strategies affecting the number of actors involved. The Pub/Sub system creates actors using the default strategy.
+The following is a "Hello World" using Pub/Sub:
+```java
+PubSub<String> ps = PubSub.oneActorPerTopic();
+
+ps.subscribe("test", System.out::println);
+ps.publish("test", "HelloWorld!");
+```
+
+Pub/Sub can help decoupling components, reducing latency (as tasks can be processed by actors asynchronously) and transparently adding/removing logging and monitoring, even at runtime.
+Applications using WebSockets or Queues might also benefit from Pub/Sub, as their domain is event based. 
  
 Some warnings
 ===
 Fibry is experimental, and to leverage its potential you need to use Loom, which is a project under development that it's not clear when it will be merged into the OpenJDK; that said, the development of Loom seems very active and proceeding well.
-I suspect that Loom has some bugs, as I saw some errors popping up when exchanging sync messages between a thread and a fiber, so it might be better to not mix them for now.
+Loom might still have some bugs, as I saw some errors popping up when exchanging sync messages between a thread and a fiber, so it might be better to not mix them for now.
 If you start to use Fibry and find some bugs, please notify me.
 
 As of today, not every network operation is *fiber friendly*. You can find a list of what works and what does not [here](https://wiki.openjdk.java.net/display/loom/Networking+IO). 

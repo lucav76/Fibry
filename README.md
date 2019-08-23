@@ -245,6 +245,11 @@ ps.publish("test", "HelloWorld!");
 
 Pub/Sub can help decoupling components, reducing latency (as tasks can be processed by actors asynchronously) and transparently adding/removing logging and monitoring, even at runtime.
 Applications using WebSockets or Queues might also benefit from Pub/Sub, as their domain is event based. 
+
+Utilities
+===
+Fibry has a file called Utilities that contains some useful methods.
+Listening to changes in a directory can be a bit difficult in Java. Fibry provide the *Utilities.watchDirectory()* method, that makes it simpler to receive event about file changes.
  
 Some warnings
 ===

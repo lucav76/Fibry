@@ -1,14 +1,12 @@
 package eu.lucaventuri.examples;
 
 import eu.lucaventuri.common.SystemUtils;
-import eu.lucaventuri.fibry.SinkActor;
-import eu.lucaventuri.fibry.SinkActorSingleMessage;
+import eu.lucaventuri.fibry.SinkActorSingleTask;
 import eu.lucaventuri.fibry.Stereotypes;
 
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -51,7 +49,7 @@ public class BlinkingExample {
         int numActors = 200;
         int numCallsPerActor = 50;
         long start = System.currentTimeMillis();
-        List<SinkActorSingleMessage<Void>> listActors = new ArrayList<>();
+        List<SinkActorSingleTask<Void>> listActors = new ArrayList<>();
 
         for (int i = 0; i < numActors; i++) {
             listActors.add(Stereotypes.auto().runOnce(() -> {
@@ -67,7 +65,7 @@ public class BlinkingExample {
 
         System.out.println("Actors created - waiting for them to finish");
 
-        for(SinkActorSingleMessage<Void> actor: listActors)
+        for (SinkActorSingleTask<Void> actor : listActors)
             actor.waitForExit();
 
         long end = System.currentTimeMillis();

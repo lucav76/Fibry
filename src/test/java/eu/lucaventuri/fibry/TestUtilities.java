@@ -27,6 +27,8 @@ public class TestUtilities {
                 latch.countDown();
             });
 
+            Utilities.watchDirectory(".", true, false, false, (operation, file) -> System.out.println(file));
+
             Files.write(f.toPath(), "TEST".getBytes());
             Files.write(f2.toPath(), "TEST".getBytes());
 

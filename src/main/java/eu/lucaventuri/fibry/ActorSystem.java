@@ -24,6 +24,7 @@ public class ActorSystem {
     private static final int defaultQueueCapacity = Integer.MAX_VALUE;
     static final MiniFibryQueue DROPPING_QUEUE = MiniFibryQueue.dropping();
     static volatile CreationStrategy defaultStrategy = CreationStrategy.AUTO;
+    static final NamedActorCreator defaultAnonymous = new NamedActorCreator(null, defaultQueueCapacity, false);
 
     public static class ActorPoolCreator<S> {
         private final CreationStrategy strategy;
@@ -245,7 +246,8 @@ public class ActorSystem {
     }
 
     public static NamedActorCreator anonymous() {
-        return new NamedActorCreator(null, defaultQueueCapacity, false);
+        return defaultAnonymous;
+        //return new NamedActorCreator(null, defaultQueueCapacity, false);
     }
 
     public static NamedActorCreator anonymous(int queueCapacity) {

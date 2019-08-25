@@ -206,13 +206,14 @@ public class Stereotypes {
 
         /**
          * Creates a map-reduce local system, using a pool of actors and a single reducer. This is preferred method to do a Map-reduce job.
-         * @param params Parameters for the creation of the pool
-         * @param mapLogic Logic of the mapper (input -&gt; output)
-         * @param reduceLogic Logic of the reducer (accumulator, newValue -&gt; newAccumulator)
+         *
+         * @param params              Parameters for the creation of the pool
+         * @param mapLogic            Logic of the mapper (input -&gt; output)
+         * @param reduceLogic         Logic of the reducer (accumulator, newValue -&gt; newAccumulator)
          * @param initialReducerState Initial state of the reducer. Note: mappers should be stateless
-         * @param <TM> Input type of the mapper
-         * @param <RM> Output type of the mapper == Input type of the reducer
-         * @param <RR> Output type of the reducer
+         * @param <TM>                Input type of the mapper
+         * @param <RM>                Output type of the mapper == Input type of the reducer
+         * @param <RR>                Output type of the reducer
          * @return a MapReducer
          */
         public <TM, RM, RR> MapReducer<TM, RR> mapReduce(PoolParameters params, Function<TM, RM> mapLogic, BiFunction<RR, RM, RR> reduceLogic, RR initialReducerState) {
@@ -227,20 +228,28 @@ public class Stereotypes {
 
         /**
          * Creates a map-reduce local system, using one actor per request
-         * @param mapLogic Logic of the mapper (input -&gt; output)
-         * @param reduceLogic Logic of the reducer (accumulator, newValue -&gt; newAccumulator)
+         *
+         * @param mapLogic            Logic of the mapper (input -&gt; output)
+         * @param reduceLogic         Logic of the reducer (accumulator, newValue -&gt; newAccumulator)
          * @param initialReducerState Initial state of the reducer. Note: mappers should be stateless
-         * @param <TM> Input type of the mapper
-         * @param <RM> Output type of the mapper == Input type of the reducer
-         * @param <RR> Output type of the reducer
+         * @param <TM>                Input type of the mapper
+         * @param <RM>                Output type of the mapper == Input type of the reducer
+         * @param <RR>                Output type of the reducer
          * @return a MapReducer
          */
         public <TM, RM, RR> MapReducer<TM, RR> mapReduce(Function<TM, RM> mapLogic, BiFunction<RR, RM, RR> reduceLogic, RR initialReducerState) {
-            Actor<RM, Void, RR> reducer = ActorSystem.anonymous().strategy(strategy).initialState(initialReducerState).newActor((data, thisActor) ->
+            ActorSystem.NamedActorCreator c1 = ActorSystem.anonymous();
+            NamedStrategyActorCreator c2 = c1.strategy(strategy);
+            NamedStateActorCreator<RR> mrCreator = c2.initialState(initialReducerState);
+
+            Actor<RM, Void, RR> reducer = mrCreator.newActor((data, thisActor) ->
                     thisActor.setState(reduceLogic.apply(thisActor.getState() /** Accumulator */, data)));
             AtomicReference<Spawner<TM, Void, Object>> spawnerRef = new AtomicReference<>();
             NamedStateActorCreator<Object> creator = ActorSystem.anonymous().strategy(strategy).initialState(null, state -> spawnerRef.get().finalizer().accept(state));
-            Spawner<TM, Void, Object> spawner = new Spawner<>(creator, data -> { reducer.sendMessage(mapLogic.apply(data)); return null; });
+            Spawner<TM, Void, Object> spawner = new Spawner<>(creator, data -> {
+                reducer.sendMessage(mapLogic.apply(data));
+                return null;
+            });
             spawnerRef.set(spawner);
 
             return new MapReducer<>(spawner, reducer);
@@ -249,7 +258,7 @@ public class Stereotypes {
         /**
          * Creates an actor that runs a Runnable, once
          */
-        public SinkActorSingleMessage<Void> runOnce(Runnable run) {
+        public SinkActorSingleTask<Void> runOnce(Runnable run) {
             SinkActor<Void> actor = sink(null);
 
             actor.execAsync(() -> {
@@ -263,7 +272,7 @@ public class Stereotypes {
         /**
          * Creates an actor that runs a RunnableEx, once, discarding any exception
          */
-        public <E extends Throwable> SinkActorSingleMessage<Void> runOnceSilent(RunnableEx<E> run) {
+        public <E extends Throwable> SinkActorSingleTask<Void> runOnceSilent(RunnableEx<E> run) {
             return runOnce(Exceptions.silentRunnable(run));
         }
 
@@ -271,7 +280,7 @@ public class Stereotypes {
          * Creates an actor that runs a Consumer, once.
          * The consumer receives the actor itself, which sometimes can be useful (e.g. to check if somebody ask to exit)
          */
-        public SinkActorSingleMessage<Void> runOnceWithThis(Consumer<SinkActor<Void>> actorLogic) {
+        public SinkActorSingleTask<Void> runOnceWithThis(Consumer<SinkActor<Void>> actorLogic) {
             SinkActor<Void> actor = sink(null);
 
             actor.execAsync(() -> {
@@ -285,14 +294,14 @@ public class Stereotypes {
         /**
          * Creates an actor that runs a Runnable forever, every scheduleMs ms
          */
-        public SinkActorSingleMessage<Void> schedule(Runnable run, long scheduleMs) {
+        public SinkActorSingleTask<Void> schedule(Runnable run, long scheduleMs) {
             return schedule(run, scheduleMs, Long.MAX_VALUE);
         }
 
         /**
          * Creates an actor that runs a Runnable maxTimes or until somebody asks for exit (this is controlled only in between executions); the actor is scheduled to run every scheduleMs ms
          */
-        public SinkActorSingleMessage<Void> schedule(Runnable run, long scheduleMs, long maxTimes) {
+        public SinkActorSingleTask<Void> schedule(Runnable run, long scheduleMs, long maxTimes) {
             Actor<Object, Void, Void> actor = (Actor<Object, Void, Void>) sink((Void) null);
 
             // Deadlock prevention
@@ -335,11 +344,11 @@ public class Stereotypes {
          * @return the acceptor actor
          * @throws IOException this is only thrown if it happens at the beginning, when the ServerSocket is created. Other exceptions will be sent to the console, and the socket will be created again. If the exception is thrown, the actor will also be killed, else it will keep going and retry
          */
-        public <S> SinkActorSingleMessage<Void> tcpAcceptor(int port, Consumer<Socket> workersLogic, Supplier<S> stateSupplier) throws IOException {
+        public <S> SinkActorSingleTask<Void> tcpAcceptor(int port, Consumer<Socket> workersLogic, Supplier<S> stateSupplier) throws IOException {
             final CountDownLatch latchSocketCreation = new CountDownLatch(1);
             final AtomicReference<IOException> exception = new AtomicReference<>();
 
-            SinkActorSingleMessage<Void> actor = runOnceWithThis(thisActor -> {
+            SinkActorSingleTask<Void> actor = runOnceWithThis(thisActor -> {
                 while (!thisActor.isExiting()) {
                     Optional<ServerSocket> serverSocket = createServerSocketWithTimeout(port, latchSocketCreation, exception, 1000);
 
@@ -369,7 +378,7 @@ public class Stereotypes {
             return actor;
         }
 
-        public <S, E extends Throwable> SinkActorSingleMessage<Void> tcpAcceptorSilent(int port, ConsumerEx<Socket, E> workersLogic, Supplier<S> stateSupplier) throws IOException {
+        public <S, E extends Throwable> SinkActorSingleTask<Void> tcpAcceptorSilent(int port, ConsumerEx<Socket, E> workersLogic, Supplier<S> stateSupplier) throws IOException {
             return tcpAcceptor(port, Exceptions.silentConsumer(workersLogic), stateSupplier);
         }
 

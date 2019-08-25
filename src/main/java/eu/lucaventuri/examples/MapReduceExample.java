@@ -31,10 +31,12 @@ public class MapReduceExample {
 
         long msMultiThread = SystemUtils.time(() -> {
             //st.mapReduce(PoolParameters.fixedSize(numParallel), (Integer n) -> countInside(n), );
-            MapReducer<Integer, Integer> mr = st.mapReduce(MapReduceExample::countInside, Integer::sum, 0);
+
+            MapReducer<Integer, Integer> mrMulti = st.mapReduce(MapReduceExample::countInside, Integer::sum, 0);
+
             for (int i = 0; i < numParallel; i++)
-                mr.map(num / numParallel);
-            piMultiThread.set(4.0 * mr.get(true) / num);
+                mrMulti.map(num / numParallel);
+            piMultiThread.set(4.0 * mrMulti.get(true) / num);
         });
 
         System.out.println("PI estimated by " + numParallel + " threads: " + piMultiThread.get() + " - " + msMultiThread + " ms");

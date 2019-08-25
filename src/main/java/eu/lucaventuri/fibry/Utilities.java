@@ -30,6 +30,10 @@ public final class Utilities {
         }
     }
 
+    public static void watchCurrentDirectory(boolean watchCreate, boolean watchUpdate, boolean watchDelete, BiConsumer<FileOperation, File> watchConsumer) throws IOException {
+        watchDirectory(".", watchCreate, watchUpdate, watchDelete, watchConsumer);
+    }
+
     public static void watchDirectory(String path, boolean watchCreate, boolean watchUpdate, boolean watchDelete, BiConsumer<FileOperation, File> watchConsumer) throws IOException {
         watchDirectory(new File(path), watchCreate, watchUpdate, watchDelete, watchConsumer);
     }

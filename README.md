@@ -15,13 +15,13 @@ Simplicity first
 - Your actor can and should use synchronous logic
 - There is a series of Stereotypes to handle common scenarios
 - You actors don't need to extend any particular class but they can just implement **Consumer** or **Function**
-- You actors also have the option to extend **CustomActor** and **CustomActorWithResult**, if it suits you best 
+- You actors have anyway the option to extend **CustomActor** and **CustomActorWithResult**, if this suits you best 
 - If you choose to simply implements **Consumer** and **Function**, your actors can also be used "transparently" in code that knows nothing about Fibry
 - It is simple to retrieve the result of a message
 - It is possible to send messages to named actors even before they are created, potentially simplifying your logic; the messages can be discarded or processed when the actor will be available 
 - There is a fluid interface to build the actors
 - You can receive messages of your choice while processing a message  
-- You can "send code" to be executed in the thread/fiber of an actor
+- Many types of actor implement the Executor interface, so you can "send code" to be executed in the thread/fiber of almost any actors, and use them on service that are not actor-aware
 - **Fibry has no dependencies**, so no conflicts, no surprises and just a tiny jar available in the Maven Central repository
 - Fibry implements a very simple Map/Reduce mechanism, limited to the local computer.
 - Fibry implements a very simple Pub/Sub mechanism, limited to the local computer.
@@ -137,7 +137,8 @@ Thread confinement
 Actors systems exist to implement thread confinement: your thread/fiber executes in the same thread/fiber and therefore you don't need synchronization or thread-safe classes.
 Usually the logic of the actor is supplied during the creation, but sometimes instead of implementing several message types it would be easier to just "send some code" to be executed in the context of the actor.
 An example would be **Platform.runLater()** in JavaFX.
-Fibry support this behavior for every actor, with the methods *execAsync()*, *execAndWait()* and *execFuture()*, all accepting Runnable and Consumer interface.  
+Fibry support this behavior for every actor, with the methods *execAsync()*, *execAndWait()* and *execFuture()*, all accepting Runnable and Consumer interface.
+In addition, almost every Actor implements the Executor interface.  
  
 Creating actors with the Stereotypes class
 ===

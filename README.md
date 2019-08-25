@@ -21,7 +21,7 @@ Simplicity first
 - It is possible to send messages to named actors even before they are created, potentially simplifying your logic; the messages can be discarded or processed when the actor will be available 
 - There is a fluid interface to build the actors
 - You can receive messages of your choice while processing a message  
-- Many types of actor implement the Executor interface, so you can "send code" to be executed in the thread/fiber of almost any actors, and use them on service that are not actor-aware
+- Many types of actor implement the **Executor** interface, so you can "send code" to be executed in the thread/fiber of almost any actors, and use them on service that are not actor-aware
 - **Fibry has no dependencies**, so no conflicts, no surprises and just a tiny jar available in the Maven Central repository
 - Fibry implements a very simple Map/Reduce mechanism, limited to the local computer.
 - Fibry implements a very simple Pub/Sub mechanism, limited to the local computer.

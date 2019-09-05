@@ -48,7 +48,13 @@ public class Actor<T, R, S> extends BaseActor<T, R, S> {
     protected Actor(Function<T, R> actorLogicReturn, MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
         super(queue, finalizer, closeStrategy, pollTimeoutMs);
         this.actorLogic = ActorUtils.returningToDiscarding(actorLogicReturn);
-        this.actorLogicReturn = mwr -> mwr.answer.complete(actorLogicReturn.apply(mwr.message));
+        this.actorLogicReturn = mwr -> {
+            try {
+                mwr.answer.complete(actorLogicReturn.apply(mwr.message));
+            } catch (Throwable t) {
+                mwr.answer.completeExceptionally(t);
+            }
+        };
         this.state = initialState;
     }
 

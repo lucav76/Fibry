@@ -6,6 +6,7 @@ import eu.lucaventuri.common.Stateful;
 import eu.lucaventuri.common.SystemUtils;
 import eu.lucaventuri.functional.Either3;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.CompletableFuture;
@@ -13,7 +14,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-public abstract class BaseActor<T, R, S> extends Exitable implements Consumer<T>, Function<T, R>, PartialActor<T, S>, SinkActor<S> {
+public abstract class BaseActor<T, R, S> extends Exitable implements Function<T, R>, PartialActor<T, S>, SinkActor<S> {
     protected final MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue;
     protected S state;
     protected final Consumer<S> finalizer;
@@ -31,12 +32,61 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Consumer<T>
             this.closeStrategy = closeStrategy;
     }
 
-    /** Asynchronously sends a message to the actor; theresult can be accessed using the CompletableFuture */
+    /**
+     * Asynchronously sends a message to the actor; the result can be accessed using the CompletableFuture
+     */
     public CompletableFuture<R> sendMessageReturn(T message) {
         if (isExiting())
             return getCompletableFutureWhenExiting();
 
         return ActorUtils.sendMessageReturn(queue, message);
+    }
+
+    /**
+     * Asynchronously sends multiple messages to the actor; the results can be accessed using the CompletableFutures provided
+     */
+    public CompletableFuture<R>[] sendMessagesReturn(T... messages) {
+        List<CompletableFuture<R>> listFutures = new ArrayList<>();
+
+        for (int i = 0; i < messages.length && !isExiting(); i++)
+            listFutures.add(ActorUtils.sendMessageReturn(queue, messages[i]));
+
+        CompletableFuture<R> ar[] = new CompletableFuture[listFutures.size()];
+
+        for (int i = 0; i < listFutures.size(); i++)
+            ar[i] = listFutures.get(i);
+
+        return ar;
+    }
+
+    /**
+     * Send a series of messages to an actor and collects the results (blocking until all the messages have been processed or the actor died)
+     */
+    public List<R> sendAndCollectSilent(R valueOnError, T... messages) {
+        CompletableFuture<R> futures[] = sendMessagesReturn(messages);
+        List<R> results = new ArrayList<>();
+
+        waitForFuturesCompletionOrActorExit(futures, 5);
+
+        for (CompletableFuture<R> future : futures)
+            results.add(future.isCompletedExceptionally() || future.isCancelled() ? valueOnError : future.getNow(valueOnError));
+
+        return results;
+    }
+
+    private void waitForFuturesCompletionOrActorExit(CompletableFuture<R>[] originalFutures, int pollingSleepMs) {
+        List<CompletableFuture<R>> futuresNotCompleted = new ArrayList<>();
+
+        for (CompletableFuture<R> future : originalFutures)
+            futuresNotCompleted.add(future);
+
+        while (!futuresNotCompleted.isEmpty() && !isFinished()) {
+            for (int i = futuresNotCompleted.size() - 1; i >= 0; i--) {
+                if (futuresNotCompleted.get(i).isDone())
+                    futuresNotCompleted.remove(i);
+            }
+            SystemUtils.sleep(pollingSleepMs);
+        }
     }
 
     private CompletableFuture getCompletableFutureWhenExiting() {
@@ -51,7 +101,9 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Consumer<T>
         return cf;
     }
 
-    /** Synchronously sends a message and waits for the result. This can take some time because of the context switch and of possible messages in the queue */
+    /**
+     * Synchronously sends a message and waits for the result. This can take some time because of the context switch and of possible messages in the queue
+     */
     public R sendMessageReturnWait(T message, R valueOnError) {
         try {
             if (isExiting())
@@ -64,11 +116,6 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Consumer<T>
     }
 
     @Override
-    public void accept(T message) {
-        sendMessage(message);
-    }
-
-    @Override
     public R apply(T message) {
         try {
             return sendMessageReturn(message).get();
@@ -77,7 +124,9 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Consumer<T>
         }
     }
 
-    /** Asynchronously executes some logic in the actor; the parameter supplied is the actor itself. */
+    /**
+     * Asynchronously executes some logic in the actor; the parameter supplied is the actor itself.
+     */
     public void execAsync(Consumer<PartialActor<T, S>> worker) {
         if (!isExiting())
             ActorUtils.execAsync(queue, worker);
@@ -87,7 +136,9 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Consumer<T>
         execAsync(worker::accept);
     }
 
-    /** Synchronously executes some logic in the actor; the parameter supplied is the actor itself. */
+    /**
+     * Synchronously executes some logic in the actor; the parameter supplied is the actor itself.
+     */
     public void execAndWait(Consumer<PartialActor<T, S>> worker) {
         if (!isExiting())
             ActorUtils.execAndWait(queue, worker);
@@ -101,7 +152,9 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Consumer<T>
         execAndWait(actor -> worker.accept(actor.getState()));
     }
 
-    /** Asynchronously executes some logic in the actor; the parameter supplied is the actor itself. The returned Future can be used to check if the task has been completed. */
+    /**
+     * Asynchronously executes some logic in the actor; the parameter supplied is the actor itself. The returned Future can be used to check if the task has been completed.
+     */
     public CompletableFuture<Void> execFuture(Consumer<PartialActor<T, S>> worker) {
         if (isExiting())
             return getCompletableFutureWhenExiting();
@@ -109,19 +162,25 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Consumer<T>
         return ActorUtils.execFuture(queue, worker);
     }
 
-    /** Asynchronously executes some logic in the actor. */
+    /**
+     * Asynchronously executes some logic in the actor.
+     */
     public void execAsync(Runnable worker) {
         if (!isExiting())
             ActorUtils.execAsync(queue, state -> worker.run());
     }
 
-    /** Synchronously executes some logic in the actor. */
+    /**
+     * Synchronously executes some logic in the actor.
+     */
     public void execAndWait(Runnable worker) {
         if (!isExiting())
             ActorUtils.execAndWait(queue, state -> worker.run());
     }
 
-    /** Asynchronously executes some logic in the actor. The returned Future can be used to check if the task has been completed. */
+    /**
+     * Asynchronously executes some logic in the actor. The returned Future can be used to check if the task has been completed.
+     */
     public CompletableFuture<Void> execFuture(Runnable worker) {
         if (isExiting())
             return getCompletableFutureWhenExiting();
@@ -155,22 +214,25 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Consumer<T>
         }
     }
 
-    /** @return the state of the actor */
+    /**
+     * @return the state of the actor
+     */
     public S getState() {
         return state;
     }
 
-    /** @return the length of the queue */
+    /**
+     * @return the length of the queue
+     */
     public long getQueueLength() {
         return queue.size();
     }
 
     public final void processMessages() {
-        if (pollTimeoutMs==Integer.MAX_VALUE) {
+        if (pollTimeoutMs == Integer.MAX_VALUE) {
             while (!isExiting())
                 Exceptions.log(this::takeAndProcessSingleMessage);
-        }
-        else {
+        } else {
             while (!isExiting())
                 Exceptions.log(this::takeAndProcessSingleMessageTimeout);
         }

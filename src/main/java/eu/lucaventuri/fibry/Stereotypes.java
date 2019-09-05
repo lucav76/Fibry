@@ -63,7 +63,7 @@ public class Stereotypes {
 
         /**
          * @param actorLogic Logic associated to each actor (no value returned as a result of the message)
-         * @param <T>        Message type
+         * @param <T> Message type
          * @return a supplier of actors that are going to use the specified logic
          */
         public <T> Supplier<Actor<T, Void, Void>> workersCreator(Consumer<T> actorLogic) {
@@ -74,20 +74,20 @@ public class Stereotypes {
 
         /**
          * @param actorLogic Logic associated to each actor
-         * @param <T>        Message type
-         * @return a consumer that for each message accepted will create a new actor that will process it.
+         * @param <T> Message type
+         * @return a consumer that for each message accepted will create a new actor that will process it, then dies.
          * When appropriate, this is a simple way to run parallel processing, as long as you don't need to know the result
          */
         public <T> Consumer<T> workersAsConsumerCreator(Consumer<T> actorLogic) {
             NamedStateActorCreator<Void> config = anonymous().initialState(null);
 
-            return message -> config.newActor(actorLogic).sendMessage(message);
+            return message -> config.newActor(actorLogic).sendMessage(message).sendPoisonPill();
         }
 
         /**
          * @param actorLogic Logic associated to each actor (a value can be returned as a result of the message)
-         * @param <T>        Message type
-         * @param <R>        Return type
+         * @param <T> Message type
+         * @param <R> Return type
          * @return a supplier of actors that are going to use the specified logic
          */
         public <T, R> Supplier<Actor<T, R, Void>> workersWithReturnCreator(Function<T, R> actorLogic) {
@@ -98,14 +98,21 @@ public class Stereotypes {
 
         /**
          * @param actorLogic Logic associated to each actor
-         * @param <T>        Message type
-         * @return a function that for each message accepted will create a new actor that will process it.
+         * @param <T> Message type
+         * @return a function that for each message accepted will create a new actor that will process it, then dies.
          * When appropriate, this is a simple way to run parallel processing
          */
         public <T, R> Function<T, CompletableFuture<R>> workersAsFunctionCreator(Function<T, R> actorLogic) {
             NamedStateActorCreator<Void> config = anonymous().initialState(null);
 
-            return message -> config.newActorWithReturn(actorLogic).sendMessageReturn(message);
+            return message -> {
+                Actor<T, R, Void> actor = config.newActorWithReturn(actorLogic);
+
+                CompletableFuture<R> future = actor.sendMessageReturn(message);
+                actor.sendPoisonPill();
+
+                return future;
+            };
         }
 
         /**
@@ -113,7 +120,7 @@ public class Stereotypes {
          * The workers need to implement the HttpHandler interface.
          * This method is not recommended for a real server, but if you need something simple, it can be useful.
          *
-         * @param port    HTTP port to open
+         * @param port HTTP port to open
          * @param workers pairs of context and handler, associating a path to a worker
          * @throws IOException
          */
@@ -137,7 +144,7 @@ public class Stereotypes {
          * The workers need to implement Function&lt;HttpExchange, String&gt;, therefore they can just return a string (so they are only useful on very simple cases).
          * This method is not recommended for a real server, but if you need something simple, it can be useful.
          *
-         * @param port         HTTP port to open
+         * @param port HTTP port to open
          * @param otherWorkers pairs of context and handler, associating a path to a worker
          * @throws IOException
          */
@@ -156,7 +163,7 @@ public class Stereotypes {
          * The workers need to implement Function&lt;HttpExchange, String&gt;, therefore they can just return a string (so they are only useful on very simple cases).
          * This method is not recommended for a real server, but if you need something simple, it can be useful.
          *
-         * @param port    HTTP port to open
+         * @param port HTTP port to open
          * @param workers pairs of context and handler, associating a path to a worker
          * @throws IOException
          */
@@ -207,9 +214,9 @@ public class Stereotypes {
         /**
          * Creates a map-reduce local system, using a pool of actors and a single reducer. This is preferred method to do a Map-reduce job.
          *
-         * @param params              Parameters for the creation of the pool
-         * @param mapLogic            Logic of the mapper (input -&gt; output)
-         * @param reduceLogic         Logic of the reducer (accumulator, newValue -&gt; newAccumulator)
+         * @param params Parameters for the creation of the pool
+         * @param mapLogic Logic of the mapper (input -> output)
+         * @param reduceLogic Logic of the reducer (accumulator, newValue -> newAccumulator)
          * @param initialReducerState Initial state of the reducer. Note: mappers should be stateless
          * @param <TM>                Input type of the mapper
          * @param <RM>                Output type of the mapper == Input type of the reducer
@@ -229,8 +236,8 @@ public class Stereotypes {
         /**
          * Creates a map-reduce local system, using one actor per request
          *
-         * @param mapLogic            Logic of the mapper (input -&gt; output)
-         * @param reduceLogic         Logic of the reducer (accumulator, newValue -&gt; newAccumulator)
+         * @param mapLogic Logic of the mapper (input -> output)
+         * @param reduceLogic Logic of the reducer (accumulator, newValue -> newAccumulator)
          * @param initialReducerState Initial state of the reducer. Note: mappers should be stateless
          * @param <TM>                Input type of the mapper
          * @param <RM>                Output type of the mapper == Input type of the reducer
@@ -337,10 +344,10 @@ public class Stereotypes {
          * - They workers take ownership of the connection, however the acceptor will try to close it anyway. So the worker don't need to close it.
          * - After the connection, a poison pill will be sent, so the actor will die after processing one connection
          *
-         * @param port          TCP port
-         * @param workersLogic  Logic of each worker
+         * @param port TCP port
+         * @param workersLogic Logic of each worker
          * @param stateSupplier Supplier able to create a new state for each worker
-         * @param <S>           Type of state
+         * @param <S> Type of state
          * @return the acceptor actor
          * @throws IOException this is only thrown if it happens at the beginning, when the ServerSocket is created. Other exceptions will be sent to the console, and the socket will be created again. If the exception is thrown, the actor will also be killed, else it will keep going and retry
          */
@@ -419,6 +426,30 @@ public class Stereotypes {
             } finally {
                 latchSocketCreation.countDown();
             }
+        }
+
+        /**
+         * Create a mini chat system:
+         *
+         * @param actorsPrefix prefix assigned to the user actors (e.g. CHAT|), to prevent sending messages to other actors
+         * @param persistenceLogic What to do to persist the messages
+         * - T is the type of message, and it might contain info like the sender, the time and the message;
+         * - The BiConsumer accept the name of the user and the message
+         * - persistenceLogic, is present, can record the message on a DB; this will be done asynchronously
+         * - The message will be also sent to an actor called actorsPrefix+userName (from BiConsumer); but if the actor is not present, it will be dropped. The actor should retrieve the messages from the DB
+         * <p>
+         * To receive answers, messages need to be sent to the sender using the BiConsumer
+         */
+        public <T> BiConsumer<String, T> chatSystem(String actorsPrefix, Consumer<T> persistenceLogic) {
+            Consumer<T> persistActor = persistenceLogic == null || persistenceLogic instanceof PartialActor ? persistenceLogic : workersAsConsumerCreator(persistenceLogic);
+
+            return (user, message) -> {
+                String userActorName = actorsPrefix == null ? user : actorsPrefix + user;
+
+                ActorSystem.sendMessage(userActorName, message, false); // Online chat
+                if (persistActor != null)
+                    persistActor.accept(message); // Persisted on the DB
+            };
         }
 
         private NamedStrategyActorCreator anonymous() {

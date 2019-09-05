@@ -3,6 +3,7 @@ package eu.lucaventuri.fibry;
 import eu.lucaventuri.common.SystemUtils;
 import org.junit.Test;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -446,6 +447,35 @@ public class TestActors {
         assertEquals(1, ActorSystem.sendMessageReturn(actorName, "c", false).get());
         ActorSystem.sendMessage(actorName, 2, false);
         assertEquals(3, ActorSystem.sendMessageReturn(actorName, "c", false).get());
+    }
+
+    @Test
+    public void testCollectSingle() {
+        Actor<Integer, Double, Void> actor = ActorSystem.anonymous().newActorWithReturn((n, thisActor) -> {
+            if (n < 0)
+                thisActor.askExit();
+
+            return (double) ((int) 100 / (Math.abs(n)));
+        });
+
+        assertEquals(Double.valueOf(50.0), actor.sendMessageReturnWait(2, -1.0));
+        Integer values1[] = {10, 20, 25, 50, 100};
+        Integer values2[] = {10, 20, 0, 50, 100};
+        Integer values3[] = {0, 20, 0, 50, 0};
+        Integer values4[] = {0, 20, 25, 25, 50, 100};
+        Integer values5[] = {0, 20, 25, -25, 50, 100};
+
+        assertEquals(22.0, sum(5, actor.sendAndCollectSilent(-1.0, values1)), 0.000001);
+        assertEquals(18.0, sum(5, actor.sendAndCollectSilent(0.0, values2)), 0.000001);
+        assertEquals(7.0, sum(5, actor.sendAndCollectSilent(0.0, values3)), 0.000001);
+        assertEquals(16, sum(6, actor.sendAndCollectSilent(0.0, values4)), 0.000001);
+        assertEquals(13, sum(6, actor.sendAndCollectSilent(0.0, values5)), 0.000001);
+    }
+
+    private double sum(int size, List<Double> list) {
+        assertEquals(size, list.size());
+
+        return list.stream().mapToDouble(v -> v).sum();
     }
 }
 

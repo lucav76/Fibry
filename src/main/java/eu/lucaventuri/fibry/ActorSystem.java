@@ -275,7 +275,7 @@ public class ActorSystem {
         return namedQueues.computeIfAbsent(actorName, name -> new FibryQueue(capacity));
     }
 
-    private static void enforceName(String actorName) {
+    private static void requireNameNotNull(String actorName) {
         if (actorName == null)
             throw new IllegalArgumentException("The actor name cannot be null as this method cannot support anonymous actors");
     }
@@ -289,7 +289,7 @@ public class ActorSystem {
      * @param <T>
      */
     public static <T> void sendMessage(String actorName, T message, boolean forceDelivery) {
-        enforceName(actorName);
+        requireNameNotNull(actorName);
 
         if (!forceDelivery && !isActorAvailable(actorName))
             return;
@@ -298,7 +298,7 @@ public class ActorSystem {
     }
 
     public static <T, R> CompletableFuture<R> sendMessageReturn(String actorName, T message, boolean forceDelivery) {
-        enforceName(actorName);
+        requireNameNotNull(actorName);
 
         if (!forceDelivery && !isActorAvailable(actorName)) {
             CompletableFuture<R> r = new CompletableFuture<>();
@@ -311,17 +311,17 @@ public class ActorSystem {
     }
 
     public static <S> void execAsync(String actorName, Consumer<S> worker) {
-        enforceName(actorName);
+        requireNameNotNull(actorName);
         ActorUtils.execAsync(getOrCreateActorQueue(actorName, defaultQueueCapacity), worker);
     }
 
     public static <S> void execAndWait(String actorName, Consumer<S> worker) {
-        enforceName(actorName);
+        requireNameNotNull(actorName);
         ActorUtils.execAndWait(getOrCreateActorQueue(actorName, defaultQueueCapacity), worker);
     }
 
     public static <T, S> CompletableFuture<Void> execFuture(String actorName, Consumer<S> worker) {
-        enforceName(actorName);
+        requireNameNotNull(actorName);
         return ActorUtils.execFuture(getOrCreateActorQueue(actorName, defaultQueueCapacity), worker);
     }
 

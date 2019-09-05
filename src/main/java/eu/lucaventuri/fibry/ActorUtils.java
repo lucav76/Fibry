@@ -9,6 +9,8 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Array;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.*;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
@@ -134,6 +136,7 @@ public final class ActorUtils {
     static <T, R> Consumer<T> returningToDiscarding(Function<T, R> actorLogic) {
         return actorLogic::apply;
     }
+
     static <T, T2, R> BiConsumer<T, T2> returningToDiscarding(BiFunction<T, T2, R> actorLogic) {
         return actorLogic::apply;
     }

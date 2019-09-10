@@ -392,45 +392,24 @@ public class Stereotypes {
         }
 
         public <S> SinkActorSingleTask<Void> forwardRemote(int tcpLocalPort, InetAddress remoteHost, int tcpRemotePort, boolean echoIn, boolean echoOut) throws IOException {
-
-            /*return tcpAcceptor(tcpLocalPort, localSocket -> {
-                new Thread(() ->
-                        Exceptions.silence(() -> {
-                            long numBytes = SystemUtils.transferStream(localSocket.getInputStream(), remoteSocket.getOutputStream(), echoIn ? "IN" : null);
-                            System.out.println("Transfer 1 done after " + numBytes + " bytes");
-                        }, () -> {
-                            SystemUtils.close(localSocket);
-                            SystemUtils.close(remoteSocket);
-                        })
-                ).start();
-                new Thread(() ->
-                        Exceptions.silence(() -> {
-                            long numBytes = SystemUtils.transferStream(remoteSocket.getInputStream(), localSocket.getOutputStream(), echoIn ? "OUT" : null);
-                            System.out.println("Transfer 2 done after " + numBytes + " bytes");
-                        }, () -> {
-                            SystemUtils.close(localSocket);
-                            SystemUtils.close(remoteSocket);
-                        })
-                ).start();
-            }, null, false);*/
-
             return tcpAcceptor(tcpLocalPort, localSocket -> Exceptions.silence(() -> forward(localSocket, new Socket(remoteHost, tcpRemotePort), echoIn, echoOut)), null, false);
         }
 
         private void forward(Socket localSocket, Socket remoteSocket, boolean echoIn, boolean echoOut) {
             runOnce(() ->
-                    forwardOneWay(localSocket, remoteSocket, echoIn ? "IN" : null));
+                    forwardOneWay(localSocket, remoteSocket, echoIn ? "IN FROM " + localSocket.getLocalPort() + "->" + ((InetSocketAddress)remoteSocket.getRemoteSocketAddress()).getPort() : null));
 
-            forwardOneWay(remoteSocket, localSocket, echoOut ? "OUT" : null);
+            forwardOneWay(remoteSocket, localSocket, echoOut ? "OUT TO " + ((InetSocketAddress)remoteSocket.getRemoteSocketAddress()).getPort() + "->" + localSocket.getLocalPort() : null);
         }
 
         private static void forwardOneWay(Socket localSocket, Socket remoteSocket, String debugLabel) {
             Exceptions.silence(() -> {
-                long numBytes = SystemUtils.transferStream(localSocket.getInputStream(), remoteSocket.getOutputStream(), debugLabel);
-                System.out.println("Transfer 1 done after " + numBytes + " bytes");
+                SystemUtils.transferStream(localSocket.getInputStream(), remoteSocket.getOutputStream(), debugLabel);
             }, () -> {
                 SystemUtils.close(localSocket);
                 SystemUtils.close(remoteSocket);
+                //if (debugLabel != null)
+                  //  System.out.println("Socket closed " + debugLabel);
             });
         }
 

@@ -246,13 +246,19 @@ public final class SystemUtils {
         byte[] buffer = new byte[1024];
         int read;
 
-        while ((read = is.read(buffer, 0, buffer.length)) >= 0) {
-            os.write(buffer, 0, read);
+        try {
+            while ((read = is.read(buffer, 0, buffer.length)) >= 0) {
+                os.write(buffer, 0, read);
+                if (echoLabel != null && transferred < 128)
+                    System.out.println(echoLabel + ": " + new String(buffer, 0, (int) Math.min(read - transferred, 128)));
+                transferred += read;
+            }
+
+            return transferred;
+        } finally {
             if (echoLabel != null)
-                System.out.println(echoLabel + ": " + new String(buffer, 0, read));
-            transferred += read;
+                System.out.println("Transferred " + echoLabel + " " + transferred + " bytes");
         }
-        return transferred;
     }
 
     public static void keepReadingStream(InputStream is, byte ar[]) throws IOException {

@@ -1,8 +1,6 @@
 package eu.lucaventuri.common;
 
-import java.io.Closeable;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -50,7 +48,7 @@ public final class SystemUtils {
      * @param msToSleepBetweenTests ms to sleep between each test
      */
     public static void sleepUntil(Supplier<Boolean> done, int msToSleepBetweenTests) {
-        while(!done.get())
+        while (!done.get())
             sleep(msToSleepBetweenTests);
     }
 
@@ -241,5 +239,31 @@ public final class SystemUtils {
         System.out.println(description + " : " + time + " ms");
 
         return time;
+    }
+
+    public static long transferStream(InputStream is, OutputStream os, String echoLabel) throws IOException {
+        long transferred = 0;
+        byte[] buffer = new byte[1024];
+        int read;
+
+        while ((read = is.read(buffer, 0, buffer.length)) >= 0) {
+            os.write(buffer, 0, read);
+            if (echoLabel != null)
+                System.out.println(echoLabel + ": " + new String(buffer, 0, read));
+            transferred += read;
+        }
+        return transferred;
+    }
+
+    public static void keepReadingStream(InputStream is, byte ar[]) throws IOException {
+        int cur = 0;
+
+        while (cur < ar.length) {
+            int read = is.read(ar, cur, ar.length - cur);
+
+            if (read < 0)
+                throw new EOFException("Stream terminated after " + cur + " bytes!");
+            cur += read;
+        }
     }
 }

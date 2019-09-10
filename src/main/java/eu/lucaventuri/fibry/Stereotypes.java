@@ -9,10 +9,7 @@ import eu.lucaventuri.fibry.ActorSystem.NamedStrategyActorCreator;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.InetSocketAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.SocketTimeoutException;
+import java.net.*;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -218,9 +215,9 @@ public class Stereotypes {
          * @param mapLogic Logic of the mapper (input -> output)
          * @param reduceLogic Logic of the reducer (accumulator, newValue -> newAccumulator)
          * @param initialReducerState Initial state of the reducer. Note: mappers should be stateless
-         * @param <TM>                Input type of the mapper
-         * @param <RM>                Output type of the mapper == Input type of the reducer
-         * @param <RR>                Output type of the reducer
+         * @param <TM> Input type of the mapper
+         * @param <RM> Output type of the mapper == Input type of the reducer
+         * @param <RR> Output type of the reducer
          * @return a MapReducer
          */
         public <TM, RM, RR> MapReducer<TM, RR> mapReduce(PoolParameters params, Function<TM, RM> mapLogic, BiFunction<RR, RM, RR> reduceLogic, RR initialReducerState) {
@@ -239,9 +236,9 @@ public class Stereotypes {
          * @param mapLogic Logic of the mapper (input -> output)
          * @param reduceLogic Logic of the reducer (accumulator, newValue -> newAccumulator)
          * @param initialReducerState Initial state of the reducer. Note: mappers should be stateless
-         * @param <TM>                Input type of the mapper
-         * @param <RM>                Output type of the mapper == Input type of the reducer
-         * @param <RR>                Output type of the reducer
+         * @param <TM> Input type of the mapper
+         * @param <RM> Output type of the mapper == Input type of the reducer
+         * @param <RR> Output type of the reducer
          * @return a MapReducer
          */
         public <TM, RM, RR> MapReducer<TM, RR> mapReduce(Function<TM, RM> mapLogic, BiFunction<RR, RM, RR> reduceLogic, RR initialReducerState) {
@@ -351,19 +348,20 @@ public class Stereotypes {
          * @return the acceptor actor
          * @throws IOException this is only thrown if it happens at the beginning, when the ServerSocket is created. Other exceptions will be sent to the console, and the socket will be created again. If the exception is thrown, the actor will also be killed, else it will keep going and retry
          */
-        public <S> SinkActorSingleTask<Void> tcpAcceptor(int port, Consumer<Socket> workersLogic, Supplier<S> stateSupplier) throws IOException {
+        public <S> SinkActorSingleTask<Void> tcpAcceptor(int port, Consumer<Socket> workersLogic, Supplier<S> stateSupplier, boolean autoCloseSocket) throws IOException {
             final CountDownLatch latchSocketCreation = new CountDownLatch(1);
             final AtomicReference<IOException> exception = new AtomicReference<>();
 
             SinkActorSingleTask<Void> actor = runOnceWithThis(thisActor -> {
                 while (!thisActor.isExiting()) {
+                    if (debug.get())
+                        System.out.println("Accepting TCP connections on port " + port);
                     Optional<ServerSocket> serverSocket = createServerSocketWithTimeout(port, latchSocketCreation, exception, 1000);
 
-                    serverSocket.ifPresent(socket -> acceptTcpConnections(workersLogic, stateSupplier, thisActor, socket));
-
-                    SystemUtils.close(serverSocket);
-                    // Slows down a bit in case of continuous exceptions. A circuit breaker would also be an option
-                    SystemUtils.sleep(10);
+                    if (serverSocket.isPresent())
+                        acceptTcpConnections(workersLogic, stateSupplier, thisActor, serverSocket.get(), autoCloseSocket);
+                    else
+                        SystemUtils.sleep(10); // Slows down a bit in case of continuous exceptions. A circuit breaker would also be an option
                 }
                 if (debug.get())
                     System.out.println("TCP acceptor actor on port " + port + " shutting down");
@@ -385,11 +383,62 @@ public class Stereotypes {
             return actor;
         }
 
-        public <S, E extends Throwable> SinkActorSingleTask<Void> tcpAcceptorSilent(int port, ConsumerEx<Socket, E> workersLogic, Supplier<S> stateSupplier) throws IOException {
-            return tcpAcceptor(port, Exceptions.silentConsumer(workersLogic), stateSupplier);
+        public <S> SinkActorSingleTask<Void> forwardLocal(int tcpSourcePort, int tcpDestPort, boolean echoIn, boolean echoOut) throws IOException {
+            return forwardRemote(tcpSourcePort, InetAddress.getLocalHost(), tcpDestPort, echoIn, echoOut);
         }
 
-        private <S> void acceptTcpConnections(Consumer<Socket> workersLogic, Supplier<S> stateSupplier, SinkActor<Void> thisActor, ServerSocket serverSocket) {
+        public <S> SinkActorSingleTask<Void> forwardRemote(int tcpSourcePort, String remoteHost, int tcpRemotePort, boolean echoIn, boolean echoOut) throws IOException {
+            return forwardRemote(tcpSourcePort, InetAddress.getByName(remoteHost), tcpRemotePort, echoIn, echoOut);
+        }
+
+        public <S> SinkActorSingleTask<Void> forwardRemote(int tcpLocalPort, InetAddress remoteHost, int tcpRemotePort, boolean echoIn, boolean echoOut) throws IOException {
+
+            /*return tcpAcceptor(tcpLocalPort, localSocket -> {
+                new Thread(() ->
+                        Exceptions.silence(() -> {
+                            long numBytes = SystemUtils.transferStream(localSocket.getInputStream(), remoteSocket.getOutputStream(), echoIn ? "IN" : null);
+                            System.out.println("Transfer 1 done after " + numBytes + " bytes");
+                        }, () -> {
+                            SystemUtils.close(localSocket);
+                            SystemUtils.close(remoteSocket);
+                        })
+                ).start();
+                new Thread(() ->
+                        Exceptions.silence(() -> {
+                            long numBytes = SystemUtils.transferStream(remoteSocket.getInputStream(), localSocket.getOutputStream(), echoIn ? "OUT" : null);
+                            System.out.println("Transfer 2 done after " + numBytes + " bytes");
+                        }, () -> {
+                            SystemUtils.close(localSocket);
+                            SystemUtils.close(remoteSocket);
+                        })
+                ).start();
+            }, null, false);*/
+
+            return tcpAcceptor(tcpLocalPort, localSocket -> Exceptions.silence(() -> forward(localSocket, new Socket(remoteHost, tcpRemotePort), echoIn, echoOut)), null, false);
+        }
+
+        private void forward(Socket localSocket, Socket remoteSocket, boolean echoIn, boolean echoOut) {
+            runOnce(() ->
+                    forwardOneWay(localSocket, remoteSocket, echoIn ? "IN" : null));
+
+            forwardOneWay(remoteSocket, localSocket, echoOut ? "OUT" : null);
+        }
+
+        private static void forwardOneWay(Socket localSocket, Socket remoteSocket, String debugLabel) {
+            Exceptions.silence(() -> {
+                long numBytes = SystemUtils.transferStream(localSocket.getInputStream(), remoteSocket.getOutputStream(), debugLabel);
+                System.out.println("Transfer 1 done after " + numBytes + " bytes");
+            }, () -> {
+                SystemUtils.close(localSocket);
+                SystemUtils.close(remoteSocket);
+            });
+        }
+
+        public <S, E extends Throwable> SinkActorSingleTask<Void> tcpAcceptorSilent(int port, ConsumerEx<Socket, E> workersLogic, Supplier<S> stateSupplier, boolean autoCloseSocket) throws IOException {
+            return tcpAcceptor(port, Exceptions.silentConsumer(workersLogic), stateSupplier, autoCloseSocket);
+        }
+
+        private <S> void acceptTcpConnections(Consumer<Socket> workersLogic, Supplier<S> stateSupplier, SinkActor<Void> thisActor, ServerSocket serverSocket, boolean autoCloseSocket) {
             try {
                 while (!thisActor.isExiting()) {
                     try {
@@ -398,7 +447,8 @@ public class Stereotypes {
                         // The socket can be null by design; as consequence of the SO_TIMEOUT; this will give the actor a chance to exit even if there are no clients connecting
                         Actor<Socket, Void, S> worker = anonymous().initialState(stateSupplier == null ? null : stateSupplier.get()).newActor(socket -> {
                             workersLogic.accept(socket);
-                            SystemUtils.close(socket);
+                            if (autoCloseSocket)
+                                SystemUtils.close(socket);
                         });
 
                         // Lose ownership of the socket, it will be managed by the worker
@@ -410,6 +460,8 @@ public class Stereotypes {
                 }
             } catch (IOException e) {
                 System.err.println(e);
+            } finally {
+                SystemUtils.close(serverSocket);
             }
         }
 
@@ -437,7 +489,7 @@ public class Stereotypes {
          * - The BiConsumer accept the name of the user and the message
          * - persistenceLogic, is present, can record the message on a DB; this will be done asynchronously
          * - The message will be also sent to an actor called actorsPrefix+userName (from BiConsumer); but if the actor is not present, it will be dropped. The actor should retrieve the messages from the DB
-         * <p>
+         * <p>`
          * To receive answers, messages need to be sent to the sender using the BiConsumer
          */
         public <T> BiConsumer<String, T> chatSystem(String actorsPrefix, Consumer<T> persistenceLogic) {

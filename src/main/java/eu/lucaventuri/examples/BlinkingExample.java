@@ -43,7 +43,7 @@ public class BlinkingExample {
 
                 e.printStackTrace();
             }
-        }, null);
+        }, null, true);
 
         SystemUtils.sleep(10);
         int numActors = 200;

@@ -20,6 +20,17 @@ final public class Exceptions {
         }
     }
 
+    public static void silence(RunnableEx run, RunnableEx finalizer) {
+        try {
+            run.run();
+        } catch (Throwable t) {
+            /* */
+        } finally {
+            if (finalizer != null)
+                Exceptions.silence(finalizer::run);
+        }
+    }
+
     public static Runnable silentRunnable(RunnableEx run) {
         return () -> {
             try {
@@ -35,6 +46,17 @@ final public class Exceptions {
             return call.call();
         } catch (Throwable t) {
             return valueOnException;
+        }
+    }
+
+    public static <T> T silence(CallableEx<T, ? extends Throwable> call, T valueOnException, RunnableEx finalizer) {
+        try {
+            return call.call();
+        } catch (Throwable t) {
+            return valueOnException;
+        } finally {
+            if (finalizer != null)
+                Exceptions.silence(finalizer::run);
         }
     }
 
@@ -143,7 +165,9 @@ final public class Exceptions {
         }
     }
 
-    /** Assert that a certain condition is met, or throw an exception */
+    /**
+     * Assert that a certain condition is met, or throw an exception
+     */
     public static void assertAndThrow(boolean check, String error) {
         assert check : error;
 

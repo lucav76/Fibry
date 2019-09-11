@@ -212,8 +212,8 @@ public class Stereotypes {
          * Creates a map-reduce local system, using a pool of actors and a single reducer. This is preferred method to do a Map-reduce job.
          *
          * @param params Parameters for the creation of the pool
-         * @param mapLogic Logic of the mapper (input -> output)
-         * @param reduceLogic Logic of the reducer (accumulator, newValue -> newAccumulator)
+         * @param mapLogic Logic of the mapper (input -&gt; output)
+         * @param reduceLogic Logic of the reducer (accumulator, newValue -&gt; newAccumulator)
          * @param initialReducerState Initial state of the reducer. Note: mappers should be stateless
          * @param <TM> Input type of the mapper
          * @param <RM> Output type of the mapper == Input type of the reducer
@@ -233,8 +233,8 @@ public class Stereotypes {
         /**
          * Creates a map-reduce local system, using one actor per request
          *
-         * @param mapLogic Logic of the mapper (input -> output)
-         * @param reduceLogic Logic of the reducer (accumulator, newValue -> newAccumulator)
+         * @param mapLogic Logic of the mapper (input -&gt; output)
+         * @param reduceLogic Logic of the reducer (accumulator, newValue -&gt; newAccumulator)
          * @param initialReducerState Initial state of the reducer. Note: mappers should be stateless
          * @param <TM> Input type of the mapper
          * @param <RM> Output type of the mapper == Input type of the reducer
@@ -343,12 +343,48 @@ public class Stereotypes {
          *
          * @param port TCP port
          * @param workersLogic Logic of each worker
-         * @param stateSupplier Supplier able to create a new state for each worker
          * @param <S> Type of state
          * @return the acceptor actor
          * @throws IOException this is only thrown if it happens at the beginning, when the ServerSocket is created. Other exceptions will be sent to the console, and the socket will be created again. If the exception is thrown, the actor will also be killed, else it will keep going and retry
          */
-        public <S> SinkActorSingleTask<Void> tcpAcceptor(int port, Consumer<Socket> workersLogic, Supplier<S> stateSupplier, boolean autoCloseSocket) throws IOException {
+        public <S> SinkActorSingleTask<Void> tcpAcceptor(int port, Consumer<Socket> workersLogic, boolean autoCloseSocket) throws IOException {
+            Supplier<Actor<Socket, Void, S>> workersCreator = () -> anonymous().initialState((S) null).newActor((Socket socket) -> {
+                workersLogic.accept(socket);
+                if (autoCloseSocket)
+                    SystemUtils.close(socket);
+            });
+
+            return tcpAcceptorCore(port, workersCreator);
+        }
+
+        /**
+         * Creates an actor that can accept new TCP connections on the specified port and spawn a new actor for each connection.
+         * This method will return after the server socket has been created. If the server socket cannot be created, it will throw an exception.
+         * If the server socket can be created once, subsequent exceptions will be logged, and it will try to recreate the server socket as needed.
+         * <p>
+         * The contract with the workers is that:
+         * - Only one message will ever be sent, and the message is the connection
+         * - They workers take ownership of the connection, however the acceptor will try to close it anyway. So the worker don't need to close it.
+         * - After the connection, a poison pill will be sent, so the actor will die after processing one connection
+         *
+         * @param port TCP port
+         * @param workersBiLogic Logic of each worker
+         * @param stateSupplier Optional state supplier
+         * @param <S> Type of state
+         * @return the acceptor actor
+         * @throws IOException this is only thrown if it happens at the beginning, when the ServerSocket is created. Other exceptions will be sent to the console, and the socket will be created again. If the exception is thrown, the actor will also be killed, else it will keep going and retry
+         */
+        public <S> SinkActorSingleTask<Void> tcpAcceptor(int port, BiConsumer<Socket, PartialActor<Socket, S>> workersBiLogic, Supplier<S> stateSupplier, boolean autoCloseSocket) throws IOException {
+            Supplier<Actor<Socket, Void, S>> workersCreator = () -> anonymous().initialState(stateSupplier == null ? null : stateSupplier.get()).newActor((Socket socket, PartialActor<Socket, S> thisActor) -> {
+                workersBiLogic.accept(socket, thisActor);
+                if (autoCloseSocket)
+                    SystemUtils.close(socket);
+            });
+
+            return tcpAcceptorCore(port, workersCreator);
+        }
+
+        private <S> SinkActorSingleTask<Void> tcpAcceptorCore(int port, Supplier<Actor<Socket, Void, S>> workersCreator) throws IOException {
             final CountDownLatch latchSocketCreation = new CountDownLatch(1);
             final AtomicReference<IOException> exception = new AtomicReference<>();
 
@@ -358,9 +394,9 @@ public class Stereotypes {
                         System.out.println("Accepting TCP connections on port " + port);
                     Optional<ServerSocket> serverSocket = createServerSocketWithTimeout(port, latchSocketCreation, exception, 1000);
 
-                    if (serverSocket.isPresent())
-                        acceptTcpConnections(workersLogic, stateSupplier, thisActor, serverSocket.get(), autoCloseSocket);
-                    else
+                    if (serverSocket.isPresent()) {
+                        acceptTcpConnections(workersCreator, thisActor, serverSocket.get());
+                    } else
                         SystemUtils.sleep(10); // Slows down a bit in case of continuous exceptions. A circuit breaker would also be an option
                 }
                 if (debug.get())
@@ -383,6 +419,10 @@ public class Stereotypes {
             return actor;
         }
 
+        public <S, E extends Throwable> SinkActorSingleTask<Void> tcpAcceptorSilent(int port, ConsumerEx<Socket, E> workersLogic, boolean autoCloseSocket) throws IOException {
+            return tcpAcceptor(port, Exceptions.silentConsumer(workersLogic), autoCloseSocket);
+        }
+
         public <S> SinkActorSingleTask<Void> forwardLocal(int tcpSourcePort, int tcpDestPort, boolean echoIn, boolean echoOut) throws IOException {
             return forwardRemote(tcpSourcePort, InetAddress.getLocalHost(), tcpDestPort, echoIn, echoOut);
         }
@@ -392,14 +432,14 @@ public class Stereotypes {
         }
 
         public <S> SinkActorSingleTask<Void> forwardRemote(int tcpLocalPort, InetAddress remoteHost, int tcpRemotePort, boolean echoIn, boolean echoOut) throws IOException {
-            return tcpAcceptor(tcpLocalPort, localSocket -> Exceptions.silence(() -> forward(localSocket, new Socket(remoteHost, tcpRemotePort), echoIn, echoOut)), null, false);
+            return tcpAcceptor(tcpLocalPort, localSocket -> Exceptions.silence(() -> forward(localSocket, new Socket(remoteHost, tcpRemotePort), echoIn, echoOut)), false);
         }
 
         private void forward(Socket localSocket, Socket remoteSocket, boolean echoIn, boolean echoOut) {
             runOnce(() ->
-                    forwardOneWay(localSocket, remoteSocket, echoIn ? "IN FROM " + localSocket.getLocalPort() + "->" + ((InetSocketAddress)remoteSocket.getRemoteSocketAddress()).getPort() : null));
+                    forwardOneWay(localSocket, remoteSocket, echoIn ? "IN FROM " + localSocket.getLocalPort() + "->" + ((InetSocketAddress) remoteSocket.getRemoteSocketAddress()).getPort() : null));
 
-            forwardOneWay(remoteSocket, localSocket, echoOut ? "OUT TO " + ((InetSocketAddress)remoteSocket.getRemoteSocketAddress()).getPort() + "->" + localSocket.getLocalPort() : null);
+            forwardOneWay(remoteSocket, localSocket, echoOut ? "OUT TO " + ((InetSocketAddress) remoteSocket.getRemoteSocketAddress()).getPort() + "->" + localSocket.getLocalPort() : null);
         }
 
         private static void forwardOneWay(Socket localSocket, Socket remoteSocket, String debugLabel) {
@@ -409,26 +449,21 @@ public class Stereotypes {
                 SystemUtils.close(localSocket);
                 SystemUtils.close(remoteSocket);
                 //if (debugLabel != null)
-                  //  System.out.println("Socket closed " + debugLabel);
+                //  System.out.println("Socket closed " + debugLabel);
             });
         }
 
-        public <S, E extends Throwable> SinkActorSingleTask<Void> tcpAcceptorSilent(int port, ConsumerEx<Socket, E> workersLogic, Supplier<S> stateSupplier, boolean autoCloseSocket) throws IOException {
-            return tcpAcceptor(port, Exceptions.silentConsumer(workersLogic), stateSupplier, autoCloseSocket);
-        }
-
-        private <S> void acceptTcpConnections(Consumer<Socket> workersLogic, Supplier<S> stateSupplier, SinkActor<Void> thisActor, ServerSocket serverSocket, boolean autoCloseSocket) {
+        private <S> void acceptTcpConnections(Supplier<Actor<Socket, Void, S>> workersCreator, SinkActor<Void> acceptorActor, ServerSocket serverSocket) {
             try {
-                while (!thisActor.isExiting()) {
+                while (!acceptorActor.isExiting()) {
                     try {
                         Socket clientSocket = serverSocket.accept();
 
                         // The socket can be null by design; as consequence of the SO_TIMEOUT; this will give the actor a chance to exit even if there are no clients connecting
-                        Actor<Socket, Void, S> worker = anonymous().initialState(stateSupplier == null ? null : stateSupplier.get()).newActor(socket -> {
-                            workersLogic.accept(socket);
-                            if (autoCloseSocket)
-                                SystemUtils.close(socket);
-                        });
+                        if (clientSocket == null)
+                            continue;
+
+                        Actor<Socket, Void, S> worker = workersCreator.get();
 
                         // Lose ownership of the socket, it will be managed by the worker
                         worker.sendMessage(clientSocket);

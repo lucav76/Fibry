@@ -236,7 +236,7 @@ public class TestStereotypes {
             } finally {
                 SystemUtils.close(socket1000);
             }
-        }, null, false);
+        }, false);
 
         SinkActorSingleTask<Void> actorForwarding = Stereotypes.def().forwardLocal(1001, 1000, true, true);
         Socket socket1001 = new Socket(InetAddress.getLocalHost(), 1001);
@@ -334,6 +334,6 @@ public class TestStereotypes {
             } catch (IOException | InterruptedException e) {
                 fail(e.toString());
             }
-        }, null, false);
+        }, false);
     }
 }

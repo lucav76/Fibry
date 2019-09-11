@@ -262,10 +262,18 @@ public final class SystemUtils {
     }
 
     public static void keepReadingStream(InputStream is, byte ar[]) throws IOException {
+        keepReadingStream(is, ar, 0, ar.length);
+    }
+
+    public static void keepReadingStream(InputStream is, byte ar[], int offset, int len) throws IOException {
+        assert offset>=0;
+        assert len>=0;
+        assert offset+len<=ar.length;
+
         int cur = 0;
 
-        while (cur < ar.length) {
-            int read = is.read(ar, cur, ar.length - cur);
+        while (cur < len) {
+            int read = is.read(ar, cur+offset, len - cur);
 
             if (read < 0)
                 throw new EOFException("Stream terminated after " + cur + " bytes!");

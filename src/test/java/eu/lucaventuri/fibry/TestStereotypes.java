@@ -252,19 +252,14 @@ public class TestStereotypes {
             latch.countDown();
         } finally {
             SystemUtils.close(socket1001);
-            actorForwarding.askExit();
-            actorForwarding.waitForExit();
-            actorAcceptor.askExit();
-            actorAcceptor.waitForExit();
+            actorForwarding.askExitAndWait();
+            actorAcceptor.askExitAndWait();
         }
     }
 
     @Test
     public void testBinaryLocalForward() throws IOException {
-        byte testArrary[] = new byte[1024 * 1024];
-
-        for (int i = 0; i < testArrary.length; i++)
-            testArrary[i] = (byte) i;
+        byte[] testArrary = prepareBinaryArray();
 
         CountDownLatch latch = new CountDownLatch(1);
         SinkActorSingleTask<Void> actorAcceptor = createBinaryAcceptor(testArrary, latch);
@@ -281,18 +276,13 @@ public class TestStereotypes {
 
         latch.countDown();
         SystemUtils.close(socket1001);
-        actorForwarding.askExit();
-        actorForwarding.waitForExit();
-        actorAcceptor.askExit();
-        actorAcceptor.waitForExit();
+        actorForwarding.askExitAndWait();
+        actorAcceptor.askExitAndWait();
     }
 
     @Test
     public void testDoubleBinaryLocalForward() throws IOException {
-        byte testArrary[] = new byte[1024 * 1024];
-
-        for (int i = 0; i < testArrary.length; i++)
-            testArrary[i] = (byte) i;
+        byte[] testArrary = prepareBinaryArray();
 
         CountDownLatch latch = new CountDownLatch(1);
         SinkActorSingleTask<Void> actorAcceptor = createBinaryAcceptor(testArrary, latch);
@@ -310,12 +300,49 @@ public class TestStereotypes {
 
         latch.countDown();
         SystemUtils.close(socket1002);
-        actorForwarding.askExit();
-        actorForwarding.waitForExit();
-        actorForwarding2.askExit();
-        actorForwarding2.waitForExit();
-        actorAcceptor.askExit();
-        actorAcceptor.waitForExit();
+        actorForwarding.askExitAndWait();
+        actorForwarding2.askExitAndWait();
+        actorAcceptor.askExitAndWait();
+    }
+
+    @Test
+    public void testDoubleBinaryLocalForwardSplit() throws IOException {
+        byte[] testArrary = prepareBinaryArray();
+
+        CountDownLatch latch = new CountDownLatch(1);
+        SinkActorSingleTask<Void> actorAcceptor = createBinaryAcceptor(testArrary, latch);
+        SinkActorSingleTask<Void> actorForwarding = Stereotypes.def().forwardLocal(1001, 1000, true, true);
+        SinkActorSingleTask<Void> actorForwarding2 = Stereotypes.def().forwardLocal(1002, 1001, true, true);
+        Socket socket1002 = new Socket(InetAddress.getLocalHost(), 1002);
+
+        //SystemUtils.sleep(1000);
+        socket1002.getOutputStream().write(testArrary, 0, 1);
+        socket1002.getOutputStream().write(testArrary, 1, 1023);
+        socket1002.getOutputStream().write(testArrary, 1024, 511*1024);
+        socket1002.getOutputStream().write(testArrary, 512*1024, 512*1024);
+
+        byte ar[] = new byte[testArrary.length];
+        SystemUtils.keepReadingStream(socket1002.getInputStream(), ar, 0, 255*1024);
+        SystemUtils.keepReadingStream(socket1002.getInputStream(), ar, 255*1024, 1024);
+        SystemUtils.keepReadingStream(socket1002.getInputStream(), ar, 256*1024, 512*1024);
+        SystemUtils.keepReadingStream(socket1002.getInputStream(), ar, 768*1024, 256*1024);
+        System.out.println("Received on port 1002 " + ar.length + " bytes");
+        for (int i = 0; i < ar.length; i++)
+            assertEquals((byte) i, ar[i]);
+
+        latch.countDown();
+        SystemUtils.close(socket1002);
+        actorForwarding.askExitAndWait();
+        actorForwarding2.askExitAndWait();
+        actorAcceptor.askExitAndWait();
+    }
+
+    private byte[] prepareBinaryArray() {
+        byte testArrary[] = new byte[1024 * 1024];
+
+        for (int i = 0; i < testArrary.length; i++)
+            testArrary[i] = (byte) i;
+        return testArrary;
     }
 
     private SinkActorSingleTask<Void> createBinaryAcceptor(byte[] testArrary, CountDownLatch latch) throws IOException {

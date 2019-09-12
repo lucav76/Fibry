@@ -5,6 +5,8 @@ import eu.lucaventuri.fibry.Actor;
 import eu.lucaventuri.fibry.Stereotypes;
 import org.junit.Test;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
@@ -318,14 +320,14 @@ public class TestStereotypes {
         //SystemUtils.sleep(1000);
         socket1002.getOutputStream().write(testArrary, 0, 1);
         socket1002.getOutputStream().write(testArrary, 1, 1023);
-        socket1002.getOutputStream().write(testArrary, 1024, 511*1024);
-        socket1002.getOutputStream().write(testArrary, 512*1024, 512*1024);
+        socket1002.getOutputStream().write(testArrary, 1024, 511 * 1024);
+        socket1002.getOutputStream().write(testArrary, 512 * 1024, 512 * 1024);
 
         byte ar[] = new byte[testArrary.length];
-        SystemUtils.keepReadingStream(socket1002.getInputStream(), ar, 0, 255*1024);
-        SystemUtils.keepReadingStream(socket1002.getInputStream(), ar, 255*1024, 1024);
-        SystemUtils.keepReadingStream(socket1002.getInputStream(), ar, 256*1024, 512*1024);
-        SystemUtils.keepReadingStream(socket1002.getInputStream(), ar, 768*1024, 256*1024);
+        SystemUtils.keepReadingStream(socket1002.getInputStream(), ar, 0, 255 * 1024);
+        SystemUtils.keepReadingStream(socket1002.getInputStream(), ar, 255 * 1024, 1024);
+        SystemUtils.keepReadingStream(socket1002.getInputStream(), ar, 256 * 1024, 512 * 1024);
+        SystemUtils.keepReadingStream(socket1002.getInputStream(), ar, 768 * 1024, 256 * 1024);
         System.out.println("Received on port 1002 " + ar.length + " bytes");
         for (int i = 0; i < ar.length; i++)
             assertEquals((byte) i, ar[i]);
@@ -362,5 +364,21 @@ public class TestStereotypes {
                 fail(e.toString());
             }
         }, null, false);
+    }
+
+    @Test
+    public void testTransferStreams() throws IOException {
+        byte ar[] = {(byte) 127, (byte) 128, (byte) 250, (byte) 255, (byte) 256, (byte) 510, (byte) 511, (byte) 512, (byte) -1};
+        ByteArrayInputStream bais = new ByteArrayInputStream(ar);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+        SystemUtils.transferStream(bais, baos, null);
+
+        byte ar2[] = baos.toByteArray();
+
+        assertEquals(ar.length, ar2.length);
+
+        for (int i = 0; i < ar.length; i++)
+            assertEquals(ar[i], ar2[i]);
     }
 }

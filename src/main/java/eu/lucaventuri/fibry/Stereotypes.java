@@ -348,7 +348,7 @@ public class Stereotypes {
          * @throws IOException this is only thrown if it happens at the beginning, when the ServerSocket is created. Other exceptions will be sent to the console, and the socket will be created again. If the exception is thrown, the actor will also be killed, else it will keep going and retry
          */
         public <S> SinkActorSingleTask<Void> tcpAcceptor(int port, Consumer<Socket> workersLogic, boolean autoCloseSocket) throws IOException {
-            Supplier<Actor<Socket, Void, S>> workersCreator = () -> anonymous().initialState((S) null).newActor((Socket socket) -> {
+            Function<SinkActorSingleTask<Void>, Actor<Socket, Void, S>> workersCreator = (acceptorActor) -> anonymous().initialState((S) null).newActor((Socket socket) -> {
                 workersLogic.accept(socket);
                 if (autoCloseSocket)
                     SystemUtils.close(socket);
@@ -374,8 +374,8 @@ public class Stereotypes {
          * @return the acceptor actor
          * @throws IOException this is only thrown if it happens at the beginning, when the ServerSocket is created. Other exceptions will be sent to the console, and the socket will be created again. If the exception is thrown, the actor will also be killed, else it will keep going and retry
          */
-        public <S> SinkActorSingleTask<Void> tcpAcceptor(int port, BiConsumer<Socket, PartialActor<Socket, S>> workersBiLogic, Supplier<S> stateSupplier, boolean autoCloseSocket) throws IOException {
-            Supplier<Actor<Socket, Void, S>> workersCreator = () -> anonymous().initialState(stateSupplier == null ? null : stateSupplier.get()).newActor((Socket socket, PartialActor<Socket, S> thisActor) -> {
+        public <S> SinkActorSingleTask<Void> tcpAcceptor(int port, BiConsumer<Socket, PartialActor<Socket, S>> workersBiLogic, Function<SinkActorSingleTask<Void>, S> stateSupplier, boolean autoCloseSocket) throws IOException {
+            Function<SinkActorSingleTask<Void>, Actor<Socket, Void, S>> workersCreator = acceptorActor -> anonymous().initialState(stateSupplier == null ? null : stateSupplier.apply(acceptorActor)).newActor((Socket socket, PartialActor<Socket, S> thisActor) -> {
                 workersBiLogic.accept(socket, thisActor);
                 if (autoCloseSocket)
                     SystemUtils.close(socket);
@@ -384,7 +384,7 @@ public class Stereotypes {
             return tcpAcceptorCore(port, workersCreator);
         }
 
-        private <S> SinkActorSingleTask<Void> tcpAcceptorCore(int port, Supplier<Actor<Socket, Void, S>> workersCreator) throws IOException {
+        private <S> SinkActorSingleTask<Void> tcpAcceptorCore(int port, Function<SinkActorSingleTask<Void>, Actor<Socket, Void, S>> workersCreator) throws IOException {
             final CountDownLatch latchSocketCreation = new CountDownLatch(1);
             final AtomicReference<IOException> exception = new AtomicReference<>();
 
@@ -453,7 +453,7 @@ public class Stereotypes {
             });
         }
 
-        private <S> void acceptTcpConnections(Supplier<Actor<Socket, Void, S>> workersCreator, SinkActor<Void> acceptorActor, ServerSocket serverSocket) {
+        private <S> void acceptTcpConnections(Function<SinkActorSingleTask<Void>, Actor<Socket, Void, S>> workersCreator, SinkActor<Void> acceptorActor, ServerSocket serverSocket) {
             try {
                 while (!acceptorActor.isExiting()) {
                     try {
@@ -463,7 +463,7 @@ public class Stereotypes {
                         if (clientSocket == null)
                             continue;
 
-                        Actor<Socket, Void, S> worker = workersCreator.get();
+                        Actor<Socket, Void, S> worker = workersCreator.apply(acceptorActor);
 
                         // Lose ownership of the socket, it will be managed by the worker
                         worker.sendMessage(clientSocket);

@@ -6,6 +6,7 @@ import eu.lucaventuri.common.MultiExitable;
 import eu.lucaventuri.functional.Either;
 import eu.lucaventuri.functional.Either3;
 
+import java.util.Enumeration;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -361,5 +362,15 @@ public class ActorSystem {
 
     public static void setDefaultStrategy(CreationStrategy defaulStrategy) {
         ActorSystem.defaultStrategy = defaulStrategy;
+    }
+
+    /**
+     * Visits all the names of the named actors
+     */
+    public void visitNamedActors(Consumer<String> visitor) {
+        Enumeration<String> names = namedQueues.keys();
+
+        while (names.hasMoreElements())
+            visitor.accept(names.nextElement());
     }
 }

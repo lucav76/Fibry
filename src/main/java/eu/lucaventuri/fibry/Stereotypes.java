@@ -10,7 +10,7 @@ import eu.lucaventuri.fibry.ActorSystem.NamedStrategyActorCreator;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.*;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -343,18 +343,67 @@ public class Stereotypes {
          *
          * @param port TCP port
          * @param workersLogic Logic of each worker
+         * @param timeoutConnectionAcceptanceMs Timeout used to check for new connections. The shorter it is, the more responsive will be the acceptor to exit, but it might have an impact on performance. You could try 1000 as a start
          * @param <S> Type of state
          * @return the acceptor actor
          * @throws IOException this is only thrown if it happens at the beginning, when the ServerSocket is created. Other exceptions will be sent to the console, and the socket will be created again. If the exception is thrown, the actor will also be killed, else it will keep going and retry
          */
-        public <S> SinkActorSingleTask<Void> tcpAcceptor(int port, Consumer<Socket> workersLogic, boolean autoCloseSocket) throws IOException {
+        public <S> SinkActorSingleTask<Void> tcpAcceptor(int port, Consumer<Socket> workersLogic, boolean autoCloseSocket, int timeoutConnectionAcceptanceMs) throws IOException {
             Function<SinkActorSingleTask<Void>, Actor<Socket, Void, S>> workersCreator = (acceptorActor) -> anonymous().initialState((S) null).newActor((Socket socket) -> {
                 workersLogic.accept(socket);
                 if (autoCloseSocket)
                     SystemUtils.close(socket);
             });
 
-            return tcpAcceptorCore(port, workersCreator);
+            return tcpAcceptorCore(port, workersCreator, timeoutConnectionAcceptanceMs);
+        }
+
+        /**
+         * Creates an actor that can accept new TCP connections on the specified port and spawn a new actor for each connection.
+         * This method will return after the server socket has been created. If the server socket cannot be created, it will throw an exception.
+         * If the server socket can be created once, subsequent exceptions will be logged, and it will try to recreate the server socket as needed.
+         * <p>
+         * The contract with the workers is that:
+         * - Only one message will ever be sent, and the message is the connection
+         * - They workers take ownership of the connection, however the acceptor will try to close it anyway. So the worker don't need to close it.
+         * - After the connection, a poison pill will be sent, so the actor will die after processing one connection
+         *
+         * @param port TCP port
+         * @param workersLogic Logic of each worker
+         * @param <S> Type of state
+         * @return the acceptor actor
+         * @throws IOException this is only thrown if it happens at the beginning, when the ServerSocket is created. Other exceptions will be sent to the console, and the socket will be created again. If the exception is thrown, the actor will also be killed, else it will keep going and retry
+         */
+        public <S> SinkActorSingleTask<Void> tcpAcceptor(int port, Consumer<Socket> workersLogic, boolean autoCloseSocket) throws IOException {
+            return tcpAcceptor(port, workersLogic, autoCloseSocket, 1000);
+        }
+
+        /**
+         * Creates an actor that can accept new TCP connections on the specified port and spawn a new actor for each connection.
+         * This method will return after the server socket has been created. If the server socket cannot be created, it will throw an exception.
+         * If the server socket can be created once, subsequent exceptions will be logged, and it will try to recreate the server socket as needed.
+         * <p>
+         * The contract with the workers is that:
+         * - Only one message will ever be sent, and the message is the connection
+         * - They workers take ownership of the connection, however the acceptor will try to close it anyway. So the worker don't need to close it.
+         * - After the connection, a poison pill will be sent, so the actor will die after processing one connection
+         *
+         * @param port TCP port
+         * @param workersBiLogic Logic of each worker
+         * @param stateSupplier Optional state supplier
+         * @param timeoutConnectionAcceptanceMs Timeout used to check for new connections. The shorter it is, the more responsive will be the acceptor to exit, but it might have an impact on performance. You could try 1000 as a start
+         * @param <S> Type of state
+         * @return the acceptor actor
+         * @throws IOException this is only thrown if it happens at the beginning, when the ServerSocket is created. Other exceptions will be sent to the console, and the socket will be created again. If the exception is thrown, the actor will also be killed, else it will keep going and retry
+         */
+        public <S> SinkActorSingleTask<Void> tcpAcceptor(int port, BiConsumer<Socket, PartialActor<Socket, S>> workersBiLogic, Function<SinkActorSingleTask<Void>, S> stateSupplier, boolean autoCloseSocket, int timeoutConnectionAcceptanceMs) throws IOException {
+            Function<SinkActorSingleTask<Void>, Actor<Socket, Void, S>> workersCreator = acceptorActor -> anonymous().initialState(stateSupplier == null ? null : stateSupplier.apply(acceptorActor)).newActor((Socket socket, PartialActor<Socket, S> thisActor) -> {
+                workersBiLogic.accept(socket, thisActor);
+                if (autoCloseSocket)
+                    SystemUtils.close(socket);
+            });
+
+            return tcpAcceptorCore(port, workersCreator, timeoutConnectionAcceptanceMs);
         }
 
         /**
@@ -375,16 +424,10 @@ public class Stereotypes {
          * @throws IOException this is only thrown if it happens at the beginning, when the ServerSocket is created. Other exceptions will be sent to the console, and the socket will be created again. If the exception is thrown, the actor will also be killed, else it will keep going and retry
          */
         public <S> SinkActorSingleTask<Void> tcpAcceptor(int port, BiConsumer<Socket, PartialActor<Socket, S>> workersBiLogic, Function<SinkActorSingleTask<Void>, S> stateSupplier, boolean autoCloseSocket) throws IOException {
-            Function<SinkActorSingleTask<Void>, Actor<Socket, Void, S>> workersCreator = acceptorActor -> anonymous().initialState(stateSupplier == null ? null : stateSupplier.apply(acceptorActor)).newActor((Socket socket, PartialActor<Socket, S> thisActor) -> {
-                workersBiLogic.accept(socket, thisActor);
-                if (autoCloseSocket)
-                    SystemUtils.close(socket);
-            });
-
-            return tcpAcceptorCore(port, workersCreator);
+            return tcpAcceptor(port, workersBiLogic, stateSupplier, autoCloseSocket);
         }
 
-        private <S> SinkActorSingleTask<Void> tcpAcceptorCore(int port, Function<SinkActorSingleTask<Void>, Actor<Socket, Void, S>> workersCreator) throws IOException {
+        private <S> SinkActorSingleTask<Void> tcpAcceptorCore(int port, Function<SinkActorSingleTask<Void>, Actor<Socket, Void, S>> workersCreator, int timeoutAcceptance) throws IOException {
             final CountDownLatch latchSocketCreation = new CountDownLatch(1);
             final AtomicReference<IOException> exception = new AtomicReference<>();
 
@@ -392,7 +435,7 @@ public class Stereotypes {
                 while (!thisActor.isExiting()) {
                     if (debug.get())
                         System.out.println("Accepting TCP connections on port " + port);
-                    Optional<ServerSocket> serverSocket = createServerSocketWithTimeout(port, latchSocketCreation, exception, 1000);
+                    Optional<ServerSocket> serverSocket = createServerSocketWithTimeout(port, latchSocketCreation, exception, timeoutAcceptance);
 
                     if (serverSocket.isPresent()) {
                         acceptTcpConnections(workersCreator, thisActor, serverSocket.get());
@@ -419,20 +462,20 @@ public class Stereotypes {
             return actor;
         }
 
-        public <S, E extends Throwable> SinkActorSingleTask<Void> tcpAcceptorSilent(int port, ConsumerEx<Socket, E> workersLogic, boolean autoCloseSocket) throws IOException {
-            return tcpAcceptor(port, Exceptions.silentConsumer(workersLogic), autoCloseSocket);
+        public <S, E extends Throwable> SinkActorSingleTask<Void> tcpAcceptorSilent(int port, ConsumerEx<Socket, E> workersLogic, boolean autoCloseSocket, int timeoutConnectionAcceptanceMs) throws IOException {
+            return tcpAcceptor(port, Exceptions.silentConsumer(workersLogic), autoCloseSocket, timeoutConnectionAcceptanceMs);
         }
 
-        public <S> SinkActorSingleTask<Void> forwardLocal(int tcpSourcePort, int tcpDestPort, boolean echoIn, boolean echoOut) throws IOException {
-            return forwardRemote(tcpSourcePort, InetAddress.getLocalHost(), tcpDestPort, echoIn, echoOut);
+        public <S> SinkActorSingleTask<Void> forwardLocal(int tcpSourcePort, int tcpDestPort, boolean echoIn, boolean echoOut, int timeoutConnectionAcceptanceMs) throws IOException {
+            return forwardRemote(tcpSourcePort, InetAddress.getLocalHost(), tcpDestPort, echoIn, echoOut, timeoutConnectionAcceptanceMs);
         }
 
-        public <S> SinkActorSingleTask<Void> forwardRemote(int tcpSourcePort, String remoteHost, int tcpRemotePort, boolean echoIn, boolean echoOut) throws IOException {
-            return forwardRemote(tcpSourcePort, InetAddress.getByName(remoteHost), tcpRemotePort, echoIn, echoOut);
+        public <S> SinkActorSingleTask<Void> forwardRemote(int tcpSourcePort, String remoteHost, int tcpRemotePort, boolean echoIn, boolean echoOut, int timeoutConnectionAcceptanceMs) throws IOException {
+            return forwardRemote(tcpSourcePort, InetAddress.getByName(remoteHost), tcpRemotePort, echoIn, echoOut, timeoutConnectionAcceptanceMs);
         }
 
-        public <S> SinkActorSingleTask<Void> forwardRemote(int tcpLocalPort, InetAddress remoteHost, int tcpRemotePort, boolean echoIn, boolean echoOut) throws IOException {
-            return tcpAcceptor(tcpLocalPort, localSocket -> Exceptions.silence(() -> forward(localSocket, new Socket(remoteHost, tcpRemotePort), echoIn, echoOut)), false);
+        public <S> SinkActorSingleTask<Void> forwardRemote(int tcpLocalPort, InetAddress remoteHost, int tcpRemotePort, boolean echoIn, boolean echoOut, int timeoutConnectionAcceptanceMs) throws IOException {
+            return tcpAcceptor(tcpLocalPort, localSocket -> Exceptions.silence(() -> forward(localSocket, new Socket(remoteHost, tcpRemotePort), echoIn, echoOut)), false, timeoutConnectionAcceptanceMs);
         }
 
         private void forward(Socket localSocket, Socket remoteSocket, boolean echoIn, boolean echoOut) {
@@ -518,6 +561,118 @@ public class Stereotypes {
             };
         }
 
+        /**
+         * Pipelined actor are anonymous to avoid confusion and prevent code from running on the actor
+         */
+        public <T, T2, R> MessageOnlyActor<T, R, Void> pipelineTo(Function<T, T2> workerBiLogic, MessageOnlyActor<T2, R, ?> targetActor) {
+            Actor<T, R, Void> actor = ActorSystem.anonymous().strategy(strategy).newActorWithReturn(workerBiLogic.andThen(targetActor));
+
+            return actor.closeOnExit(targetActor::sendPoisonPill);
+        }
+
+        /**
+         * Process messages in batch, after grouping by the key and counting how many messages are received.
+         * e.g. ['a', 'a', 'b', 'c', 'a'] would generate ['a':3, 'b':1, 'c':1]
+         *
+         * @param batchProcessor Object that can process the map of messages:num collected
+         * @param batchMaxSize Maximum size of the batch (when reached, the batch will be process)
+         * @param batchMs Maximum ms to wait before processing a batch, even if batchMaxSize has not been reached
+         * @param precisionMs Tentative precision (e.g. the batch is tentatively processed between batchMs and batchMs+precisionMs milliseconds); decreasing this value will increase precision but it might affect negatively a bit the performance
+         * @param skipTimeWithoutMessages It applies only if there are no messages. If true, the first message will reset the timeout of the batch (e.g. it can buffer the message for a full batchMs ms, even if it has been some time before the last batch)
+         * @param <T> Type of messages
+         * @return Actor
+         */
+        public <T> BaseActor<T, Void, Void> batchProcessGroupBy(Consumer<Map<T, Long>> batchProcessor, int batchMaxSize, int batchMs, int precisionMs, boolean skipTimeWithoutMessages) {
+            Map<T, Long> map = new HashMap<>();
+
+            return batchProcess(message -> {
+                map.merge(message, 1L, Long::sum);
+                return map.size();
+            }, () -> {
+                if (!map.isEmpty())
+                    batchProcessor.accept(map);
+                map.clear();
+            }, batchMaxSize, batchMs, precisionMs, skipTimeWithoutMessages);
+        }
+
+        /**
+         * Process messages in batch, after putting them on a list
+         *
+         * @param batchProcessor Object that can process the list of messages collected
+         * @param batchMaxSize Maximum size of the batch (when reached, the batch will be process)
+         * @param batchMs Maximum ms to wait before processing a batch, even if batchMaxSize has not been reached
+         * @param precisionMs Tentative precision (e.g. the batch is tentatively processed between batchMs and batchMs+precisionMs milliseconds); decreasing this value will increase precision but it might affect negatively a bit the performance
+         * @param skipTimeWithoutMessages It applies only if there are no messages. If true, the first message will reset the timeout of the batch (e.g. it can buffer the message for a full batchMs ms, even if it has been some time before the last batch)
+         * @param <T> Type of messages
+         * @return Actor
+         */
+        public <T> BaseActor<T, Void, Void> batchProcessList(Consumer<List<T>> batchProcessor, int batchMaxSize, int batchMs, int precisionMs, boolean skipTimeWithoutMessages) {
+            List<T> list = new ArrayList<>();
+
+            return batchProcess(message -> {
+                list.add(message);
+                return list.size();
+            }, () -> {
+                if (!list.isEmpty())
+                    batchProcessor.accept(list);
+                list.clear();
+            }, batchMaxSize, batchMs, precisionMs, skipTimeWithoutMessages);
+        }
+
+        /**
+         * Process messages in batch
+         *
+         * @param itemProcessor Object that can process a single message and collect it in a batch; it returns the number of elements in the batch (which could be different than the number of messages processed if they can be dropped or aggregated)
+         * @param batchProcessor Object that can process the group of messages collected by the itemProcessor
+         * @param batchMaxSize Maximum size of the batch (when reached, the batch will be process)
+         * @param batchMs Maximum ms to wait before processing a batch, even if batchMaxSize has not been reached
+         * @param precisionMs Tentative precision (e.g. the batch is tentatively processed between batchMs and batchMs+precisionMs milliseconds); decreasing this value will increase precision but it might affect negatively a bit the performance
+         * @param <T> Type of messages
+         * @param <T> Type of state
+         * @return
+         */
+        public <T> BaseActor<T, Void, Void> batchProcess(Function<T, Integer> itemProcessor, Runnable batchProcessor, int batchMaxSize, int batchMs, int precisionMs, boolean skipTimeWithoutMessages) {
+            BaseActor<T, Void, Void> actor = ActorUtils.initRef(ref -> {
+                return new CustomActor<T, Void, Void>(new FibryQueue<>(), state -> Exceptions.silence(batchProcessor::run), precisionMs) {
+                    long lastBatchSentTime = 0;
+                    int numMessages;
+
+                    @Override
+                    protected void onMessage(T message) {
+                        if (skipTimeWithoutMessages && numMessages == 0)
+                            lastBatchSentTime = System.currentTimeMillis();
+
+                        numMessages = itemProcessor.apply(message);
+
+                        processBatchIfReady();
+                    }
+
+                    @Override
+                    protected void onNoMessages() {
+                        if (lastBatchSentTime == 0)
+                            lastBatchSentTime = System.currentTimeMillis();
+                        processBatchIfReady();
+                    }
+
+                    private void processBatchIfReady() {
+                        long now = System.currentTimeMillis();
+
+                        if (lastBatchSentTime == 0)
+                            lastBatchSentTime = now;
+
+                        if (numMessages >= batchMaxSize || now >= lastBatchSentTime + batchMs) {
+                            lastBatchSentTime = now;
+
+                            if (numMessages > 0)
+                                batchProcessor.run();
+                        }
+                    }
+                };
+            });
+
+            return strategy.start(actor);
+        }
+
         private NamedStrategyActorCreator anonymous() {
             return ActorSystem.anonymous().strategy(strategy, closeStrategy);
         }
@@ -599,4 +754,6 @@ public class Stereotypes {
     public static void setDebug(boolean activateDebug) {
         debug.set(activateDebug);
     }
+
+
 }

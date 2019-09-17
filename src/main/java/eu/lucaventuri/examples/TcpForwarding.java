@@ -23,10 +23,10 @@ public class TcpForwarding {
 
             if (remoteHost == null) {
                 System.out.println("Local Forwarding port " + localPort + " to " + remotePort);
-                Stereotypes.def().forwardLocal(localPort, remotePort, debug, debug);
+                Stereotypes.def().forwardLocal(localPort, remotePort, debug, debug, 500);
             } else {
                 System.out.println("Forwarding port " + localPort + " to " + remoteHost + ":" + remotePort);
-                Stereotypes.def().forwardRemote(localPort, remoteHost, remotePort, debug, debug);
+                Stereotypes.def().forwardRemote(localPort, remoteHost, remotePort, debug, debug, 500);
             }
         }
     }

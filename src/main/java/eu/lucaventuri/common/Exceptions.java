@@ -116,6 +116,16 @@ final public class Exceptions {
         }
     }
 
+    public static void logShort(RunnableEx run) {
+        try {
+            run.run();
+        } catch (Throwable t) {
+            // log.error(t.getMessage(), t); Not working...
+            // FIXME: log for real
+            System.err.println(t);
+        }
+    }
+
     public static <T> T logShort(CallableEx<T, ? extends Throwable> call, T valueOnException) {
         try {
             return call.call();

@@ -26,6 +26,7 @@ Simplicity first
 - Fibry implements a very simple **Map/Reduce mechanism**, limited to the local computer.
 - Fibry implements a very simple **Pub/Sub** mechanism, limited to the local computer.
 - Fibry implements a simple **TCP port forwarding**, both as a Stereotype and as a small cli application: TcpForwarding
+- Fibry implements some simple mechanisms to help processing messages in batches
 
 Some numbers
 ===

@@ -22,6 +22,7 @@ public abstract class CustomActor<T, R, S> extends BaseActor<T, R, S> {
     }
 
     protected abstract void onMessage(T message);
+    protected void onNoMessages() { }
 
     protected void takeAndProcessSingleMessage() throws InterruptedException {
         Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>> message = queue.take();
@@ -35,5 +36,7 @@ public abstract class CustomActor<T, R, S> extends BaseActor<T, R, S> {
 
         if (message != null)
             message.ifEither(cns -> cns.accept(this), this::onMessage, actorLogicReturn::accept);
+        else
+            onNoMessages();
     }
 }

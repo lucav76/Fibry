@@ -22,7 +22,8 @@ public class ActorSystem {
     private static final ConcurrentHashMap<String, MiniFibryQueue> namedQueues = new ConcurrentHashMap<>();
     private static final Set<String> actorNamesInUse = ConcurrentHashSet.build();
     private static final AtomicLong progressivePoolId = new AtomicLong();
-    private static final int defaultQueueCapacity = Integer.MAX_VALUE;
+    private static volatile int defaultQueueCapacity = Integer.MAX_VALUE;
+    private static volatile int defaultPollTimeoutMs = Integer.MAX_VALUE;
     static final MiniFibryQueue DROPPING_QUEUE = MiniFibryQueue.dropping();
     static volatile CreationStrategy defaultStrategy = CreationStrategy.AUTO;
     static final NamedActorCreator defaultAnonymous = new NamedActorCreator(null, defaultQueueCapacity, false);
@@ -109,6 +110,17 @@ public class ActorSystem {
         final int queueCapacity;
         final int pollTimeoutMs;
 
+        public NamedStateActorCreator(String name, CreationStrategy strategy, S initialState, boolean allowReuse, Consumer<S> finalizer, CloseStrategy closeStrategy, int queueCapacity, int pollTimeoutMs) {
+            this.initialState = initialState;
+            this.strategy = strategy;
+            this.name = name;
+            this.allowReuse = allowReuse;
+            this.finalizer = finalizer;
+            this.closeStrategy = closeStrategy;
+            this.queueCapacity = queueCapacity;
+            this.pollTimeoutMs = pollTimeoutMs;
+        }
+
         private NamedStateActorCreator(String name, CreationStrategy strategy, S initialState, boolean allowReuse, Consumer<S> finalizer, CloseStrategy closeStrategy, int queueCapacity, boolean queueProtection) {
             this.name = name;
             this.strategy = strategy;
@@ -117,7 +129,7 @@ public class ActorSystem {
             this.finalizer = getQueueFinalizer(name, finalizer, queueProtection);
             this.closeStrategy = closeStrategy;
             this.queueCapacity = queueCapacity;
-            this.pollTimeoutMs = Integer.MAX_VALUE;
+            this.pollTimeoutMs = defaultPollTimeoutMs;
         }
 
         private NamedStateActorCreator(String name, CreationStrategy strategy, S initialState, boolean allowReuse, Consumer<S> finalizer, CloseStrategy closeStrategy, int queueCapacity, boolean queueProtection, int pollTimeoutMs) {
@@ -131,17 +143,20 @@ public class ActorSystem {
             this.pollTimeoutMs = pollTimeoutMs;
         }
 
+        public NamedStateActorCreator pollTimeout(int newPollTimeoutMs) {
+            return new NamedStateActorCreator<S>(name, strategy, initialState, allowReuse, finalizer, closeStrategy, queueCapacity, newPollTimeoutMs);
+        }
+
         public <T> Actor<T, Void, S> newActor(Consumer<T> actorLogic) {
             return (Actor<T, Void, S>) strategy.<T, Void, S>start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, finalizer, closeStrategy, pollTimeoutMs));
         }
 
         public <T> Actor<T, Void, S> newActor(BiConsumer<T, PartialActor<T, S>> actorBiLogic) {
-            AtomicReference<Actor<T, Void, S>> ref = new AtomicReference<>();
-            Consumer<T> actorLogic = message -> actorBiLogic.accept(message, ref.get());
+            return ActorUtils.initRef( ref -> {
+                Consumer<T> actorLogic = message -> actorBiLogic.accept(message, ref.get());
 
-            ref.set((Actor<T, Void, S>) strategy.<T, Void, S>start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, finalizer, closeStrategy, pollTimeoutMs)));
-
-            return ref.get();
+                return (Actor<T, Void, S>) strategy.<T, Void, S>start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, finalizer, closeStrategy, pollTimeoutMs));
+            });
         }
 
         public <T> ReceivingActor<T, Void, S> newReceivingActor(BiConsumer<MessageReceiver<T>, T> actorBiLogic) {
@@ -156,12 +171,11 @@ public class ActorSystem {
         }
 
         public <T, R> Actor<T, R, S> newActorWithReturn(BiFunction<T, PartialActor<T, S>, R> actorBiLogic) {
-            AtomicReference<Actor<T, R, S>> ref = new AtomicReference<>();
-            Function<T, R> actorLogic = message -> actorBiLogic.apply(message, ref.get());
+            return ActorUtils.initRef( ref -> {
+                Function<T, R> actorLogic = message -> actorBiLogic.apply(message, ref.get());
 
-            ref.set((Actor<T, R, S>) strategy.start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, finalizer, closeStrategy, pollTimeoutMs)));
-
-            return ref.get();
+                return (Actor<T, R, S>) strategy.start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, finalizer, closeStrategy, pollTimeoutMs));
+            });
         }
 
         public <T, R> ReceivingActor<T, R, S> newReceivingActorWithReturn(BiFunction<MessageReceiver<T>, T, R> actorBiLogic) {
@@ -372,5 +386,13 @@ public class ActorSystem {
 
         while (names.hasMoreElements())
             visitor.accept(names.nextElement());
+    }
+
+    public static void setDefaultQueueCapacity(int defaultQueueCapacity) {
+        ActorSystem.defaultQueueCapacity = defaultQueueCapacity;
+    }
+
+    public static void setDefaultPollTimeoutMs(int defaultPollTimeoutMs) {
+        ActorSystem.defaultPollTimeoutMs = defaultPollTimeoutMs;
     }
 }

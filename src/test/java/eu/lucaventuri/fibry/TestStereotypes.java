@@ -1,20 +1,22 @@
 package eu.lucaventuri.fibry;
 
 import eu.lucaventuri.common.SystemUtils;
-import eu.lucaventuri.fibry.Actor;
-import eu.lucaventuri.fibry.Stereotypes;
-import org.junit.Test;
+import org.junit.*;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
-import java.net.UnknownHostException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Vector;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -24,6 +26,18 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 public class TestStereotypes {
+
+    @BeforeClass
+    public static void setupClass() {
+        ActorSystem.setDefaultPollTimeoutMs(10);
+        Stereotypes.setDebug(true);
+    }
+
+    @AfterClass
+    public static void teardownClass() {
+        ActorSystem.setDefaultPollTimeoutMs(Integer.MAX_VALUE);
+    }
+
     @Test
     public void testWorkers() throws ExecutionException, InterruptedException {
         final AtomicInteger val = new AtomicInteger();
@@ -238,9 +252,9 @@ public class TestStereotypes {
             } finally {
                 SystemUtils.close(socket1000);
             }
-        }, false);
+        }, false, 50);
 
-        SinkActorSingleTask<Void> actorForwarding = Stereotypes.def().forwardLocal(1001, 1000, true, true);
+        SinkActorSingleTask<Void> actorForwarding = Stereotypes.def().forwardLocal(1001, 1000, true, true, 50);
         Socket socket1001 = new Socket(InetAddress.getLocalHost(), 1001);
 
         //SystemUtils.sleep(1000);
@@ -253,9 +267,19 @@ public class TestStereotypes {
 
             latch.countDown();
         } finally {
+            long start = System.currentTimeMillis();
+            System.out.println("Finally 1");
             SystemUtils.close(socket1001);
-            actorForwarding.askExitAndWait();
-            actorAcceptor.askExitAndWait();
+            System.out.println("Finally 2 " + (System.currentTimeMillis() - start));
+            actorForwarding.askExit();
+            System.out.println("Finally 2b " + (System.currentTimeMillis() - start));
+            actorForwarding.waitForExit();
+            System.out.println("Finally 3 " + (System.currentTimeMillis() - start));
+            //actorAcceptor.askExitAndWait();
+            actorAcceptor.askExit();
+            System.out.println("Finally 4 " + (System.currentTimeMillis() - start));
+            actorAcceptor.waitForExit();
+            System.out.println("Finally 5 " + (System.currentTimeMillis() - start));
         }
     }
 
@@ -265,7 +289,7 @@ public class TestStereotypes {
 
         CountDownLatch latch = new CountDownLatch(1);
         SinkActorSingleTask<Void> actorAcceptor = createBinaryAcceptor(testArrary, latch);
-        SinkActorSingleTask<Void> actorForwarding = Stereotypes.def().forwardLocal(1001, 1000, false, false);
+        SinkActorSingleTask<Void> actorForwarding = Stereotypes.def().forwardLocal(1001, 1000, false, false, 50);
         Socket socket1001 = new Socket(InetAddress.getLocalHost(), 1001);
 
         //SystemUtils.sleep(1000);
@@ -288,8 +312,8 @@ public class TestStereotypes {
 
         CountDownLatch latch = new CountDownLatch(1);
         SinkActorSingleTask<Void> actorAcceptor = createBinaryAcceptor(testArrary, latch);
-        SinkActorSingleTask<Void> actorForwarding = Stereotypes.def().forwardLocal(1001, 1000, true, true);
-        SinkActorSingleTask<Void> actorForwarding2 = Stereotypes.def().forwardLocal(1002, 1001, true, true);
+        SinkActorSingleTask<Void> actorForwarding = Stereotypes.def().forwardLocal(1001, 1000, true, true, 10);
+        SinkActorSingleTask<Void> actorForwarding2 = Stereotypes.def().forwardLocal(1002, 1001, true, true, 10);
         Socket socket1002 = new Socket(InetAddress.getLocalHost(), 1002);
 
         //SystemUtils.sleep(1000);
@@ -313,8 +337,8 @@ public class TestStereotypes {
 
         CountDownLatch latch = new CountDownLatch(1);
         SinkActorSingleTask<Void> actorAcceptor = createBinaryAcceptor(testArrary, latch);
-        SinkActorSingleTask<Void> actorForwarding = Stereotypes.def().forwardLocal(1001, 1000, true, true);
-        SinkActorSingleTask<Void> actorForwarding2 = Stereotypes.def().forwardLocal(1002, 1001, true, true);
+        SinkActorSingleTask<Void> actorForwarding = Stereotypes.def().forwardLocal(1001, 1000, true, true, 10);
+        SinkActorSingleTask<Void> actorForwarding2 = Stereotypes.def().forwardLocal(1002, 1001, true, true, 10);
         Socket socket1002 = new Socket(InetAddress.getLocalHost(), 1002);
 
         //SystemUtils.sleep(1000);
@@ -363,7 +387,7 @@ public class TestStereotypes {
             } catch (IOException | InterruptedException e) {
                 fail(e.toString());
             }
-        }, false);
+        }, false, 50);
     }
 
     @Test
@@ -380,5 +404,108 @@ public class TestStereotypes {
 
         for (int i = 0; i < ar.length; i++)
             assertEquals(ar[i], ar2[i]);
+    }
+
+    @Test
+    public void testPipeline() throws ExecutionException, InterruptedException {
+        Actor<String, String, Void> actUpper = ActorSystem.anonymous().newActorWithReturn((Function<String, String>) String::toUpperCase);
+        MessageOnlyActor<Integer, String, Void> actPipeline = Stereotypes.def().pipelineTo((Integer n) -> "test" + n, actUpper);
+
+        assertEquals(actPipeline.sendMessageReturn(3).get(), "TEST3");
+
+        actPipeline.sendPoisonPill();
+        actUpper.waitForExit();
+    }
+
+    @Test
+    public void testPipeline2() throws ExecutionException, InterruptedException {
+        Actor<String, String, Void> actUpper = ActorSystem.anonymous().newActorWithReturn((Function<String, String>) String::toUpperCase);
+        MessageOnlyActor<String, String, Void> actPipeline2 = Stereotypes.def().pipelineTo((String text) -> text + text, actUpper);
+        MessageOnlyActor<Integer, String, Void> actPipeline = Stereotypes.def().pipelineTo((Integer n) -> "test" + n, actPipeline2);
+
+        assertEquals(actPipeline.sendMessageReturn(3).get(), "TEST3TEST3");
+
+        actPipeline.sendPoisonPill();
+        actUpper.waitForExit();
+    }
+
+    @Test
+    public void testBatches() {
+        final List<String> listJoined = new Vector<>();
+        BaseActor<String, Void, Void> actor = Stereotypes.def().batchProcessList(list -> listJoined.add(String.join(",", list)), 3, 100, 1, true);
+
+        createMessages(listJoined, actor);
+
+        checkSize(listJoined);
+    }
+
+    private void checkSize(List<String> listJoined) {
+        if (listJoined.size() == 3)
+            assertEquals("e,f,g", listJoined.get(2));
+        else {
+            assertEquals("e", listJoined.get(2));
+            assertEquals("f,g", listJoined.get(3));
+        }
+    }
+
+    private String extractList(List<String> listJoined) {
+        StringBuffer sb = new StringBuffer();
+
+        for (String el : listJoined)
+            sb.append("'" + el + "'   ");
+
+        return sb.toString();
+    }
+
+    @Test
+    public void testBatches2() {
+        final List<String> listJoined = new Vector<>();
+        BaseActor<String, Void, Void> actor = Stereotypes.def().batchProcessList(list -> listJoined.add(String.join(",", list)), 3, 100, 1, false);
+
+        createMessages(listJoined, actor);
+
+        checkSize(listJoined);
+    }
+
+    private void createMessages(List<String> listJoined, BaseActor<String, Void, Void> actor) {
+        actor.sendMessage("a");
+        actor.sendMessage("b");
+        actor.sendMessage("c");
+        actor.sendMessage("d");
+        SystemUtils.sleep(200);
+        actor.sendMessage("e");
+        actor.sendMessage("f");
+        actor.sendMessage("g");
+        actor.sendPoisonPill();
+        actor.waitForExit();
+
+        assertEquals("a,b,c", listJoined.get(0));
+        assertEquals("d", listJoined.get(1));
+
+        System.out.println(extractList(listJoined));
+    }
+
+    @Test
+    public void testBatchesGroupBy() {
+        final AtomicReference<Map<String, Long>> map = new AtomicReference<>();
+        BaseActor<String, Void, Void> actor = Stereotypes.def().batchProcessGroupBy(res -> map.set(new HashMap<>(res)), 10, 1_000_000, 1, true);
+
+        actor.sendMessage("A");
+        actor.sendMessage("A");
+        actor.sendMessage("B");
+        actor.sendMessage("C");
+        actor.sendMessage("D");
+        actor.sendMessage("D");
+        actor.sendMessage("B");
+        actor.sendMessage("A");
+
+        actor.sendPoisonPill();
+        actor.waitForExit();  // Added to the batch when the actor exits
+
+        assertEquals(4, map.get().size());
+        assertEquals(Long.valueOf(3), map.get().get("A"));
+        assertEquals(Long.valueOf(2), map.get().get("B"));
+        assertEquals(Long.valueOf(1), map.get().get("C"));
+        assertEquals(Long.valueOf(2), map.get().get("D"));
     }
 }

@@ -12,6 +12,7 @@ import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -203,5 +204,16 @@ public final class ActorUtils {
         } catch (Throwable e) {
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Implements a typical initialization where ac actor is created and its logic needs access to the actor address
+     */
+    public static <T> T initRef(Function<AtomicReference<T>, T> consumer) {
+        AtomicReference<T> ref = new AtomicReference<>();
+
+        ref.set(consumer.apply(ref));
+
+        return ref.get();
     }
 }

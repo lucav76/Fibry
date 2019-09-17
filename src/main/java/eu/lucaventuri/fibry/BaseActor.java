@@ -14,7 +14,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-public abstract class BaseActor<T, R, S> extends Exitable implements Function<T, R>, PartialActor<T, S>, SinkActor<S> {
+public abstract class BaseActor<T, R, S> extends Exitable implements Function<T, R>, PartialActor<T, S>, SinkActor<S>, MessageOnlyActor<T, R, S> {
     protected final MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue;
     protected S state;
     protected final Consumer<S> finalizer;

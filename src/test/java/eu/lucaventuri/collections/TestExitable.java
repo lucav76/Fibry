@@ -94,6 +94,7 @@ public class TestExitable {
         CountDownLatch latchJob = new CountDownLatch(1);
         CountDownLatch latchStart = new CountDownLatch(1);
         AtomicReference<PartialActor<String, Void>> ref = new AtomicReference<>();
+
         try (Actor<String, Void, Void> actor = ActorSystem.anonymous().newActor((message, thisActor) -> {
             ref.set(thisActor);
             latchJob.countDown();

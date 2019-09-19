@@ -26,8 +26,8 @@ public class Stereotypes {
     private static AtomicBoolean debug = new AtomicBoolean(false);
 
     public static class HttpWorker {
-        public final String context;
-        public final HttpHandler handler;
+        final String context;
+        final HttpHandler handler;
 
         public HttpWorker(String context, HttpHandler handler) {
             this.context = context;
@@ -36,8 +36,8 @@ public class Stereotypes {
     }
 
     public static class HttpStringWorker {
-        public final String context;
-        public final Function<HttpExchange, String> worker;
+        final String context;
+        final Function<HttpExchange, String> worker;
 
         public HttpStringWorker(String context, Function<HttpExchange, String> worker) {
             this.context = context;
@@ -49,7 +49,7 @@ public class Stereotypes {
         private final CreationStrategy strategy;
         private final Exitable.CloseStrategy closeStrategy;
 
-        public NamedStereotype(CreationStrategy strategy, Exitable.CloseStrategy closeStrategy) {
+        NamedStereotype(CreationStrategy strategy, Exitable.CloseStrategy closeStrategy) {
             this.strategy = strategy;
             this.closeStrategy = closeStrategy;
         }
@@ -119,7 +119,7 @@ public class Stereotypes {
          *
          * @param port HTTP port to open
          * @param workers pairs of context and handler, associating a path to a worker
-         * @throws IOException
+         * @throws IOException Thrown if there are IO errors
          */
         public void embeddedHttpServer(int port, HttpWorker... workers) throws IOException {
             NamedStateActorCreator<Void> config = anonymous().initialState(null);
@@ -146,11 +146,10 @@ public class Stereotypes {
          * @throws IOException
          */
         public void embeddedHttpServer(int port, Function<HttpExchange, String> rootWorker, HttpStringWorker... otherWorkers) throws IOException {
-            HttpStringWorker workers[] = new HttpStringWorker[otherWorkers.length + 1];
+            HttpStringWorker[] workers = new HttpStringWorker[otherWorkers.length + 1];
 
             workers[0] = new HttpStringWorker("/", rootWorker);
-            for (int i = 0; i < otherWorkers.length; i++)
-                workers[i + 1] = otherWorkers[i];
+            System.arraycopy(otherWorkers, 0, workers, 1, otherWorkers.length);
 
             embeddedHttpServer(port, workers);
         }
@@ -162,7 +161,7 @@ public class Stereotypes {
          *
          * @param port HTTP port to open
          * @param workers pairs of context and handler, associating a path to a worker
-         * @throws IOException
+         * @throws IOException Thrown in case of I/O errors
          */
         public void embeddedHttpServer(int port, HttpStringWorker... workers) throws IOException {
             NamedStateActorCreator<Void> config = anonymous().initialState(null);
@@ -202,10 +201,8 @@ public class Stereotypes {
         public <S> SinkActor<S> sink(S state) {
             NamedStateActorCreator<S> config = anonymous().initialState(state);
 
-            Actor<Object, Void, S> actor = config.newActor(message -> {
+            return config.newActor(message -> {
             });
-
-            return actor;
         }
 
         /**
@@ -222,7 +219,7 @@ public class Stereotypes {
          */
         public <TM, RM, RR> MapReducer<TM, RR> mapReduce(PoolParameters params, Function<TM, RM> mapLogic, BiFunction<RR, RM, RR> reduceLogic, RR initialReducerState) {
             Actor<RM, Void, RR> reducer = ActorSystem.anonymous().strategy(strategy).initialState(initialReducerState).newActor((data, thisActor) ->
-                    thisActor.setState(reduceLogic.apply(thisActor.getState() /** Accumulator */, data)));
+                    thisActor.setState(reduceLogic.apply(thisActor.getState() /* Accumulator */, data)));
             PoolActorLeader<TM, Void, Object> poolLeader = anonymous().poolParams(params, null).newPool(data ->
                     reducer.sendMessage(mapLogic.apply(data))
             );
@@ -247,7 +244,7 @@ public class Stereotypes {
             NamedStateActorCreator<RR> mrCreator = c2.initialState(initialReducerState);
 
             Actor<RM, Void, RR> reducer = mrCreator.newActor((data, thisActor) ->
-                    thisActor.setState(reduceLogic.apply(thisActor.getState() /** Accumulator */, data)));
+                    thisActor.setState(reduceLogic.apply(thisActor.getState() /* Accumulator */, data)));
             AtomicReference<Spawner<TM, Void, Object>> spawnerRef = new AtomicReference<>();
             NamedStateActorCreator<Object> creator = ActorSystem.anonymous().strategy(strategy).initialState(null, state -> spawnerRef.get().finalizer().accept(state));
             Spawner<TM, Void, Object> spawner = new Spawner<>(creator, data -> {
@@ -424,7 +421,7 @@ public class Stereotypes {
          * @throws IOException this is only thrown if it happens at the beginning, when the ServerSocket is created. Other exceptions will be sent to the console, and the socket will be created again. If the exception is thrown, the actor will also be killed, else it will keep going and retry
          */
         public <S> SinkActorSingleTask<Void> tcpAcceptor(int port, BiConsumer<Socket, PartialActor<Socket, S>> workersBiLogic, Function<SinkActorSingleTask<Void>, S> stateSupplier, boolean autoCloseSocket) throws IOException {
-            return tcpAcceptor(port, workersBiLogic, stateSupplier, autoCloseSocket);
+            return tcpAcceptor(port, workersBiLogic, stateSupplier, autoCloseSocket, 1000);
         }
 
         private <S> SinkActorSingleTask<Void> tcpAcceptorCore(int port, Function<SinkActorSingleTask<Void>, Actor<Socket, Void, S>> workersCreator, int timeoutAcceptance) throws IOException {
@@ -497,7 +494,7 @@ public class Stereotypes {
         }
 
         private <S> void acceptTcpConnections(Function<SinkActorSingleTask<Void>, Actor<Socket, Void, S>> workersCreator, SinkActor<Void> acceptorActor, ServerSocket serverSocket) {
-            try {
+            Exceptions.logShort(() -> {
                 while (!acceptorActor.isExiting()) {
                     try {
                         Socket clientSocket = serverSocket.accept();
@@ -512,14 +509,10 @@ public class Stereotypes {
                         worker.sendMessage(clientSocket);
                         worker.sendPoisonPill();
                     } catch (SocketTimeoutException e) {
-                        /** By design */
+                        /* By design */
                     }
                 }
-            } catch (IOException e) {
-                System.err.println(e);
-            } finally {
-                SystemUtils.close(serverSocket);
-            }
+            }, () -> SystemUtils.close(serverSocket));
         }
 
         private Optional<ServerSocket> createServerSocketWithTimeout(int port, CountDownLatch latchSocketCreation, AtomicReference<IOException> exception, int timeoutAccept) {
@@ -628,8 +621,7 @@ public class Stereotypes {
          * @param batchMs Maximum ms to wait before processing a batch, even if batchMaxSize has not been reached
          * @param precisionMs Tentative precision (e.g. the batch is tentatively processed between batchMs and batchMs+precisionMs milliseconds); decreasing this value will increase precision but it might affect negatively a bit the performance
          * @param <T> Type of messages
-         * @param <T> Type of state
-         * @return
+         * @return an actor that can process messages in batches
          */
         public <T> BaseActor<T, Void, Void> batchProcess(Function<T, Integer> itemProcessor, Runnable batchProcessor, int batchMaxSize, int batchMs, int precisionMs, boolean skipTimeWithoutMessages) {
             BaseActor<T, Void, Void> actor = ActorUtils.initRef(ref -> {
@@ -750,10 +742,7 @@ public class Stereotypes {
         return new NamedStereotype(ActorSystem.defaultStrategy, closeStrategy);
     }
 
-
     public static void setDebug(boolean activateDebug) {
         debug.set(activateDebug);
     }
-
-
 }

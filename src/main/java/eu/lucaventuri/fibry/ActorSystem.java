@@ -11,7 +11,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.*;
 
 /**
@@ -24,9 +23,9 @@ public class ActorSystem {
     private static final AtomicLong progressivePoolId = new AtomicLong();
     private static volatile int defaultQueueCapacity = Integer.MAX_VALUE;
     private static volatile int defaultPollTimeoutMs = Integer.MAX_VALUE;
-    static final MiniFibryQueue DROPPING_QUEUE = MiniFibryQueue.dropping();
+    private static final MiniFibryQueue DROPPING_QUEUE = MiniFibryQueue.dropping();
     static volatile CreationStrategy defaultStrategy = CreationStrategy.AUTO;
-    static final NamedActorCreator defaultAnonymous = new NamedActorCreator(null, defaultQueueCapacity, false);
+    private static final NamedActorCreator defaultAnonymous = new NamedActorCreator(null, defaultQueueCapacity, false);
 
     public static class ActorPoolCreator<S> {
         private final CreationStrategy strategy;
@@ -48,7 +47,7 @@ public class ActorSystem {
             MultiExitable groupExit = new MultiExitable();
             // As the leader has no state, it cannot run the finalizer
             // We add queue protection because it's unlikely to have millions of pools
-            PoolActorLeader<T, R, S> groupLeader = new PoolActorLeader<T, R, S>(getOrCreateActorQueue(registerActorName(name, false), defaultQueueCapacity), (S) null, groupExit, getQueueFinalizer(name, null, true));
+            PoolActorLeader<T, R, S> groupLeader = new PoolActorLeader<>(getOrCreateActorQueue(registerActorName(name, false), defaultQueueCapacity), null, groupExit, getQueueFinalizer(name, null, true));
 
             for (int i = 0; i < poolParams.minSize; i++)
                 createNewWorkerAndAddToPool(groupLeader, actorLogic);
@@ -58,11 +57,8 @@ public class ActorSystem {
 
         private <T, R> void createNewWorkerAndAddToPool(PoolActorLeader<T, R, S> groupLeader, Either<Consumer<T>, Function<T, R>> actorLogic) {
             NamedStateActorCreator<S> creator = new NamedStateActorCreator<>(name, strategy, stateSupplier == null ? null : stateSupplier.get(), true, finalizer, null, defaultQueueCapacity, true, 50);
-            actorLogic.ifEither(logic -> {
-                groupLeader.getGroupExit().add(creator.newActor(logic).setDrainMessagesOnExit(false).setExitSendsPoisonPill(false));
-            }, logic -> {
-                groupLeader.getGroupExit().add(creator.newActorWithReturn(logic).setDrainMessagesOnExit(false).setExitSendsPoisonPill(false));
-            });
+            actorLogic.ifEither(logic -> groupLeader.getGroupExit().add(creator.newActor(logic).setDrainMessagesOnExit(false).setExitSendsPoisonPill(false)),
+                    logic -> groupLeader.getGroupExit().add(creator.newActorWithReturn(logic).setDrainMessagesOnExit(false).setExitSendsPoisonPill(false)));
         }
 
         private <T, R> PoolActorLeader<T, R, S> createPool(Either<Consumer<T>, Function<T, R>> actorLogic) {
@@ -152,7 +148,7 @@ public class ActorSystem {
         }
 
         public <T> Actor<T, Void, S> newActor(BiConsumer<T, PartialActor<T, S>> actorBiLogic) {
-            return ActorUtils.initRef( ref -> {
+            return ActorUtils.initRef(ref -> {
                 Consumer<T> actorLogic = message -> actorBiLogic.accept(message, ref.get());
 
                 return (Actor<T, Void, S>) strategy.<T, Void, S>start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, finalizer, closeStrategy, pollTimeoutMs));
@@ -171,7 +167,7 @@ public class ActorSystem {
         }
 
         public <T, R> Actor<T, R, S> newActorWithReturn(BiFunction<T, PartialActor<T, S>, R> actorBiLogic) {
-            return ActorUtils.initRef( ref -> {
+            return ActorUtils.initRef(ref -> {
                 Function<T, R> actorLogic = message -> actorBiLogic.apply(message, ref.get());
 
                 return (Actor<T, R, S>) strategy.start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, finalizer, closeStrategy, pollTimeoutMs));

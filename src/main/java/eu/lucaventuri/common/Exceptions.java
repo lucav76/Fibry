@@ -105,6 +105,19 @@ final public class Exceptions {
         }
     }
 
+    public static void log(RunnableEx run, RunnableEx finalRun) {
+        try {
+            run.run();
+        } catch (Throwable t) {
+            // log.error(t.getMessage(), t); Not working...
+            // FIXME: log for real
+            t.printStackTrace();
+        }
+        finally {
+            Exceptions.log(finalRun);
+        }
+    }
+
     public static <T> T log(CallableEx<T, ? extends Throwable> call, T valueOnException) {
         try {
             return call.call();
@@ -113,6 +126,20 @@ final public class Exceptions {
             t.printStackTrace();
 
             return valueOnException;
+        }
+    }
+
+    public static <T> T log(CallableEx<T, ? extends Throwable> call, T valueOnException, RunnableEx finalRun) {
+        try {
+            return call.call();
+        } catch (Throwable t) {
+            // FIXME: log for real
+            t.printStackTrace();
+
+            return valueOnException;
+        }
+        finally {
+            Exceptions.log(finalRun);
         }
     }
 
@@ -126,6 +153,19 @@ final public class Exceptions {
         }
     }
 
+    public static void logShort(RunnableEx run, RunnableEx finalRun) {
+        try {
+            run.run();
+        } catch (Throwable t) {
+            // log.error(t.getMessage(), t); Not working...
+            // FIXME: log for real
+            System.err.println(t);
+        }
+        finally {
+            Exceptions.log(finalRun);
+        }
+    }
+
     public static <T> T logShort(CallableEx<T, ? extends Throwable> call, T valueOnException) {
         try {
             return call.call();
@@ -134,6 +174,20 @@ final public class Exceptions {
             System.err.println(t);
 
             return valueOnException;
+        }
+    }
+
+    public static <T> T logShort(CallableEx<T, ? extends Throwable> call, T valueOnException, RunnableEx finalRun) {
+        try {
+            return call.call();
+        } catch (Throwable t) {
+            // FIXME: log for real
+            System.err.println(t);
+
+            return valueOnException;
+        }
+        finally {
+            Exceptions.log(finalRun);
         }
     }
 

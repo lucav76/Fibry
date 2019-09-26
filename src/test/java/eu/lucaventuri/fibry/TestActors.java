@@ -1,9 +1,14 @@
 package eu.lucaventuri.fibry;
 
 import eu.lucaventuri.common.SystemUtils;
+import org.junit.Assert;
 import org.junit.Test;
 
+import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -12,6 +17,31 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import static org.junit.Assert.*;
+
+
+class TestHandler {
+    final AtomicInteger numString = new AtomicInteger();
+    final AtomicInteger numInteger = new AtomicInteger();
+    final AtomicInteger numNumber = new AtomicInteger();
+
+    public void onString(String str) {
+        numString.incrementAndGet();
+    }
+
+    public void onInt(Integer i) {
+        numInteger.incrementAndGet();
+    }
+
+    public void onNumber(Number n) {
+        numNumber.incrementAndGet();
+    }
+
+    public void check(int expectedString, int expectedInt, int expectedNumber) {
+        Assert.assertEquals(expectedString, numString.get());
+        Assert.assertEquals(expectedInt, numInteger.get());
+        Assert.assertEquals(expectedNumber, numNumber.get());
+    }
+}
 
 public class TestActors {
     private static final Consumer<String> lazy = str -> {
@@ -476,6 +506,132 @@ public class TestActors {
         assertEquals(size, list.size());
 
         return list.stream().mapToDouble(v -> v).sum();
+    }
+
+    @Test
+    public void testExtractEventHandlers() {
+        class C {
+            public void onA(String str) {
+            }
+
+            public void onInt(Integer i) {
+            }
+
+            public void onFloat(Double d) {
+            }
+
+            public void onNumber(Number n) {
+            }
+
+            public void onFloat(Float d) {
+            }
+
+            private void onB(String str) {
+            }
+
+            public void test(String str) {
+            }
+
+            public void onMap(Map a) {
+            }
+
+            public void onMap(HashMap a) {
+            }
+
+            public void onError() {
+            }
+
+            private void test2(String str) {
+            }
+
+            private void onError2() {
+            }
+        }
+
+        LinkedHashMap<Class, Method> map = ActorUtils.extractEventHandlers(C.class);
+
+        System.out.println(map.keySet());
+        Assert.assertEquals(7, map.size());
+        Class[] ar = map.keySet().toArray(new Class[0]);
+        Assert.assertTrue(ar[4]==String.class || ar[4]==Number.class  || ar[4]==Map.class);
+        Assert.assertTrue(ar[5]==String.class || ar[5]==Number.class  || ar[5]==Map.class);
+        Assert.assertTrue(ar[6]==String.class || ar[6]==Number.class  || ar[6]==Map.class);
+
+        Assert.assertTrue(map.containsKey(String.class));
+        Assert.assertTrue(map.containsKey(Number.class));
+        Assert.assertTrue(map.containsKey(Map.class));
+        Assert.assertTrue(map.containsKey(HashMap.class));
+        Assert.assertTrue(map.containsKey(Integer.class));
+        Assert.assertTrue(map.containsKey(Float.class));
+        Assert.assertTrue(map.containsKey(Double.class));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testExtractEventHandlersException() {
+        class C {
+            public void onA(String str) {
+            }
+
+            public void onB(String str) {
+            }
+        }
+
+        ActorUtils.extractEventHandlers(C.class);
+    }
+
+    @Test
+    public void testEventHandleConsumer() {
+        TestHandler th = new TestHandler();
+        Consumer<Object> consumer = ActorUtils.extractEventHandlerLogic(th);
+
+        th.check(0,0,0);
+        consumer.accept("Test");
+        th.check(1,0,0);
+        consumer.accept("Test");
+        th.check(2,0,0);
+        consumer.accept(3);
+        th.check(2,1,0);
+        consumer.accept(4);
+        th.check(2,2,0);
+        consumer.accept(4.0);
+        th.check(2,2,1);
+        consumer.accept(4L);
+        th.check(2,2,2);
+    }
+
+    @Test
+    public void testEventHandleActor() {
+        TestHandler th = new TestHandler();
+        Actor<Object, Void, Void> actor = ActorSystem.anonymous().newActorMultiMessages(th);
+
+        th.check(0,0,0);
+        actor.sendMessageReturnWait("Test", null);
+        th.check(1,0,0);
+        actor.sendMessageReturnWait("Test", null);
+        th.check(2,0,0);
+        actor.sendMessageReturnWait(3, null);
+        th.check(2,1,0);
+        actor.sendMessageReturnWait(4, null);
+        th.check(2,2,0);
+        actor.sendMessageReturnWait(4.0, null);
+        th.check(2,2,1);
+        actor.sendMessageReturnWait(4L, null);
+        th.check(2,2,2);
+    }
+
+    @Test
+    public void testEventHandleActorWithReturn() throws ExecutionException, InterruptedException {
+        class TestHandlerReturn {
+            public String onString(String str) { return "String: " + str; }
+            public String onNumber(Integer n) { return "Int: " + n; }
+            public String onNumber(Long n) { return "Long: " + n; }
+        }
+        TestHandlerReturn th = new TestHandlerReturn();
+        Actor<Object, String, Void> actor = ActorSystem.anonymous().newActorMultiMessagesWithReturn(th);
+
+        assertEquals("String: test", actor.sendMessageReturn("test").get());
+        assertEquals("Int: 4", actor.sendMessageReturn(4).get());
+        assertEquals("Long: 5", actor.sendMessageReturn(5L).get());
     }
 }
 

@@ -106,15 +106,16 @@ You might create anonymous and named actors, the difference being that named act
 You can choose the strategy: AUTO (the default, using fibers if available), FIBER (using fibers, throwing an exception if they are not available) and THREAD (using threads).
 You can supply an initial state, which is mostly useful for thread confinement.
 
-You can create 4 type of actor (ok, 6...):
+You can create several types of actor:
 - Normal Actors: they receive messages without returning any result; they need to implement Consumer or BiConsumer (if you need access to the actor)
 - Returning Actors: they compute a result and return a CompletableFuture for each message; they need to implement Function or BiFunction  (if you need access to the actor)
+- Multi-messages actors: they can handle more than one type of message; they need a message handler with public methods in the form *onXXX(message)*, and they can return or not a value
 - Receiving actors: they are normal actor that can also "receive", meaning that they can ask the actor system to deliver some particular message while processing another message, e.g. if you are waiting for another actor to provide some information; they need to implement BiConsumer
-- Receiving and returning actors: the are receiving actors that can also return a result;     they need to implement BiFunction
+- Receiving and returning actors: the are receiving actors that can also return a result; they need to implement BiFunction
 
 Please take into consideration that while Receiving actors are the most powerful, there is some overhead in their use, and the receive operation must be used carefully as in the worst case it might have to scan all the message in the queue. In fact, I expect many cases to be covered with returning actors (e.g. you ask something to another actor and wait for the result), and they should be preferred.
 
-Let's see now how to create ac actor:
+Let's see now how to create an actor:
 ```Java
 Actor<Integer, Integer, Void> actor = ActorSystem.anonymous().newActorWithReturn(n -> n*n);
 ```

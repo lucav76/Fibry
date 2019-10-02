@@ -160,11 +160,11 @@ public class ActorSystem {
         /** Creates a new actor that can process multiple types of messages, dispatched to the appropriate function.
          * The handling functions must:
          * - be public
-         * - have a name starting with "on" followed ny an uppercase letter
+         * - have a name starting with "on" followed by an uppercase letter
          * - have a single parameter
          * - the type of the parameter cannot be the same of another handling function
          *
-         * For example: public void onString(String str)
+         * For example: public void onText(String str)
          * */
         public <T> Actor<T, Void, S> newActorMultiMessages(T messageHandler) {
             return newActor(ActorUtils.extractEventHandlerLogic(messageHandler));
@@ -195,12 +195,12 @@ public class ActorSystem {
         /** Creates a new actor that can process multiple types of messages, dispatched to the appropriate function, and return values.
          * The handling functions must:
          * - be public
-         * - have a name starting with "on" followed ny an uppercase letter
+         * - have a name starting with "on" followed by an uppercase letter
          * - have a single parameter
          * - the type of the parameter cannot be the same of another handling function
          * - return a value compatible with type R (e.g. R or a subclass of R)
          *
-         * For example (assuming R is String): public String onString(String str)
+         * For example (assuming R is String): public String onText(String str)
          * */
         public <T, R> Actor<T, R, S> newActorMultiMessagesWithReturn(T messageHandler) {
             return newActorWithReturn(ActorUtils.extractEventHandlerLogicWithReturn(messageHandler));

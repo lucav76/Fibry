@@ -143,10 +143,12 @@ public class ActorSystem {
             return new NamedStateActorCreator<S>(name, strategy, initialState, allowReuse, finalizer, closeStrategy, queueCapacity, newPollTimeoutMs);
         }
 
+        /** Creates a new actor */
         public <T> Actor<T, Void, S> newActor(Consumer<T> actorLogic) {
             return (Actor<T, Void, S>) strategy.<T, Void, S>start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, finalizer, closeStrategy, pollTimeoutMs));
         }
 
+        /** Creates a new actor that has access to its "this" pointer */
         public <T> Actor<T, Void, S> newActor(BiConsumer<T, PartialActor<T, S>> actorBiLogic) {
             return ActorUtils.initRef(ref -> {
                 Consumer<T> actorLogic = message -> actorBiLogic.accept(message, ref.get());
@@ -155,6 +157,20 @@ public class ActorSystem {
             });
         }
 
+        /** Creates a new actor that can process multiple types of messages, dispatched to the appropriate function.
+         * The handling functions must:
+         * - be public
+         * - have a name starting with "on" followed ny an uppercase letter
+         * - have a single parameter
+         * - the type of the parameter cannot be the same of another handling function
+         *
+         * For example: public void onString(String str)
+         * */
+        public <T> Actor<T, Void, S> newActorMultiMessages(T messageHandler) {
+            return newActor(ActorUtils.extractEventHandlerLogic(messageHandler));
+        }
+
+        /** Creates a new receiving actor (e.g. it can call receive()) */
         public <T> ReceivingActor<T, Void, S> newReceivingActor(BiConsumer<MessageReceiver<T>, T> actorBiLogic) {
             MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, Void>>, T> bag = ReceivingActor.<T, Void, S>queueToBag(getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity));
             MessageReceiver<T> receiver = ReceivingActor.convertBag(bag);
@@ -162,10 +178,12 @@ public class ActorSystem {
             return (ReceivingActor<T, Void, S>) strategy.start(new ReceivingActor<>(actorBiLogic, bag, initialState, finalizer, closeStrategy, pollTimeoutMs));
         }
 
+        /** Creates a new actor that can return a value */
         public <T, R> Actor<T, R, S> newActorWithReturn(Function<T, R> actorLogic) {
             return (Actor<T, R, S>) strategy.start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, finalizer, closeStrategy, pollTimeoutMs));
         }
 
+        /** Creates a new actor that can return a value and has access to its "this" pointer */
         public <T, R> Actor<T, R, S> newActorWithReturn(BiFunction<T, PartialActor<T, S>, R> actorBiLogic) {
             return ActorUtils.initRef(ref -> {
                 Function<T, R> actorLogic = message -> actorBiLogic.apply(message, ref.get());
@@ -174,6 +192,21 @@ public class ActorSystem {
             });
         }
 
+        /** Creates a new actor that can process multiple types of messages, dispatched to the appropriate function, and return values.
+         * The handling functions must:
+         * - be public
+         * - have a name starting with "on" followed ny an uppercase letter
+         * - have a single parameter
+         * - the type of the parameter cannot be the same of another handling function
+         * - return a value compatible with type R (e.g. R or a subclass of R)
+         *
+         * For example (assuming R is String): public String onString(String str)
+         * */
+        public <T, R> Actor<T, R, S> newActorMultiMessagesWithReturn(T messageHandler) {
+            return newActorWithReturn(ActorUtils.extractEventHandlerLogicWithReturn(messageHandler));
+        }
+
+        /** Creates a new receiving actor (e.g. it can call receive()) that can return a value */
         public <T, R> ReceivingActor<T, R, S> newReceivingActorWithReturn(BiFunction<MessageReceiver<T>, T, R> actorBiLogic) {
             MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>, T> bag = ReceivingActor.<T, R, S>queueToBag(getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity));
             MessageReceiver<T> receiver = ReceivingActor.convertBag(bag);

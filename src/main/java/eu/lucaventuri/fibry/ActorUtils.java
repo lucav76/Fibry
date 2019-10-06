@@ -9,8 +9,8 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Array;
-import java.util.ArrayList;
-import java.util.List;
+import java.lang.reflect.Method;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
@@ -216,4 +216,115 @@ public final class ActorUtils {
 
         return ref.get();
     }
+
+    public static <T> Consumer<T> extractEventHandlerLogic(Object messageHandler) {
+        final Set<Map.Entry<Class, Method>> types = extractEventHandlers(messageHandler.getClass()).entrySet();
+
+        return message -> Exceptions.logShort(() -> {
+            Method methodToCall = findBestMethod(types, message,messageHandler.getClass().getName() );
+
+            methodToCall.invoke(messageHandler, message);
+        });
+    }
+
+    public static <T, R> Function<T, R> extractEventHandlerLogicWithReturn(Object messageHandler) {
+        final Set<Map.Entry<Class, Method>> types = extractEventHandlers(messageHandler.getClass()).entrySet();
+
+        return message -> Exceptions.logShort(() -> {
+            Method methodToCall = findBestMethod(types, message,messageHandler.getClass().getName() );
+
+            return (R) methodToCall.invoke(messageHandler, message);
+        }, null);
+    }
+
+    private static <T> Method findBestMethod(Set<Map.Entry<Class, Method>> types, T message, String handlerClassName) {
+        Class messageType = message.getClass();
+        // Direct check
+        for (Map.Entry<Class, Method> entry : types) {
+            if (messageType == entry.getKey())
+                return entry.getValue();
+        }
+
+        // Subclass check
+        // Direct check
+        for (Map.Entry<Class, Method> entry : types) {
+            if (entry.getKey().isAssignableFrom(messageType))
+                return entry.getValue();
+        }
+
+        throw new IllegalArgumentException("Message of type " + messageType.getName() + " cannot be handled by class " + handlerClassName + "!");
+    }
+
+    /**
+     * @param clazz Class to analyze
+     * @return a ordered map of event handlers; an event handler is a public method with name starting with "onXXX()" and a single parameter; methods of subclasses are returned first, to give them priority
+     */
+    public static LinkedHashMap<Class, Method> extractEventHandlers(Class clazz) {
+        Map<Class, Method> map = extractUnorderedEventHandlers(clazz);
+        List<Class> orderedClasses = new ArrayList<>(sortSubClasses(map.keySet()));
+        Collections.reverse(orderedClasses);
+        LinkedHashMap<Class, Method> orderedMap = new LinkedHashMap<>();
+
+        for (Class cl : orderedClasses)
+            orderedMap.put(cl, map.get(cl));
+
+        return orderedMap;
+    }
+
+    private static Map<Class, Method> extractUnorderedEventHandlers(Class clazz) {
+        Map<Class, Method> map = new HashMap<>();
+
+        for (Method method : clazz.getMethods()) {
+            if (isMethodHandler(method)) {
+                Class<?> type = method.getParameterTypes()[0];
+
+                if (map.containsKey(type))
+                    throw new IllegalArgumentException("Handler for type " + type.getName() + " has already been defined: " + map.get(type).getName());
+
+                map.put(type, method);
+            }
+        }
+        return map;
+    }
+
+    public static Collection<Class> sortSubClasses(Collection<Class> types) {
+        List<Class> independentTypes = new ArrayList<>();
+        List<Class> dependentTypes = new ArrayList<>();
+
+        for (Class type : types) {
+            if (isSubclass(type, types))
+                dependentTypes.add(type);
+            else
+                independentTypes.add(type);
+        }
+
+        // Ensure that the recursion will end
+        assert independentTypes.size() > 0 || types.size() == 0;
+
+        return mergeClasses(independentTypes, dependentTypes);
+    }
+
+    private static boolean isSubclass(Class type, Collection<Class> types) {
+        for (Class t : types) {
+            if (t != type && t.isAssignableFrom(type))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static Collection<Class> mergeClasses(Collection<Class> independentTypes, Collection<Class> dependentTypes) {
+        if (dependentTypes.size() == 1)
+            independentTypes.add(dependentTypes.iterator().next());
+        else if (dependentTypes.size() > 1)
+            independentTypes.addAll(sortSubClasses(dependentTypes));
+
+        return independentTypes;
+    }
+
+    private static boolean isMethodHandler(Method method) {
+        return method.getName().length() >= 3 && method.getName().startsWith("on") && Character.isUpperCase(method.getName().charAt(2)) && method.getParameterCount() == 1;
+    }
+
+
 }

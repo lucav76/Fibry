@@ -16,7 +16,7 @@ public class TestReactiveSubscribersWhiteBox extends FlowSubscriberWhiteboxVerif
     @Override
     public Flow.Subscriber<Integer> createFlowSubscriber(final WhiteboxSubscriberProbe<Integer> probe) {
         var sub = ActorSystem.anonymous().newActor((Integer n) -> {
-        }).asReactiveSubscriber(100);
+        }).asReactiveSubscriber(100, null, null);
 
         return new Flow.Subscriber<Integer>() {
             @Override

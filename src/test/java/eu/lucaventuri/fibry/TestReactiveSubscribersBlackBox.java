@@ -16,7 +16,7 @@ public class TestReactiveSubscribersBlackBox extends FlowSubscriberBlackboxVerif
     @Override
     public Flow.Subscriber<Integer> createFlowSubscriber() {
         return ActorSystem.anonymous().newActor((Integer n) -> {
-        }).asReactiveSubscriber(100);
+        }).asReactiveSubscriber(100, null, null);
     }
 
     @Override

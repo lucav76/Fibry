@@ -90,7 +90,7 @@ public class Actor<T, R, S> extends BaseActor<T, R, S> {
         return this;
     }
 
-    Flow.Subscriber<T> asReactiveSubscriber(int optimalQueueLength) {
+    Flow.Subscriber<T> asReactiveSubscriber(int optimalQueueLength, Consumer<Throwable> onErrorHandler, Consumer<PartialActor<T, S>> onCompleteHandler) {
         AtomicReference<Flow.Subscription> sub = new AtomicReference<>();
         return new Flow.Subscriber<T>() {
             private void askRefill() {
@@ -114,18 +114,29 @@ public class Actor<T, R, S> extends BaseActor<T, R, S> {
             public void onNext(T item) {
                 Objects.requireNonNull(item);
 
-                accept(item);
-                askRefill();
+                execAsync(() -> {
+                    actorLogic.accept(item);
+                    askRefill();
+                });
             }
 
             @Override
             public void onError(Throwable throwable) {
                 Objects.requireNonNull(throwable);
+                execAsync(() -> {
+                    if (onErrorHandler != null)
+                        onErrorHandler.accept(throwable);
+                });
+
                 sendPoisonPill();
             }
 
             @Override
             public void onComplete() {
+                execAsync(() -> {
+                    if (onCompleteHandler != null)
+                        onCompleteHandler.accept(Actor.this);
+                });
                 sendPoisonPill();
             }
         };

@@ -287,38 +287,4 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
 
         return this;
     }
-
-    Flow.Subscriber<T> asReactiveSubscriber(int optimalQueueLength) {
-        AtomicReference<Flow.Subscription> sub = new AtomicReference<>();
-        return new Flow.Subscriber<T>() {
-            private void askRefill() {
-                int messagesRequired = optimalQueueLength - queue.size();
-
-                if (messagesRequired > 0)
-                    sub.get().request(messagesRequired);
-            }
-
-            @Override
-            public void onSubscribe(Flow.Subscription subscription) {
-                sub.set(subscription);
-                askRefill();
-            }
-
-            @Override
-            public void onNext(T item) {
-                accept(item);
-                askRefill();
-            }
-
-            @Override
-            public void onError(Throwable throwable) {
-                sendPoisonPill();
-            }
-
-            @Override
-            public void onComplete() {
-                sendPoisonPill();
-            }
-        };
-    }
 }

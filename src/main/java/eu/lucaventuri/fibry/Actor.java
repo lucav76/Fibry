@@ -2,7 +2,10 @@ package eu.lucaventuri.fibry;
 
 import eu.lucaventuri.functional.Either3;
 
+import java.util.Objects;
+import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -18,10 +21,10 @@ public class Actor<T, R, S> extends BaseActor<T, R, S> {
     /**
      * Constructor creating an actor that process messages without returning any value
      *
-     * @param actorLogic    Logic associated to the actor
-     * @param queue         queue
-     * @param initialState  optional initial state
-     * @param finalizer     Code to execute when the actor is finishing its operations
+     * @param actorLogic Logic associated to the actor
+     * @param queue queue
+     * @param initialState optional initial state
+     * @param finalizer Code to execute when the actor is finishing its operations
      * @param closeStrategy What to do when close() is called
      * @param pollTimeoutMs Poll timeout (to allow the actor to exit without a poison pill); Integer.MAX_VALUE == no timeout
      */
@@ -39,11 +42,11 @@ public class Actor<T, R, S> extends BaseActor<T, R, S> {
      * Constructor creating an actor that process messages without returning any value
      *
      * @param actorLogicReturn Logic associated to the actor
-     * @param queue            queue
-     * @param initialState     optional initial state
-     * @param finalizer        Code to execute when the actor is finishing its operations
-     * @param closeStrategy    What to do when close() is called
-     * @param pollTimeoutMs    Poll timeout (to allow the actor to exit without a poison pill); Integer.MAX_VALUE == no timeout
+     * @param queue queue
+     * @param initialState optional initial state
+     * @param finalizer Code to execute when the actor is finishing its operations
+     * @param closeStrategy What to do when close() is called
+     * @param pollTimeoutMs Poll timeout (to allow the actor to exit without a poison pill); Integer.MAX_VALUE == no timeout
      */
     protected Actor(Function<T, R> actorLogicReturn, MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
         super(queue, finalizer, closeStrategy, pollTimeoutMs);
@@ -86,4 +89,57 @@ public class Actor<T, R, S> extends BaseActor<T, R, S> {
             ActorUtils.sendMessage(queue, message);
         return this;
     }
+
+    Flow.Subscriber<T> asReactiveSubscriber(int optimalQueueLength, Consumer<Throwable> onErrorHandler, Consumer<PartialActor<T, S>> onCompleteHandler) {
+        AtomicReference<Flow.Subscription> sub = new AtomicReference<>();
+        return new Flow.Subscriber<T>() {
+            private void askRefill() {
+                int messagesRequired = optimalQueueLength - queue.size();
+
+                if (messagesRequired > 0)
+                    sub.get().request(messagesRequired);
+            }
+
+            @Override
+            public void onSubscribe(Flow.Subscription subscription) {
+                if (sub.get() != null)
+                    subscription.cancel();
+                else {
+                    sub.set(subscription);
+                    askRefill();
+                }
+            }
+
+            @Override
+            public void onNext(T item) {
+                Objects.requireNonNull(item);
+
+                execAsync(() -> {
+                    actorLogic.accept(item);
+                    askRefill();
+                });
+            }
+
+            @Override
+            public void onError(Throwable throwable) {
+                Objects.requireNonNull(throwable);
+                execAsync(() -> {
+                    if (onErrorHandler != null)
+                        onErrorHandler.accept(throwable);
+                });
+
+                sendPoisonPill();
+            }
+
+            @Override
+            public void onComplete() {
+                execAsync(() -> {
+                    if (onCompleteHandler != null)
+                        onCompleteHandler.accept(Actor.this);
+                });
+                sendPoisonPill();
+            }
+        };
+    }
+
 }

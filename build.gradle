@@ -8,8 +8,8 @@ plugins {
 group 'eu.lucaventuri'
 version version
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
+sourceCompatibility = 11
+targetCompatibility = 11
 
 repositories {
     mavenCentral()
@@ -17,8 +17,41 @@ repositories {
 
 dependencies {
     testCompile group: 'junit', name: 'junit', version: '4.12'
+    testCompile 'org.reactivestreams:reactive-streams-tck-flow:1.0.3'
+    testCompile group: 'org.testng', name: 'testng', version: '6.14.3'
 }
 
 apply from: 'publish.gradle'
+
+sourceSets {
+    tck {
+        java.srcDirs = ['src/testng/java']
+        resources.srcDirs = ['src/testng/resources']
+
+        compileClasspath += main.output
+        runtimeClasspath += main.output
+    }
+}
+
+configurations {
+    tckCompile.extendsFrom testCompile
+    tckRuntime.extendsFrom testRuntime
+}
+
+task testng(type: Test) {
+    description "TestNG for Reacttive streams TCK"
+    useTestNG()
+    def testClassesDir = sourceSets.tck.output.classesDirs
+    classpath = sourceSets.tck.runtimeClasspath
+
+    println testClassesDir
+    println classpath
+    beforeTest { descriptor ->
+        logger.lifecycle("Test(ng): " + descriptor)
+    }
+    onOutput { descriptor, event ->
+        logger.lifecycle("TestNG - " + descriptor + ": " + event.message)
+    }
+}
 
 

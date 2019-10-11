@@ -11,6 +11,9 @@ import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Flow;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -21,6 +24,7 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
     protected final List<AutoCloseable> closeOnExit = new Vector<>();
     protected volatile boolean drainMessagesOnExit = true;
     protected final int pollTimeoutMs;
+
 
     BaseActor(MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
         this.queue = queue;
@@ -284,4 +288,37 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
         return this;
     }
 
+    Flow.Subscriber<T> asReactiveSubscriber(int optimalQueueLength) {
+        AtomicReference<Flow.Subscription> sub = new AtomicReference<>();
+        return new Flow.Subscriber<T>() {
+            private void askRefill() {
+                int messagesRequired = optimalQueueLength - queue.size();
+
+                if (messagesRequired > 0)
+                    sub.get().request(messagesRequired);
+            }
+
+            @Override
+            public void onSubscribe(Flow.Subscription subscription) {
+                sub.set(subscription);
+                askRefill();
+            }
+
+            @Override
+            public void onNext(T item) {
+                accept(item);
+                askRefill();
+            }
+
+            @Override
+            public void onError(Throwable throwable) {
+                sendPoisonPill();
+            }
+
+            @Override
+            public void onComplete() {
+                sendPoisonPill();
+            }
+        };
+    }
 }

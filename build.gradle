@@ -23,35 +23,6 @@ dependencies {
 
 apply from: 'publish.gradle'
 
-sourceSets {
-    tck {
-        java.srcDirs = ['src/testng/java']
-        resources.srcDirs = ['src/testng/resources']
-
-        compileClasspath += main.output
-        runtimeClasspath += main.output
-    }
-}
-
-configurations {
-    tckCompile.extendsFrom testCompile
-    tckRuntime.extendsFrom testRuntime
-}
-
-task testng(type: Test) {
-    description "TestNG for Reacttive streams TCK"
-    useTestNG()
-    def testClassesDir = sourceSets.tck.output.classesDirs
-    classpath = sourceSets.tck.runtimeClasspath
-
-    println testClassesDir
-    println classpath
-    beforeTest { descriptor ->
-        logger.lifecycle("Test(ng): " + descriptor)
-    }
-    onOutput { descriptor, event ->
-        logger.lifecycle("TestNG - " + descriptor + ": " + event.message)
-    }
-}
-
+task testNG(type: Test) { useTestNG() }
+test.dependsOn testNG
 

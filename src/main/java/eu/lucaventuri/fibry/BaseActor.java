@@ -119,15 +119,6 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
         }
     }
 
-    @Override
-    public R apply(T message) {
-        try {
-            return sendMessageReturn(message).get();
-        } catch (InterruptedException | ExecutionException e) {
-            return null;
-        }
-    }
-
     /**
      * Asynchronously executes some logic in the actor; the parameter supplied is the actor itself.
      */

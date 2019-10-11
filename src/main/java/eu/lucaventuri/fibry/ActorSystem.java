@@ -3,6 +3,7 @@ package eu.lucaventuri.fibry;
 import eu.lucaventuri.common.ConcurrentHashSet;
 import eu.lucaventuri.common.Exitable.CloseStrategy;
 import eu.lucaventuri.common.MultiExitable;
+import eu.lucaventuri.fibry.distributed.RemoteActorChannel;
 import eu.lucaventuri.functional.Either;
 import eu.lucaventuri.functional.Either3;
 
@@ -143,12 +144,16 @@ public class ActorSystem {
             return new NamedStateActorCreator<S>(name, strategy, initialState, allowReuse, finalizer, closeStrategy, queueCapacity, newPollTimeoutMs);
         }
 
-        /** Creates a new actor */
+        /**
+         * Creates a new actor
+         */
         public <T> Actor<T, Void, S> newActor(Consumer<T> actorLogic) {
             return (Actor<T, Void, S>) strategy.<T, Void, S>start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, finalizer, closeStrategy, pollTimeoutMs));
         }
 
-        /** Creates a new actor that has access to its "this" pointer */
+        /**
+         * Creates a new actor that has access to its "this" pointer
+         */
         public <T> Actor<T, Void, S> newActor(BiConsumer<T, PartialActor<T, S>> actorBiLogic) {
             return ActorUtils.initRef(ref -> {
                 Consumer<T> actorLogic = message -> actorBiLogic.accept(message, ref.get());
@@ -157,20 +162,23 @@ public class ActorSystem {
             });
         }
 
-        /** Creates a new actor that can process multiple types of messages, dispatched to the appropriate function.
+        /**
+         * Creates a new actor that can process multiple types of messages, dispatched to the appropriate function.
          * The handling functions must:
          * - be public
          * - have a name starting with "on" followed by an uppercase letter
          * - have a single parameter
          * - the type of the parameter cannot be the same of another handling function
-         *
+         * <p>
          * For example: public void onText(String str)
-         * */
+         */
         public <T> Actor<T, Void, S> newActorMultiMessages(T messageHandler) {
             return newActor(ActorUtils.extractEventHandlerLogic(messageHandler));
         }
 
-        /** Creates a new receiving actor (e.g. it can call receive()) */
+        /**
+         * Creates a new receiving actor (e.g. it can call receive())
+         */
         public <T> ReceivingActor<T, Void, S> newReceivingActor(BiConsumer<MessageReceiver<T>, T> actorBiLogic) {
             MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, Void>>, T> bag = ReceivingActor.<T, Void, S>queueToBag(getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity));
             MessageReceiver<T> receiver = ReceivingActor.convertBag(bag);
@@ -178,12 +186,16 @@ public class ActorSystem {
             return (ReceivingActor<T, Void, S>) strategy.start(new ReceivingActor<>(actorBiLogic, bag, initialState, finalizer, closeStrategy, pollTimeoutMs));
         }
 
-        /** Creates a new actor that can return a value */
+        /**
+         * Creates a new actor that can return a value
+         */
         public <T, R> Actor<T, R, S> newActorWithReturn(Function<T, R> actorLogic) {
             return (Actor<T, R, S>) strategy.start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, finalizer, closeStrategy, pollTimeoutMs));
         }
 
-        /** Creates a new actor that can return a value and has access to its "this" pointer */
+        /**
+         * Creates a new actor that can return a value and has access to its "this" pointer
+         */
         public <T, R> Actor<T, R, S> newActorWithReturn(BiFunction<T, PartialActor<T, S>, R> actorBiLogic) {
             return ActorUtils.initRef(ref -> {
                 Function<T, R> actorLogic = message -> actorBiLogic.apply(message, ref.get());
@@ -192,24 +204,27 @@ public class ActorSystem {
             });
         }
 
-        /** Creates a new actor that can process multiple types of messages, dispatched to the appropriate function, and return values.
+        /**
+         * Creates a new actor that can process multiple types of messages, dispatched to the appropriate function, and return values.
          * The handling functions must:
          * - be public
          * - have a name starting with "on" followed by an uppercase letter
          * - have a single parameter
          * - the type of the parameter cannot be the same of another handling function
          * - return a value compatible with type R (e.g. R or a subclass of R)
-         *
+         * <p>
          * For example (assuming R is String): public String onText(String str)
-         * */
+         */
         public <T, R> Actor<T, R, S> newActorMultiMessagesWithReturn(T messageHandler) {
             return newActorWithReturn(ActorUtils.extractEventHandlerLogicWithReturn(messageHandler));
         }
 
-        /** Creates a new receiving actor (e.g. it can call receive()) that can return a value */
+        /**
+         * Creates a new receiving actor (e.g. it can call receive()) that can return a value
+         */
         public <T, R> ReceivingActor<T, R, S> newReceivingActorWithReturn(BiFunction<MessageReceiver<T>, T, R> actorBiLogic) {
             MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>, T> bag = ReceivingActor.<T, R, S>queueToBag(getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity));
-            MessageReceiver<T> receiver = ReceivingActor.convertBag(bag);
+            //MessageReceiver<T> receiver = ReceivingActor.convertBag(bag);
 
             return (ReceivingActor<T, R, S>) strategy.start(new ReceivingActor<>(actorBiLogic, bag, initialState, finalizer, closeStrategy, pollTimeoutMs));
         }
@@ -253,18 +268,68 @@ public class ActorSystem {
             return new ActorPoolCreator<>(strategy, name, params, stateSupplier, finalizer);
         }
 
-        /** Creates a new actor that runs in the same thread as the caller;
-         * This is useful only on particular cases */
+        /**
+         * Creates a new actor that runs in the same thread as the caller;
+         * This is useful only on particular cases
+         */
         public <T> Actor<T, Void, Void> newSynchronousActor(Consumer<T> actorLogic) {
             registerActorName(name, allowReuse);
             return new SynchronousActor<>(actorLogic, initialState, finalizer, closeStrategy, pollTimeoutMs);
         }
 
-        /** Creates a new actor that runs in the same thread as the caller;
-         * This is useful only on particular cases */
+        /**
+         * Creates a new actor that runs in the same thread as the caller;
+         * This is useful only on particular cases
+         */
         public <T, R> Actor<T, R, Void> newSynchronousActorWithReturn(Function<T, R> actorLogic) {
             registerActorName(name, allowReuse);
             return new SynchronousActor<>(actorLogic, initialState, finalizer, closeStrategy, pollTimeoutMs);
+        }
+
+        public <T> MessageOnlyActor<T, Void, Void> newRemoteActor(String remoteActorName, RemoteActorChannel channel, RemoteActorChannel.Serializer<T> serializer) {
+            return newActor(message -> channel.sendMessageReturn(remoteActorName, serializer, null, message));
+        }
+
+        public <T, R> MessageOnlyActor<T, R, Void> newRemoteActorWithReturn(String remoteActorName, RemoteActorChannel channel, RemoteActorChannel.SerDeser<T, R> serDeser) {
+            return newRemoteActorWithReturn(remoteActorName, channel, serDeser, serDeser);
+        }
+
+        public <T, R> MessageOnlyActor<T, R, Void> newRemoteActorWithReturn(String remoteActorName, RemoteActorChannel channel, RemoteActorChannel.Serializer<T> serializer, RemoteActorChannel.Deserializer<R> deserializer) {
+            return new MessageOnlyActor<T, R, Void>() {
+                Actor<T, CompletableFuture<R>, Void> localActor = newActorWithReturn((T message) -> {
+                    return channel.sendMessageReturn(remoteActorName, serializer, deserializer, message);
+                });
+
+                @Override
+                public MessageOnlyActor<T, R, Void> sendMessage(T message) {
+                    localActor.sendMessage(message);
+
+                    return this;
+                }
+
+                @Override
+                public CompletableFuture<R> sendMessageReturn(T message) {
+                    try {
+                        return localActor.sendMessageReturn(message).get();
+                    } catch (Exception e) {
+                        var future = new CompletableFuture<R>();
+
+                        future.completeExceptionally(e);
+
+                        return future;
+                    }
+                }
+
+                @Override
+                public boolean sendPoisonPill() {
+                    return false;
+                }
+
+                @Override
+                public void accept(T message) {
+                    sendMessage(message);
+                }
+            };
         }
     }
 

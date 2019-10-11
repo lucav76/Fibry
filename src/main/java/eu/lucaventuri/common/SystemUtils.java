@@ -1,6 +1,7 @@
 package eu.lucaventuri.common;
 
 import java.io.*;
+import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -16,7 +17,8 @@ import java.util.stream.Stream.Builder;
  * @author Luca Venturi
  */
 public final class SystemUtils {
-    static private final boolean assertsEnabled;
+    private static final boolean assertsEnabled;
+    public static final MethodHandles.Lookup publicLookup = MethodHandles.publicLookup();;
 
     static {
         // Check if the asserts are enabled

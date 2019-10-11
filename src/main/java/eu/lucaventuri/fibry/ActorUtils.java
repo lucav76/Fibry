@@ -27,25 +27,25 @@ public final class ActorUtils {
     private final static Object options;
     private final static AutoCloseable globalFiberScope;
 
+
     static {
         MethodHandle tmpMethodOpen = null;
         MethodHandle tmpMethodScheduleRunnable = null;
         MethodHandle tmpMethodScheduleCallable = null;
-
-        MethodHandles.Lookup publicLookup = MethodHandles.publicLookup();
         clzFiberScope = SystemUtils.findClassByName("java.lang.FiberScope");
+
         clzFiber = SystemUtils.findClassByName("java.lang.Fiber");
         Class clzOptionArray = SystemUtils.findClassByName("[Ljava.lang.FiberScope$Option;");
         options = clzOptionArray == null ? null : Array.newInstance(clzOptionArray, 0);
 
         try {
             MethodType mtOpen = clzFiberScope == null ? null : MethodType.methodType(clzFiberScope, clzOptionArray);
-            tmpMethodOpen = clzFiberScope == null ? null : publicLookup.findStatic(clzFiberScope, "open", mtOpen);
+            tmpMethodOpen = clzFiberScope == null ? null : SystemUtils.publicLookup.findStatic(clzFiberScope, "open", mtOpen);
 
             MethodType mtScheduleRunnable = clzFiberScope == null ? null : MethodType.methodType(clzFiber, Runnable.class);
             MethodType mtScheduleCallable = clzFiberScope == null ? null : MethodType.methodType(clzFiber, Callable.class);
-            tmpMethodScheduleRunnable = clzFiberScope == null ? null : publicLookup.findVirtual(clzFiberScope, "schedule", mtScheduleRunnable);
-            tmpMethodScheduleCallable = clzFiberScope == null ? null : publicLookup.findVirtual(clzFiberScope, "schedule", mtScheduleCallable);
+            tmpMethodScheduleRunnable = clzFiberScope == null ? null : SystemUtils.publicLookup.findVirtual(clzFiberScope, "schedule", mtScheduleRunnable);
+            tmpMethodScheduleCallable = clzFiberScope == null ? null : SystemUtils.publicLookup.findVirtual(clzFiberScope, "schedule", mtScheduleCallable);
         } catch (NoSuchMethodException | IllegalAccessException e) {
             e.printStackTrace();
         }

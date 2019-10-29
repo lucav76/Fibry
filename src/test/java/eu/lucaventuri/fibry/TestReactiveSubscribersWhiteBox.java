@@ -15,18 +15,17 @@ public class TestReactiveSubscribersWhiteBox extends FlowSubscriberWhiteboxVerif
 
     @Override
     public Flow.Subscriber<Integer> createFlowSubscriber(final WhiteboxSubscriberProbe<Integer> probe) {
-        var sub = ActorSystem.anonymous().newActor((Integer n) -> {
+        var realSubscriber = ActorSystem.anonymous().newActor((Integer n) -> {
         }).asReactiveSubscriber(100, null, null);
 
         return new Flow.Subscriber<Integer>() {
             @Override
             public void onSubscribe(Flow.Subscription subscription) {
-                sub.onSubscribe(subscription);
+                realSubscriber.onSubscribe(subscription);
 
                 // register a successful Subscription, and create a Puppet,
                 // for the WhiteboxVerification to be able to drive its tests:
                 probe.registerOnSubscribe(new SubscriberPuppet() {
-
                     @Override
                     public void triggerRequest(long elements) {
                         subscription.request(elements);
@@ -41,19 +40,19 @@ public class TestReactiveSubscribersWhiteBox extends FlowSubscriberWhiteboxVerif
 
             @Override
             public void onNext(Integer item) {
-                sub.onNext(item);
+                realSubscriber.onNext(item);
                 probe.registerOnNext(item);
             }
 
             @Override
             public void onError(Throwable throwable) {
-                sub.onError(throwable);
+                realSubscriber.onError(throwable);
                 probe.registerOnError(throwable);
             }
 
             @Override
             public void onComplete() {
-                sub.onComplete();
+                realSubscriber.onComplete();
                 probe.registerOnComplete();
             }
         };

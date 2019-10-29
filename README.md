@@ -5,7 +5,7 @@ Fibry is an experimental Actor System built to be simple and flexible to use. Ho
 Fibry is the the **first Java Actor System using fibers from [Project Loom](https://openjdk.java.net/projects/loom/)**.
 
 Project Loom is an OpenJDK project that is expected to bring fibers (green threads) and continuations (co-routines) to Java.
-Fibry works from any version of Java **starting from Java 8**, but you will need to use Loom if you want to leverage the power of fibers.
+Fibry 1.X works with any version of Java **starting from Java 8**, while Fibry 2.X is targeting Java 11, but in both cases you will need to use Loom if you want to leverage the power of fibers.
 Fibry aims to replicate some of the features of the Erlang Actor System in Java.
 Fibry allows you to send code to be execute in the thread/fiber of an actor, a mechanism similar to the one used in Chromium.
 
@@ -23,6 +23,7 @@ Simplicity first
 - You can receive messages of your choice while processing a message  
 - Many types of actor implement the **Executor** interface, so you can "send code" to be executed in the thread/fiber of almost any actors, and use them on service that are not actor-aware
 - **Fibry has no dependencies**, so no conflicts, no surprises and just a tiny jar available in the Maven Central repository
+- Most actors can be converted to **Reactive Flow Subscribers** (TCK tested), calling *asReactiveSubscriber()*
 - Fibry implements a very simple **Map/Reduce mechanism**, limited to the local computer.
 - Fibry implements a very simple **Pub/Sub** mechanism, limited to the local computer.
 - Fibry implements a simple **TCP port forwarding**, both as a Stereotype and as a small cli application: TcpForwarding
@@ -59,7 +60,7 @@ To include it using Maven:
 <dependency>
     <groupId>eu.lucaventuri</groupId>
     <artifactId>fibry</artifactId>
-    <version>1.0.3</version>
+    <version>2.0.0</version>
 </dependency>
 ```
 

@@ -5,6 +5,7 @@ plugins {
     id 'net.researchgate.release' version '2.6.0'
 }
 
+apply plugin: 'maven'
 group 'eu.lucaventuri'
 version version
 
@@ -26,3 +27,24 @@ apply from: 'publish.gradle'
 task testNG(type: Test) { useTestNG() }
 test.dependsOn testNG
 
+
+task createPom {
+    doLast {
+        pom {
+            project {
+                groupId group
+                artifactId rootProject.name
+                version version
+
+                inceptionYear '2019'
+                licenses {
+                    license {
+                        name = 'MIT License'
+                        url = 'https://github.com/lucav76/Fibry/blob/master/LICENSE'
+                        distribution 'repo'
+                    }
+                }
+            }
+        }.writeTo("pom.xml")
+    }
+}

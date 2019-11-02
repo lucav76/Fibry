@@ -236,40 +236,41 @@ public class TestStereotypes {
     @Test
     public void testLocalForward() throws IOException {
         CountDownLatch latch = new CountDownLatch(1);
+        int refPort = 10010;
 
-        SinkActorSingleTask<Void> actorAcceptor = Stereotypes.def().tcpAcceptor(1000, socket1000 -> {
+        SinkActorSingleTask<Void> actorAcceptor = Stereotypes.def().tcpAcceptor(refPort, socket -> {
             try {
                 byte ar[] = new byte[4];
-                SystemUtils.keepReadingStream(socket1000.getInputStream(), ar);
-                System.out.println("Received on port 1000: " + new String(ar));
+                SystemUtils.keepReadingStream(socket.getInputStream(), ar);
+                System.out.println("Received on port 1010: " + new String(ar));
                 assertEquals("test", new String(ar));
-                socket1000.getOutputStream().write("TEST".getBytes());
-                System.out.println("Sent TEST through port 1000");
+                socket.getOutputStream().write("TEST".getBytes());
+                System.out.println("Sent TEST through port 1010");
                 latch.await();
                 System.out.println("Server shutting down");
             } catch (IOException | InterruptedException e) {
                 fail(e.toString());
             } finally {
-                SystemUtils.close(socket1000);
+                SystemUtils.close(socket);
             }
         }, false, 50);
 
-        SinkActorSingleTask<Void> actorForwarding = Stereotypes.def().forwardLocal(1001, 1000, true, true, 50);
-        Socket socket1001 = new Socket(InetAddress.getLocalHost(), 1001);
+        SinkActorSingleTask<Void> actorForwarding = Stereotypes.def().forwardLocal(refPort + 1, refPort, true, true, 50);
+        Socket socket1011 = new Socket(InetAddress.getLocalHost(), refPort + 1);
 
         //SystemUtils.sleep(1000);
         try {
-            socket1001.getOutputStream().write("test".getBytes());
+            socket1011.getOutputStream().write("test".getBytes());
             byte ar[] = new byte[4];
-            SystemUtils.keepReadingStream(socket1001.getInputStream(), ar);
-            System.out.println("Received on port 1001: " + new String(ar));
+            SystemUtils.keepReadingStream(socket1011.getInputStream(), ar);
+            System.out.println("Received on port 1011: " + new String(ar));
             assertEquals("TEST", new String(ar));
 
             latch.countDown();
         } finally {
             long start = System.currentTimeMillis();
             System.out.println("Finally 1");
-            SystemUtils.close(socket1001);
+            SystemUtils.close(socket1011);
             System.out.println("Finally 2 " + (System.currentTimeMillis() - start));
             actorForwarding.askExit();
             System.out.println("Finally 2b " + (System.currentTimeMillis() - start));
@@ -281,22 +282,27 @@ public class TestStereotypes {
             actorAcceptor.waitForExit();
             System.out.println("Finally 5 " + (System.currentTimeMillis() - start));
         }
+
+        actorAcceptor.askExitAndWait();
+        actorForwarding.askExitAndWait();
+        SystemUtils.close(socket1011);
     }
 
     @Test
     public void testBinaryLocalForward() throws IOException {
         byte[] testArrary = prepareBinaryArray();
+        int refPort = 10020;
 
         CountDownLatch latch = new CountDownLatch(1);
-        SinkActorSingleTask<Void> actorAcceptor = createBinaryAcceptor(testArrary, latch);
-        SinkActorSingleTask<Void> actorForwarding = Stereotypes.def().forwardLocal(1001, 1000, false, false, 50);
-        Socket socket1001 = new Socket(InetAddress.getLocalHost(), 1001);
+        SinkActorSingleTask<Void> actorAcceptor = createBinaryAcceptor(testArrary, latch, refPort);
+        SinkActorSingleTask<Void> actorForwarding = Stereotypes.def().forwardLocal(refPort + 1, refPort, false, false, 50);
+        Socket socket1001 = new Socket(InetAddress.getLocalHost(), refPort + 1);
 
         //SystemUtils.sleep(1000);
         socket1001.getOutputStream().write(testArrary);
         byte ar[] = new byte[testArrary.length];
         SystemUtils.keepReadingStream(socket1001.getInputStream(), ar);
-        System.out.println("Received on port 1001 " + ar.length + " bytes");
+        System.out.println("Received on port " + (refPort + 1) + " " + ar.length + " bytes");
         for (int i = 0; i < ar.length; i++)
             assertEquals((byte) i, ar[i]);
 
@@ -311,21 +317,21 @@ public class TestStereotypes {
         byte[] testArrary = prepareBinaryArray();
 
         CountDownLatch latch = new CountDownLatch(1);
-        SinkActorSingleTask<Void> actorAcceptor = createBinaryAcceptor(testArrary, latch);
-        SinkActorSingleTask<Void> actorForwarding = Stereotypes.def().forwardLocal(1001, 1000, true, true, 10);
-        SinkActorSingleTask<Void> actorForwarding2 = Stereotypes.def().forwardLocal(1002, 1001, true, true, 10);
-        Socket socket1002 = new Socket(InetAddress.getLocalHost(), 1002);
+        SinkActorSingleTask<Void> actorAcceptor = createBinaryAcceptor(testArrary, latch, 1030);
+        SinkActorSingleTask<Void> actorForwarding = Stereotypes.def().forwardLocal(1031, 1030, true, true, 10);
+        SinkActorSingleTask<Void> actorForwarding2 = Stereotypes.def().forwardLocal(1032, 1031, true, true, 10);
+        Socket socket1032 = new Socket(InetAddress.getLocalHost(), 1032);
 
         //SystemUtils.sleep(1000);
-        socket1002.getOutputStream().write(testArrary);
+        socket1032.getOutputStream().write(testArrary);
         byte ar[] = new byte[testArrary.length];
-        SystemUtils.keepReadingStream(socket1002.getInputStream(), ar);
+        SystemUtils.keepReadingStream(socket1032.getInputStream(), ar);
         System.out.println("Received on port 1002 " + ar.length + " bytes");
         for (int i = 0; i < ar.length; i++)
             assertEquals((byte) i, ar[i]);
 
         latch.countDown();
-        SystemUtils.close(socket1002);
+        SystemUtils.close(socket1032);
         actorForwarding.askExitAndWait();
         actorForwarding2.askExitAndWait();
         actorAcceptor.askExitAndWait();
@@ -336,10 +342,10 @@ public class TestStereotypes {
         byte[] testArrary = prepareBinaryArray();
 
         CountDownLatch latch = new CountDownLatch(1);
-        SinkActorSingleTask<Void> actorAcceptor = createBinaryAcceptor(testArrary, latch);
-        SinkActorSingleTask<Void> actorForwarding = Stereotypes.def().forwardLocal(1001, 1000, true, true, 10);
-        SinkActorSingleTask<Void> actorForwarding2 = Stereotypes.def().forwardLocal(1002, 1001, true, true, 10);
-        Socket socket1002 = new Socket(InetAddress.getLocalHost(), 1002);
+        SinkActorSingleTask<Void> actorAcceptor = createBinaryAcceptor(testArrary, latch, 1040);
+        SinkActorSingleTask<Void> actorForwarding = Stereotypes.def().forwardLocal(1041, 1040, true, true, 10);
+        SinkActorSingleTask<Void> actorForwarding2 = Stereotypes.def().forwardLocal(1042, 1041, true, true, 10);
+        Socket socket1002 = new Socket(InetAddress.getLocalHost(), 1042);
 
         //SystemUtils.sleep(1000);
         socket1002.getOutputStream().write(testArrary, 0, 1);
@@ -371,19 +377,19 @@ public class TestStereotypes {
         return testArrary;
     }
 
-    private SinkActorSingleTask<Void> createBinaryAcceptor(byte[] testArrary, CountDownLatch latch) throws IOException {
-        return Stereotypes.def().tcpAcceptor(1000, socket1000 -> {
+    private SinkActorSingleTask<Void> createBinaryAcceptor(byte[] testArrary, CountDownLatch latch, int port) throws IOException {
+        return Stereotypes.def().tcpAcceptor(port, socket -> {
             try {
                 byte ar[] = new byte[testArrary.length];
-                SystemUtils.keepReadingStream(socket1000.getInputStream(), ar);
-                System.out.println("Received on port 1000 " + ar.length + " bytes");
+                SystemUtils.keepReadingStream(socket.getInputStream(), ar);
+                System.out.println("Received on port " + port + " " + ar.length + " bytes");
                 for (int i = 0; i < ar.length; i++)
                     assertEquals((byte) i, ar[i]);
-                socket1000.getOutputStream().write(ar);
+                socket.getOutputStream().write(ar);
                 System.out.println("Sent TEST through port 1000");
                 latch.await();
                 System.out.println("Server shutting down");
-                SystemUtils.close(socket1000);
+                SystemUtils.close(socket);
             } catch (IOException | InterruptedException e) {
                 fail(e.toString());
             }

@@ -27,25 +27,28 @@ apply from: 'publish.gradle'
 task testNG(type: Test) { useTestNG() }
 test.dependsOn testNG
 
+class ReleaseCheckState {
+    static volatile String releaseNotes = ""
+}
 String releaseNotes = ""
 
 task releaseCheck {
-    releaseNotes = file("RELEASE_NOTES.md").text
+    doLast {
+        releaseNotes = file("RELEASE_NOTES.md").text
+        ReleaseCheckState.releaseNotes = releaseNotes
 
-    println "*** RELEASE NOTES:\n$releaseNotes\n"
+        println "*** RELEASE NOTES:\n$ReleaseCheckState.releaseNotes\n"
 
-    ant.input(message: 'Are the Release Notes correct?', addproperty: 'releaseOk', defaultValue : 'N')
+        ant.input(message: 'Are the Release Notes correct?', addproperty: 'releaseOk', defaultValue: 'N')
 
-    if (!"y".equalsIgnoreCase(ant.properties.addproperty))
-        System.exit(0)
+        if (!"y".equalsIgnoreCase(ant.properties.addproperty))
+            System.exit(0)
+    }
 }
 
 release {
-    tagCommitMessage = releaseNotes
+    tagCommitMessage = ReleaseCheckState.releaseNotes
 }
-
-releaseCheck.dependsOn(release)
-release.mustRunAfter(releaseCheck)
 
 
 task createPom {

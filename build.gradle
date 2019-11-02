@@ -30,26 +30,25 @@ test.dependsOn testNG
 class ReleaseCheckState {
     static volatile String releaseNotes = ""
 }
-String releaseNotes = ""
 
-task releaseCheck {
-    doLast {
-        releaseNotes = file("RELEASE_NOTES.md").text
-        ReleaseCheckState.releaseNotes = releaseNotes
+tasks.register("releaseCheck") {
+    if (gradle.startParameter.taskNames.any { it == "release"}) {
+        ReleaseCheckState.releaseNotes = file("RELEASE_NOTES.md").text
 
         println "*** RELEASE NOTES:\n$ReleaseCheckState.releaseNotes\n"
 
         ant.input(message: 'Are the Release Notes correct?', addproperty: 'releaseOk', defaultValue: 'N')
 
-        if (!"y".equalsIgnoreCase(ant.properties.addproperty))
+        if (!"y".equalsIgnoreCase(ant.properties.releaseOk.toString()))
             System.exit(0)
     }
 }
 
 release {
+    println "RELEASE TASK"
+    buildTasks = ['build', 'releaseCheck']
     tagCommitMessage = ReleaseCheckState.releaseNotes
 }
-
 
 task createPom {
     doLast {

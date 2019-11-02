@@ -9,26 +9,17 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * NodeLinkedList that uses Nodes instead of adding values as the Java lists do.
  * As a result, we can add and remove a specific node in O(1), which is our goal.
+ * This class is not thread safe, and it is intended to be used from a single thread.
+ * In particular it is used as part of the "receive" functionality, so it is called by the actor, which, by definition, runs on a single thread/fiber.
+ * Thread safety is achieved using a blocking queue before that.
  */
 public class NodeLinkedList<T> implements Iterable<T> {
     private Node<T> head;
     private Node<T> tail;
-    private AtomicReference<Thread> threadRemove = new AtomicReference<>();
-
-    private void verifyRemoveThread() {
-        Thread curThread = Thread.currentThread();
-        threadRemove.compareAndSet(null, curThread);
-
-
-        if (curThread != threadRemove.get())
-            throw new ConcurrentModificationException("Remove operations and iterators must be called from the same thread");
-    }
 
 
     @Override
     public Iterator<T> iterator() {
-        verifyRemoveThread();
-
         return new Iterator<T>() {
             private Node<T> cur = head;
 
@@ -48,8 +39,6 @@ public class NodeLinkedList<T> implements Iterable<T> {
     }
 
     public Iterable<Node<T>> asNodesIterable() {
-        verifyRemoveThread();
-
         return new Iterable<Node<T>>() {
             @Override
             public Iterator<Node<T>> iterator() {
@@ -74,8 +63,6 @@ public class NodeLinkedList<T> implements Iterable<T> {
     }
 
     public Node<T> removeFirstByValue(T value) {
-        verifyRemoveThread();
-
         for (Node<T> node : asNodesIterable()) {
             if (node.value != null && node.value.equals(value)) {
                 remove(node);
@@ -106,7 +93,6 @@ public class NodeLinkedList<T> implements Iterable<T> {
         //assert (tail.get()==null && head.get() == null) || (tail.get() != null && head.get() != null);
     }
 
-    // FIXME: is it 100% thread safe?
     public Node<T> addToTail(T value) {
         verify();
 
@@ -125,7 +111,6 @@ public class NodeLinkedList<T> implements Iterable<T> {
         return n;
     }
 
-    // FIXME: is it 100% thread safe?
     public void remove(Node<T> node) {
         verify();
 
@@ -146,7 +131,6 @@ public class NodeLinkedList<T> implements Iterable<T> {
         verify();
     }
 
-    // FIXME: is it 100% thread safe? What happens if a thread insert while another one is removing?
     public Node<T> removeHeadNode() {
         verify();
 

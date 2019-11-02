@@ -50,7 +50,6 @@ release {
     tagCommitMessage = ReleaseCheckState.releaseNotes
 }
 
-
 task createPom {
     doLast {
         pom {

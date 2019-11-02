@@ -27,7 +27,6 @@ apply from: 'publish.gradle'
 task testNG(type: Test) { useTestNG() }
 test.dependsOn testNG
 
-
 String releaseNotes = ""
 
 task releaseCheck {

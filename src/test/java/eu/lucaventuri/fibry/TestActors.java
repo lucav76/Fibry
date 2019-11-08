@@ -174,8 +174,14 @@ public class TestActors {
 
     @Test
     public void testCapacity() {
+        CountDownLatch latch = new CountDownLatch(1);
+
         Actor<Object, Void, Void> actor = ActorSystem.anonymous(2).newActor(message -> {
-            SystemUtils.sleep(50);
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
             System.out.println(message);
         });
 
@@ -187,6 +193,8 @@ public class TestActors {
             fail();
         } catch (IllegalStateException e) {
             /** Expected */
+        } finally {
+            latch.countDown();
         }
 
         actor.askExitAndWait();
@@ -553,9 +561,9 @@ public class TestActors {
         System.out.println(map.keySet());
         Assert.assertEquals(7, map.size());
         Class[] ar = map.keySet().toArray(new Class[0]);
-        Assert.assertTrue(ar[4]==String.class || ar[4]==Number.class  || ar[4]==Map.class);
-        Assert.assertTrue(ar[5]==String.class || ar[5]==Number.class  || ar[5]==Map.class);
-        Assert.assertTrue(ar[6]==String.class || ar[6]==Number.class  || ar[6]==Map.class);
+        Assert.assertTrue(ar[4] == String.class || ar[4] == Number.class || ar[4] == Map.class);
+        Assert.assertTrue(ar[5] == String.class || ar[5] == Number.class || ar[5] == Map.class);
+        Assert.assertTrue(ar[6] == String.class || ar[6] == Number.class || ar[6] == Map.class);
 
         Assert.assertTrue(map.containsKey(String.class));
         Assert.assertTrue(map.containsKey(Number.class));
@@ -584,19 +592,19 @@ public class TestActors {
         TestHandler th = new TestHandler();
         Consumer<Object> consumer = ActorUtils.extractEventHandlerLogic(th);
 
-        th.check(0,0,0);
+        th.check(0, 0, 0);
         consumer.accept("Test");
-        th.check(1,0,0);
+        th.check(1, 0, 0);
         consumer.accept("Test");
-        th.check(2,0,0);
+        th.check(2, 0, 0);
         consumer.accept(3);
-        th.check(2,1,0);
+        th.check(2, 1, 0);
         consumer.accept(4);
-        th.check(2,2,0);
+        th.check(2, 2, 0);
         consumer.accept(4.0);
-        th.check(2,2,1);
+        th.check(2, 2, 1);
         consumer.accept(4L);
-        th.check(2,2,2);
+        th.check(2, 2, 2);
     }
 
     @Test
@@ -604,27 +612,35 @@ public class TestActors {
         TestHandler th = new TestHandler();
         Actor<Object, Void, Void> actor = ActorSystem.anonymous().newActorMultiMessages(th);
 
-        th.check(0,0,0);
+        th.check(0, 0, 0);
         actor.sendMessageReturnWait("Test", null);
-        th.check(1,0,0);
+        th.check(1, 0, 0);
         actor.sendMessageReturnWait("Test", null);
-        th.check(2,0,0);
+        th.check(2, 0, 0);
         actor.sendMessageReturnWait(3, null);
-        th.check(2,1,0);
+        th.check(2, 1, 0);
         actor.sendMessageReturnWait(4, null);
-        th.check(2,2,0);
+        th.check(2, 2, 0);
         actor.sendMessageReturnWait(4.0, null);
-        th.check(2,2,1);
+        th.check(2, 2, 1);
         actor.sendMessageReturnWait(4L, null);
-        th.check(2,2,2);
+        th.check(2, 2, 2);
     }
 
     @Test
     public void testEventHandleActorWithReturn() throws ExecutionException, InterruptedException {
         class TestHandlerReturn {
-            public String onString(String str) { return "String: " + str; }
-            public String onNumber(Integer n) { return "Int: " + n; }
-            public String onNumber(Long n) { return "Long: " + n; }
+            public String onString(String str) {
+                return "String: " + str;
+            }
+
+            public String onNumber(Integer n) {
+                return "Int: " + n;
+            }
+
+            public String onNumber(Long n) {
+                return "Long: " + n;
+            }
         }
         TestHandlerReturn th = new TestHandlerReturn();
         Actor<Object, String, Void> actor = ActorSystem.anonymous().newActorMultiMessagesWithReturn(th);

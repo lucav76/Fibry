@@ -5,11 +5,12 @@ plugins {
     id 'net.researchgate.release' version '2.6.0'
 }
 
+apply plugin: 'maven'
 group 'eu.lucaventuri'
 version version
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
+sourceCompatibility = 11
+targetCompatibility = 11
 
 repositories {
     mavenCentral()
@@ -17,8 +18,55 @@ repositories {
 
 dependencies {
     testCompile group: 'junit', name: 'junit', version: '4.12'
+    testCompile 'org.reactivestreams:reactive-streams-tck-flow:1.0.3'
+    testCompile group: 'org.testng', name: 'testng', version: '6.14.3'
 }
 
 apply from: 'publish.gradle'
 
+task testNG(type: Test) { useTestNG() }
+test.dependsOn testNG
 
+class ReleaseCheckState {
+    static volatile String releaseNotes = ""
+}
+
+tasks.register("releaseCheck") {
+    if (gradle.startParameter.taskNames.any { it == "release"}) {
+        ReleaseCheckState.releaseNotes = file("RELEASE_NOTES.md").text
+
+        println "*** RELEASE NOTES:\n$ReleaseCheckState.releaseNotes\n"
+
+        ant.input(message: 'Are the Release Notes correct?', addproperty: 'releaseOk', defaultValue: 'N')
+
+        if (!"y".equalsIgnoreCase(ant.properties.releaseOk.toString()))
+            System.exit(0)
+    }
+}
+
+release {
+    println "RELEASE TASK"
+    buildTasks = ['build', 'releaseCheck']
+    tagCommitMessage = ReleaseCheckState.releaseNotes
+}
+
+task createPom {
+    doLast {
+        pom {
+            project {
+                groupId group
+                artifactId rootProject.name
+                version version
+
+                inceptionYear '2019'
+                licenses {
+                    license {
+                        name = 'MIT License'
+                        url = 'https://github.com/lucav76/Fibry/blob/master/LICENSE'
+                        distribution 'repo'
+                    }
+                }
+            }
+        }.writeTo("pom.xml")
+    }
+}

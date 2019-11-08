@@ -555,6 +555,7 @@ public class Stereotypes {
         }
 
         /**
+         * Creates an actor that pipeline its result to another actor
          * Pipelined actor are anonymous to avoid confusion and prevent code from running on the actor
          */
         public <T, T2, R> MessageOnlyActor<T, R, Void> pipelineTo(Function<T, T2> workerBiLogic, MessageOnlyActor<T2, R, ?> targetActor) {

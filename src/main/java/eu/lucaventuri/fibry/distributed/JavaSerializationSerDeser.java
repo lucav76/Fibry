@@ -1,16 +1,14 @@
 package eu.lucaventuri.fibry.distributed;
 
-import eu.lucaventuri.common.Exceptions;
-
 import java.io.*;
 
+/**
+ * Can serialize using Java Serialization.
+ * It has been added for convenience, but it is deprecated as it is in general considered a good practice to avoid
+ * Java serialization, because of its problems and limitations
+ */
+@Deprecated
 public class JavaSerializationSerDeser<T, R> implements RemoteActorChannel.SerDeser<T, R> {
-    private final int maxDeserializationObjectSize;
-
-    public JavaSerializationSerDeser(int maxDeserializationObjectSize) {
-        this.maxDeserializationObjectSize = maxDeserializationObjectSize;
-    }
-
     @Override
     public byte[] serialize(T object) {
         try (
@@ -35,7 +33,7 @@ public class JavaSerializationSerDeser<T, R> implements RemoteActorChannel.SerDe
                 var buf = new ByteArrayInputStream(object);
                 var is = new ObjectInputStream(buf)) {
 
-                return (R) is.readObject();
+            return (R) is.readObject();
         } catch (IOException | ClassNotFoundException e) {
             throw new RuntimeException(e);
         }

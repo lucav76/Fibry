@@ -174,7 +174,7 @@ public class TestRemoteActors {
 
         var user = new User("TestUser2");
         var phone = new PhoneNumber("+4787654321");
-        var actor = ActorSystem.anonymous().<User, PhoneNumber>newRemoteActorWithReturn("actor3", new HttpChannel("http://localhost:" + port + "/", HttpChannel.HttpMethod.GET, null, null, true), new JavaSerializationSerDeser<>(1024));
+        var actor = ActorSystem.anonymous().<User, PhoneNumber>newRemoteActorWithReturn("actor3", new HttpChannel("http://localhost:" + port + "/", HttpChannel.HttpMethod.GET, null, null, true), new JavaSerializationSerDeser<>());
         var result = actor.sendMessageReturn(user);
 
         latch.await(1, TimeUnit.SECONDS);

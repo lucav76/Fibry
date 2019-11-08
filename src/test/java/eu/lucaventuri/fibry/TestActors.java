@@ -13,9 +13,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
+import static eu.lucaventuri.common.SystemUtils.*;
 import static org.junit.Assert.*;
 
 
@@ -79,7 +82,7 @@ public class TestActors {
             });
 
         while (callsExecuted.get() < numExpectedCalls) {
-            SystemUtils.sleep(1);
+            sleep(1);
         }
 
         actor.execAndWait(act -> {
@@ -106,7 +109,7 @@ public class TestActors {
             });
 
         while (callsExecuted.get() < numExpectedCalls) {
-            SystemUtils.sleep(1);
+            sleep(1);
         }
 
         actor.execAndWait(act -> {
@@ -648,6 +651,69 @@ public class TestActors {
         assertEquals("String: test", actor.sendMessageReturn("test").get());
         assertEquals("Int: 4", actor.sendMessageReturn(4).get());
         assertEquals("Long: 5", actor.sendMessageReturn(5L).get());
+    }
+
+    @Test
+    public void testSynchronousActor() throws ExecutionException, InterruptedException {
+        AtomicInteger num = new AtomicInteger();
+        Consumer<String> logic = s -> {
+            sleep(10);
+            num.incrementAndGet();
+        };
+        var act1 = ActorSystem.anonymous().newActor(logic);
+        var act2 = ActorSystem.anonymous().newSynchronousActor(logic);
+        var act3 = ActorSystem.anonymous().<String, String>newSynchronousActorWithReturn(s -> {
+            sleep(10);
+            num.incrementAndGet();
+
+            return s + num.get();
+        });
+
+        act1.sendMessage("A");
+        assertEquals(num.get(), 0);
+
+        act1.askExitAndWait();
+        assertEquals(num.get(), 1);
+
+        act2.sendMessage("A");
+        assertEquals(num.get(), 2);
+        act2.sendMessage("B");
+        assertEquals(num.get(), 3);
+        act2.sendMessage("C");
+        assertEquals(num.get(), 4);
+        var s = act3.sendMessageReturn("E").get();
+        assertEquals("E5", s);
+    }
+
+    @Test
+    public void testSynchronousActor2() {
+        Thread curThread = Thread.currentThread();
+        AtomicBoolean error = new AtomicBoolean();
+        try (
+                var act1 = ActorSystem.anonymous().newActor(x -> {
+                    if (curThread.equals(Thread.currentThread()))
+                        error.set(true);
+                    assertNotEquals(curThread, Thread.currentThread());
+                });
+                var act2 = ActorSystem.anonymous().newSynchronousActor(x -> {
+                    if (!curThread.equals(Thread.currentThread()))
+                        error.set(true);
+
+                    assertEquals(curThread, Thread.currentThread());
+                });
+                var act3 = ActorSystem.anonymous().newSynchronousActorWithReturn(x -> {
+                    if (!curThread.equals(Thread.currentThread()))
+                        error.set(true);
+                    assertNotEquals(curThread, Thread.currentThread());
+
+                    return "OK";
+                })) {
+            act1.sendMessageReturnWait("A", null);
+            act2.sendMessageReturnWait("A", null);
+            act3.sendMessageReturnWait("A", null);
+        }
+
+        assertFalse(error.get());
     }
 }
 

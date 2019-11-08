@@ -252,6 +252,20 @@ public class ActorSystem {
         public <S> ActorPoolCreator<S> poolParams(PoolParameters params, Supplier<S> stateSupplier, Consumer<S> finalizer) {
             return new ActorPoolCreator<>(strategy, name, params, stateSupplier, finalizer);
         }
+
+        /** Creates a new actor that runs in the same thread as the caller;
+         * This is useful only on particular cases */
+        public <T> Actor<T, Void, Void> newSynchronousActor(Consumer<T> actorLogic) {
+            registerActorName(name, allowReuse);
+            return new SynchronousActor<>(actorLogic, initialState, finalizer, closeStrategy, pollTimeoutMs);
+        }
+
+        /** Creates a new actor that runs in the same thread as the caller;
+         * This is useful only on particular cases */
+        public <T, R> Actor<T, R, Void> newSynchronousActorWithReturn(Function<T, R> actorLogic) {
+            registerActorName(name, allowReuse);
+            return new SynchronousActor<>(actorLogic, initialState, finalizer, closeStrategy, pollTimeoutMs);
+        }
     }
 
     // Name as supplied, strategy: auto and initialState: null

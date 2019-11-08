@@ -82,6 +82,10 @@ public class Actor<T, R, S> extends BaseActor<T, R, S> {
         message.ifEither(cns -> cns.accept(this), actorLogic::accept, actorLogicReturn::accept);
     }
 
+    protected void processSingleMessage(Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>> message) throws InterruptedException {
+        message.ifEither(cns -> cns.accept(this), actorLogic::accept, actorLogicReturn::accept);
+    }
+
     @Override
     // Just return a more specific type
     public Actor<T, R, S> sendMessage(T message) {

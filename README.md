@@ -38,7 +38,8 @@ Also Loom is not completed yet, so its performance can change.
 I took some informal benchmarks using a C5.2xlarge VM instance, without tuning of the OS or of Loom:
 
 - Number of concurrent threads that can be created without OS tuning: around 3K
-- Number of concurrent fibers that can be created: more than 3M (**300x better**)
+- Expected maximum with OS tuning: around 33K
+- Number of concurrent fibers that can be created without OS tuning: more than 3M (**100x - 1000X better**)
 - Threads created per second: 15K
 - Fibers created per second: 600K (**40x better**)
 - Sync messages per second, between 2 threads (requires thread switching): 50K

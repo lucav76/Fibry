@@ -11,15 +11,15 @@ import java.util.function.Function;
  * THis can be useful in particular cases.
  */
 public class SynchronousActor<T, R, S> extends Actor<T, R, S> implements MiniFibryQueue<T, R, PartialActor<T, S>> {
-    public SynchronousActor(Consumer<T> actorLogic, S initialState, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
-        super(actorLogic, new MiniFibryQueue.MiniFibryQueueDelegate<>(), initialState, finalizer, closeStrategy, pollTimeoutMs);
+    public SynchronousActor(Consumer<T> actorLogic, S initialState, Consumer<S> initializer, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
+        super(actorLogic, new MiniFibryQueue.MiniFibryQueueDelegate<>(), initialState, initializer, finalizer, closeStrategy, pollTimeoutMs);
 
         sendPoisonPillWhenExiting = false;
         ((MiniFibryQueue.MiniFibryQueueDelegate) queue).setQueue(this);
     }
 
-    SynchronousActor(Function<T, R> actorLogicReturn, S initialState, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
-        super(actorLogicReturn, new MiniFibryQueue.MiniFibryQueueDelegate<>(), initialState, finalizer, closeStrategy, pollTimeoutMs);
+    SynchronousActor(Function<T, R> actorLogicReturn, S initialState, Consumer<S> initializer, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
+        super(actorLogicReturn, new MiniFibryQueue.MiniFibryQueueDelegate<>(), initialState, initializer, finalizer, closeStrategy, pollTimeoutMs);
 
         sendPoisonPillWhenExiting = false;
         ((MiniFibryQueue.MiniFibryQueueDelegate) queue).setQueue(this);

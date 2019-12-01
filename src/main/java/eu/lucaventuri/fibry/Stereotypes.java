@@ -246,7 +246,7 @@ public class Stereotypes {
             Actor<RM, Void, RR> reducer = mrCreator.newActor((data, thisActor) ->
                     thisActor.setState(reduceLogic.apply(thisActor.getState() /* Accumulator */, data)));
             AtomicReference<Spawner<TM, Void, Object>> spawnerRef = new AtomicReference<>();
-            NamedStateActorCreator<Object> creator = ActorSystem.anonymous().strategy(strategy).initialState(null, state -> spawnerRef.get().finalizer().accept(state));
+            NamedStateActorCreator<Object> creator = ActorSystem.anonymous().strategy(strategy).initialState(null, null, state -> spawnerRef.get().finalizer().accept(state));
             Spawner<TM, Void, Object> spawner = new Spawner<>(creator, data -> {
                 reducer.sendMessage(mapLogic.apply(data));
                 return null;
@@ -626,7 +626,7 @@ public class Stereotypes {
          */
         public <T> BaseActor<T, Void, Void> batchProcess(Function<T, Integer> itemProcessor, Runnable batchProcessor, int batchMaxSize, int batchMs, int precisionMs, boolean skipTimeWithoutMessages) {
             BaseActor<T, Void, Void> actor = ActorUtils.initRef(ref -> {
-                return new CustomActor<T, Void, Void>(new FibryQueue<>(), state -> Exceptions.silence(batchProcessor::run), precisionMs) {
+                return new CustomActor<T, Void, Void>(new FibryQueue<>(), null, state -> Exceptions.silence(batchProcessor::run), precisionMs) {
                     long lastBatchSentTime = 0;
                     int numMessages;
 

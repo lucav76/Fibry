@@ -20,14 +20,16 @@ import java.util.function.Function;
 public abstract class BaseActor<T, R, S> extends Exitable implements Function<T, R>, PartialActor<T, S>, SinkActor<S>, MessageOnlyActor<T, R, S> {
     protected final MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue;
     protected S state;
+    protected final Consumer<S> initializer;
     protected final Consumer<S> finalizer;
     protected final List<AutoCloseable> closeOnExit = new Vector<>();
     protected volatile boolean drainMessagesOnExit = true;
     protected final int pollTimeoutMs;
 
 
-    BaseActor(MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
+    BaseActor(MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> initializer, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
         this.queue = queue;
+        this.initializer = initializer;
         this.finalizer = finalizer;
         this.sendPoisonPillWhenExiting = true;
         this.pollTimeoutMs = pollTimeoutMs;
@@ -224,6 +226,9 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
     }
 
     public final void processMessages() {
+        if (initializer != null)
+            initializer.accept(state);
+
         if (pollTimeoutMs == Integer.MAX_VALUE) {
             while (!isExiting())
                 Exceptions.log(this::takeAndProcessSingleMessage);

@@ -28,8 +28,8 @@ public class Actor<T, R, S> extends BaseActor<T, R, S> {
      * @param closeStrategy What to do when close() is called
      * @param pollTimeoutMs Poll timeout (to allow the actor to exit without a poison pill); Integer.MAX_VALUE == no timeout
      */
-    protected Actor(Consumer<T> actorLogic, MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
-        super(queue, finalizer, closeStrategy, pollTimeoutMs);
+    protected Actor(Consumer<T> actorLogic, MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState, Consumer<S> initializer, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
+        super(queue, initializer, finalizer, closeStrategy, pollTimeoutMs);
 
         Function<T, R> tmpLogicReturn = ActorUtils.discardingToReturning(actorLogic);
 
@@ -48,8 +48,8 @@ public class Actor<T, R, S> extends BaseActor<T, R, S> {
      * @param closeStrategy What to do when close() is called
      * @param pollTimeoutMs Poll timeout (to allow the actor to exit without a poison pill); Integer.MAX_VALUE == no timeout
      */
-    protected Actor(Function<T, R> actorLogicReturn, MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
-        super(queue, finalizer, closeStrategy, pollTimeoutMs);
+    protected Actor(Function<T, R> actorLogicReturn, MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState, Consumer<S> initializer, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
+        super(queue, initializer, finalizer, closeStrategy, pollTimeoutMs);
         this.actorLogic = ActorUtils.returningToDiscarding(actorLogicReturn);
         this.actorLogicReturn = mwr -> {
             try {

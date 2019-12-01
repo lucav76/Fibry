@@ -210,13 +210,13 @@ public class TestActors {
         CountDownLatch latch = new CountDownLatch(1);
         CountDownLatch latchStart = new CountDownLatch(1);
 
-        Actor<Integer, Void, AtomicInteger> actor = ActorSystem.anonymous().initialState(num, n -> n.set(-1)).newActor((message, thisActor) -> {
+        Actor<Integer, Void, AtomicInteger> actor = ActorSystem.anonymous().initialState(num, null, n -> n.set(-1)).newActor((message, thisActor) -> {
             thisActor.getState().addAndGet(message);
         });
 
         assertEquals(false, ActorSystem.isActorAvailable(actorName));
 
-        Actor<Integer, Void, AtomicInteger> actor2 = ActorSystem.named(actorName, true).initialState(num, n -> n.set(-1)).newActor((message, thisActor) -> {
+        Actor<Integer, Void, AtomicInteger> actor2 = ActorSystem.named(actorName, true).initialState(num, null, n -> n.set(-1)).newActor((message, thisActor) -> {
             latchStart.countDown();
             thisActor.getState().addAndGet(message);
             try {
@@ -264,13 +264,13 @@ public class TestActors {
         CountDownLatch latch = new CountDownLatch(1);
         CountDownLatch latchStart = new CountDownLatch(1);
 
-        Actor<Integer, Void, AtomicInteger> actor = ActorSystem.anonymous().initialState(num, n -> n.set(-1)).newActor((message, thisActor) -> {
+        Actor<Integer, Void, AtomicInteger> actor = ActorSystem.anonymous().initialState(num, null, n -> n.set(-1)).newActor((message, thisActor) -> {
             thisActor.getState().addAndGet(message);
         });
 
         assertEquals(false, ActorSystem.isActorAvailable(actorName));
 
-        Actor<Integer, Void, AtomicInteger> actor2 = ActorSystem.named(actorName, false).initialState(num, n -> n.set(-1)).newActor((message, thisActor) -> {
+        Actor<Integer, Void, AtomicInteger> actor2 = ActorSystem.named(actorName, false).initialState(num, null, n -> n.set(-1)).newActor((message, thisActor) -> {
             latchStart.countDown();
             thisActor.getState().addAndGet(message);
             try {
@@ -310,6 +310,16 @@ public class TestActors {
 
         // We cannot delete the name to avoid that messages sent to it creates an OOM
         assertTrue(ActorSystem.isActorAvailable(actorName));
+    }
+
+    @Test
+    public void testInizializer() throws ExecutionException, InterruptedException {
+        AtomicInteger i = new AtomicInteger();
+        var actor = ActorSystem.anonymous().initialState(null, s -> i.set(100), null).newActor(m -> {
+        });
+
+        actor.sendMessageReturn(1).get();
+        assertEquals(100, i.get());
     }
 
     static class State {
@@ -672,7 +682,8 @@ public class TestActors {
         act1.sendMessage("A");
         assertEquals(num.get(), 0);
 
-        act1.askExitAndWait();
+        act1.sendPoisonPill();
+        act1.waitForExit();
         assertEquals(num.get(), 1);
 
         act2.sendMessage("A");

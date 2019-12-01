@@ -27,8 +27,8 @@ public class ReceivingActor<T, R, S> extends BaseActor<T, R, S> {
      * @param closeStrategy What to do when close() is called
      * @param pollTimeoutMs Poll timeout (to allow the actor to exit without a poison pill); Integer.MAX_VALUE == no timeout
      */
-    protected ReceivingActor(BiConsumer<MessageReceiver<T>, T> actorLogic, MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>, T> messageBag, S initialState, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
-        super(messageBag, finalizer, closeStrategy, pollTimeoutMs);
+    protected ReceivingActor(BiConsumer<MessageReceiver<T>, T> actorLogic, MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>, T> messageBag, S initialState, Consumer<S> initializer, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
+        super(messageBag, initializer, finalizer, closeStrategy, pollTimeoutMs);
         BiFunction<MessageReceiver<T>, T, R> tmpLogicReturn = ActorUtils.discardingToReturning(actorLogic);
 
         this.bag = messageBag;
@@ -50,8 +50,8 @@ public class ReceivingActor<T, R, S> extends BaseActor<T, R, S> {
      * @param messageBag       Bag
      * @param initialState     optional initial state
      */
-    ReceivingActor(BiFunction<MessageReceiver<T>, T, R> actorLogicReturn, MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>, T> messageBag, S initialState, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
-        super(messageBag, finalizer, closeStrategy, pollTimeoutMs);
+    ReceivingActor(BiFunction<MessageReceiver<T>, T, R> actorLogicReturn, MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>, T> messageBag, S initialState, Consumer<S> initializer, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
+        super(messageBag, initializer, finalizer, closeStrategy, pollTimeoutMs);
 
         this.bag = messageBag;
         this.bagConverter = convertBag(this.bag);

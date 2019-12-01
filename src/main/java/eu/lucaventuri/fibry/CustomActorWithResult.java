@@ -8,12 +8,12 @@ import java.util.function.Consumer;
 public abstract class CustomActorWithResult<T, R, S> extends BaseActor<T, R, S> {
     protected final Consumer<T> actorLogic;
 
-    protected CustomActorWithResult(MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> finalizer, int pollTimeoutMs) {
-        this(queue, finalizer, null, pollTimeoutMs);
+    protected CustomActorWithResult(MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> initializer, Consumer<S> finalizer, int pollTimeoutMs) {
+        this(queue, initializer, finalizer, null, pollTimeoutMs);
     }
 
-    protected CustomActorWithResult(MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
-        super(queue, finalizer, closeStrategy, pollTimeoutMs);
+    protected CustomActorWithResult(MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> initializer, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
+        super(queue, initializer, finalizer, closeStrategy, pollTimeoutMs);
 
         this.actorLogic = ActorUtils.returningToDiscarding(this::onMessage);
     }

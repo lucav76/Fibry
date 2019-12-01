@@ -11,7 +11,7 @@ import java.util.concurrent.ExecutionException;
 
 class ActorInherit extends CustomActor<Object, Void, Void> {
     protected ActorInherit() {
-        super(new FibryQueue<>(), null, Integer.MAX_VALUE);
+        super(new FibryQueue<>(), null, null, Integer.MAX_VALUE);
 
         closeStrategy = CloseStrategy.SEND_POISON_PILL;
         CreationStrategy.AUTO.start(this);
@@ -27,7 +27,7 @@ class ActorInheritSlow extends CustomActor<Object, Void, Void> {
     final int ms;
 
     protected ActorInheritSlow(int ms, boolean waitOnClose) {
-        super(new FibryQueue<>(), null, Integer.MAX_VALUE);
+        super(new FibryQueue<>(), null, null, Integer.MAX_VALUE);
 
         this.ms = ms;
         closeStrategy = waitOnClose ? CloseStrategy.SEND_POISON_PILL_AND_WAIT : CloseStrategy.SEND_POISON_PILL;
@@ -44,7 +44,7 @@ class ActorInheritSlow extends CustomActor<Object, Void, Void> {
 
 class ActorInherit2 extends CustomActorWithResult<Integer, Integer, Void> {
     protected ActorInherit2() {
-        super(new FibryQueue<>(), null, Integer.MAX_VALUE);
+        super(new FibryQueue<>(), null, null, Integer.MAX_VALUE);
 
         closeStrategy = CloseStrategy.SEND_POISON_PILL;
         CreationStrategy.AUTO.start(this);

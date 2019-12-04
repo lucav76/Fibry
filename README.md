@@ -196,7 +196,21 @@ In practice, if you plan to have millions of named actors you could either:
 - call *ActorSystem.sendMessage()* with forceDelivery==true, and use queue protection, which would use some more memory while allowing clients to send messages before the actor is created.
 
 
-  
+A Distributed Actor System
+===
+Fibry 2.X is a Distributed Actor System, meaning that it can use multiple machines to run your actors. This feature is quite limited at the moment.
+Fibry provides a simple, generic, support to contact (named) actors running on other machines. It is based on two principles:
+- RemoteActorChannel: an interface to send messages to named actors running on remote machines.
+- Serializer / Deserializer / SerDeser: interfaces used for serialization and deserialization of messages
+
+To make it more useful, Fibry provides an implementation:
+- HttpChannel: implements a channel using HTTP (and you can add your flavor of authentication)
+- JacksonSerDeser: serialization and deserialization done with Jackson (if present, as Fibry does ont import it asa dependency)
+- JavaSerializationSerDeser and ObjectSerializerUsingToString, mainly for testing purposes.
+
+While limited, this means that Fibry can be distributed across HTTP clusters, and in particular it could be used as a very simple **RPC** mechanism to send messages **across MicroServices**.
+For now, you are still responsible to create an endpoint to receive the messages and send them to the appropriate actors.
+
  
  
 
@@ -267,7 +281,6 @@ The API is going to change a bit, while I start to use it in more projects. Noth
 As of today, not every network operation is *fiber friendly*. You can find a list of what works and what does not [here](https://wiki.openjdk.java.net/display/loom/Networking+IO). 
 In particular UDP is only partially supported. Selectors are also not supported, but as avoiding non-blocking operation is a key goal of fibers, this should not be a concern.
 
-At the moment I have no plans to make a distributed version of Fibry, but if there is real interest I would be happy to do it.
 
 Enjoy!
 

@@ -328,7 +328,7 @@ public class ActorSystem {
 
                 @Override
                 public boolean sendPoisonPill() {
-                    return false;
+                    return localActor.sendPoisonPill();
                 }
 
                 @Override

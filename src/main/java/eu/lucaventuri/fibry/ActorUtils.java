@@ -3,7 +3,8 @@ package eu.lucaventuri.fibry;
 import eu.lucaventuri.common.Exceptions;
 import eu.lucaventuri.common.SystemUtils;
 import eu.lucaventuri.concurrent.SignalingSingleConsumer;
-import eu.lucaventuri.fibry.receipts.Receipt;
+import eu.lucaventuri.fibry.receipts.CompletableReceipt;
+import eu.lucaventuri.fibry.receipts.ImmutableReceipt;
 import eu.lucaventuri.fibry.receipts.ReceiptFactory;
 import eu.lucaventuri.functional.Either3;
 
@@ -73,11 +74,15 @@ public final class ActorUtils {
         return mwr.answer;
     }
 
-    static <T, R, S> Receipt<T, R> sendMessageReceipt(ReceiptFactory factory, MiniQueue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, T message) {
+    static <T, R, S> CompletableReceipt<T, R> sendMessageReceipt(ReceiptFactory factory, MiniQueue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, T message) {
         return sendMessageReceipt(factory.newReceipt(message), queue, message);
     }
 
-    static <T, R, S> Receipt sendMessageReceipt(Receipt receipt, MiniQueue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, T message) {
+    static <T, R, S> CompletableReceipt<T, R> sendMessageReceipt(ImmutableReceipt<T> receipt, MiniQueue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, T message) {
+        return sendMessageReceipt(new CompletableReceipt<T, R>(receipt), queue, message);
+    }
+
+    static <T, R, S> CompletableReceipt<T, R> sendMessageReceipt(CompletableReceipt<T, R> receipt, MiniQueue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, T message) {
         MessageWithAnswer<T, R> mwr = new MessageWithAnswer<>(message, receipt);
         queue.add(Either3.other(mwr));
 

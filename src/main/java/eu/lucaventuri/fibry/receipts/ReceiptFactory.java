@@ -4,20 +4,42 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public interface ReceiptFactory {
-    <T, F> Receipt<T, F> newReceipt(T message);
+    default <T, F> ImmutableReceipt<T> newReceipt(T message) {
+        return newReceipt(message, new ImmutableProgress());
+    }
 
-    <T, F> Receipt<T, F> get(String id);
+    <T, F> ImmutableReceipt<T> newReceipt(T message, ImmutableProgress progress);
 
-    <T, F> void save(Receipt<T, F> receipt);
+    default <T, F> CompletableReceipt<T, F> newCompletableReceipt(T message) {
+        return new CompletableReceipt<>(newReceipt(message, new ImmutableProgress()));
+    }
+
+    default <T, F> CompletableReceipt<T, F> newCompletableReceipt(String type, T message, ImmutableProgress progress) {
+        return new CompletableReceipt<>(newReceipt(message, progress));
+    }
+
+    <T> ImmutableReceipt<T> get(String id);
+
+    <T> void save(ImmutableReceipt<T> receipt);
+
+    default <T> ImmutableReceipt<T> refresh(ImmutableReceipt<T> receipt) {
+        return get(receipt.getId());
+    }
+
+    default <T, F> CompletableReceipt<T, F> refresh(CompletableReceipt<T, F> receipt) {
+        receipt.setReceipt(refresh(receipt.getReceipt()));
+
+        return receipt;
+    }
 
     static ReceiptFactory fromMap() {
         return new ReceiptFactory() {
-            private final ConcurrentHashMap<String, Receipt> map = new ConcurrentHashMap<>();
+            private final ConcurrentHashMap<String, ImmutableReceipt> map = new ConcurrentHashMap<>();
             private final AtomicInteger progressiveId = new AtomicInteger();
 
             @Override
-            public <T, F> Receipt<T, F> newReceipt(T message) {
-                var receipt = new Receipt<T, F>("" + progressiveId, message);
+            public <T, F> ImmutableReceipt<T> newReceipt(T message, ImmutableProgress progress) {
+                var receipt = new ImmutableReceipt<T>("" + progressiveId, message, progress);
 
                 save(receipt);
 
@@ -25,13 +47,13 @@ public interface ReceiptFactory {
             }
 
             @Override
-            public <T, F> Receipt<T, F> get(String id) {
-                return (Receipt<T, F>) map.get(id);
+            public <T> ImmutableReceipt<T> get(String id) {
+                return (ImmutableReceipt<T>) map.get(id);
             }
 
             @Override
-            public <T, F> void save(Receipt<T, F> receipt) {
-                map.put(receipt.id, receipt);
+            public <T> void save(ImmutableReceipt<T> receipt) {
+                map.put(receipt.getId(), receipt);
             }
         };
     }

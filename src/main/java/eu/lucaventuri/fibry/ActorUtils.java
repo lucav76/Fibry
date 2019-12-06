@@ -3,10 +3,11 @@ package eu.lucaventuri.fibry;
 import eu.lucaventuri.common.Exceptions;
 import eu.lucaventuri.common.SystemUtils;
 import eu.lucaventuri.concurrent.SignalingSingleConsumer;
+import eu.lucaventuri.fibry.receipts.Receipt;
+import eu.lucaventuri.fibry.receipts.ReceiptFactory;
 import eu.lucaventuri.functional.Either3;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Array;
 import java.lang.reflect.Method;
@@ -70,6 +71,19 @@ public final class ActorUtils {
         queue.add(Either3.other(mwr));
 
         return mwr.answer;
+    }
+
+    static <T, R, S> Receipt<T, R> sendMessageReceipt(ReceiptFactory factory, MiniQueue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, T message) {
+        return sendMessageReceipt(factory.newReceipt(message), queue, message);
+    }
+
+    static <T, R, S> Receipt sendMessageReceipt(Receipt receipt, MiniQueue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, T message) {
+        MessageWithAnswer<T, R> mwr = new MessageWithAnswer<>(message, receipt);
+        queue.add(Either3.other(mwr));
+
+        assert mwr.answer == receipt;
+
+        return receipt;
     }
 
     static <T, R, S> void execAsync(MiniQueue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> worker) {
@@ -221,7 +235,7 @@ public final class ActorUtils {
         final Set<Map.Entry<Class, Method>> types = extractEventHandlers(messageHandler.getClass()).entrySet();
 
         return message -> Exceptions.logShort(() -> {
-            Method methodToCall = findBestMethod(types, message,messageHandler.getClass().getName() );
+            Method methodToCall = findBestMethod(types, message, messageHandler.getClass().getName());
 
             methodToCall.invoke(messageHandler, message);
         });
@@ -231,7 +245,7 @@ public final class ActorUtils {
         final Set<Map.Entry<Class, Method>> types = extractEventHandlers(messageHandler.getClass()).entrySet();
 
         return message -> Exceptions.logShort(() -> {
-            Method methodToCall = findBestMethod(types, message,messageHandler.getClass().getName() );
+            Method methodToCall = findBestMethod(types, message, messageHandler.getClass().getName());
 
             return (R) methodToCall.invoke(messageHandler, message);
         }, null);

@@ -1,7 +1,7 @@
 package eu.lucaventuri.fibry;
 
 import eu.lucaventuri.common.Exceptions;
-import eu.lucaventuri.fibry.receipts.Receipt;
+import eu.lucaventuri.fibry.receipts.ImmutableReceipt;
 import eu.lucaventuri.fibry.receipts.ReceiptFactory;
 import org.junit.Test;
 
@@ -21,31 +21,32 @@ public class TestReceipts {
 
         var rec = actor.sendMessageExternalReceipt(factory, "bcd");
 
-        System.out.println(rec.getProgressPercent());
+        System.out.println(rec.getProgressCorrected().getProgressPercent());
         rec.get();
-        System.out.println(rec.getProgressPercent());
-        assertEquals(1.0f, rec.getProgressPercent(), 0.01f);
+        System.out.println(rec.getProgressCorrected().getProgressPercent());
+        assertEquals(1.0f, rec.getProgressCorrected().getProgressPercent(), 0.01f);
     }
 
     @Test
     public void testProgress() throws ExecutionException, InterruptedException {
         var latchLogic = new CountDownLatch(1);
         var latchWaitCaller = new CountDownLatch(1);
-        Function<Receipt<String, String>, String> logic = rec -> {
-            rec.setProgress(0.5f);
+        Function<ImmutableReceipt<String>, String> logic = rec -> {
+            factory.save(rec.withProgressPercent(0.5f));
             latchLogic.countDown();
             Exceptions.silence(() -> latchWaitCaller.await());
             return rec.getMessage().toUpperCase();
         };
-        final Actor<Receipt<String, String>, String, Void> actor = ActorSystem.anonymous().newActorWithReturn(logic);
+        final Actor<ImmutableReceipt<String>, String, Void> actor = ActorSystem.anonymous().newActorWithReturn(logic);
         var rec = actor.sendMessageInternalReceipt(factory.newReceipt("xyz"));
 
         latchLogic.await();
-        System.out.println(rec.getProgressPercent());
-        assertEquals(0.5f, rec.getProgressPercent(), 0.01f);
+        rec = factory.refresh(rec);
+        System.out.println(rec.getProgressCorrected().getProgressPercent());
+        assertEquals(0.5f, rec.getProgressCorrected().getProgressPercent(), 0.01f);
         latchWaitCaller.countDown();
         rec.get();
-        System.out.println(rec.getProgressPercent());
-        assertEquals(1.0f, rec.getProgressPercent(), 0.01f);
+        System.out.println(rec.getProgressCorrected().getProgressPercent());
+        assertEquals(1.0f, rec.getProgressCorrected().getProgressPercent(), 0.01f);
     }
 }

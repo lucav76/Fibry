@@ -4,7 +4,8 @@ import eu.lucaventuri.common.Exceptions;
 import eu.lucaventuri.common.Exitable;
 import eu.lucaventuri.common.Stateful;
 import eu.lucaventuri.common.SystemUtils;
-import eu.lucaventuri.fibry.receipts.Receipt;
+import eu.lucaventuri.fibry.receipts.CompletableReceipt;
+import eu.lucaventuri.fibry.receipts.ImmutableReceipt;
 import eu.lucaventuri.fibry.receipts.ReceiptFactory;
 import eu.lucaventuri.functional.Either3;
 
@@ -13,9 +14,6 @@ import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Flow;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -71,9 +69,9 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
      * It can be applied to any actor, and produces a receipt, but the progress can only be 0 or 1.0, without notes.
      * It could be useful to track if something got stuck, and to retrofit existing actors
      */
-    public Receipt<T, R> sendMessageExternalReceipt(ReceiptFactory factory, T message) {
+    public CompletableReceipt<T, R> sendMessageExternalReceipt(ReceiptFactory factory, T message) {
         if (isExiting())
-            return (Receipt<T, R>) getCompletableFutureWhenExiting(factory.<T, R>newReceipt(message));
+            return (CompletableReceipt<T, R>) getCompletableFutureWhenExiting(factory.<T, R>newCompletableReceipt(message));
 
         return ActorUtils.sendMessageReceipt(factory, queue, message);
     }
@@ -81,12 +79,12 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
     /**
      * It requires the actor to accept messages of type Receipt, but in this case the receipt can show progress and include notes
      */
-    public Receipt<?, R> sendMessageInternalReceipt(T message) {
-        assert message instanceof Receipt;
-        var receipt = (Receipt<?, R>) message;
+    public CompletableReceipt<?, R> sendMessageInternalReceipt(T message) {
+        assert message instanceof ImmutableReceipt;
+        var receipt = (ImmutableReceipt) message;
 
         if (isExiting())
-            return (Receipt<T, R>) getCompletableFutureWhenExiting(receipt);
+            return (CompletableReceipt<T, R>) getCompletableFutureWhenExiting(new CompletableReceipt<>(receipt));
 
         return ActorUtils.sendMessageReceipt(receipt, queue, message);
     }

@@ -24,10 +24,11 @@ Simplicity first
 - Many types of actor implement the **Executor** interface, so you can "send code" to be executed in the thread/fiber of almost any actors, and use them on service that are not actor-aware
 - **Fibry has no dependencies**, so no conflicts, no surprises and just a tiny jar available in the Maven Central repository
 - Most actors can be converted to **Reactive Flow Subscribers** (TCK tested), calling *asReactiveSubscriber()*
-- Fibry implements a very simple **Map/Reduce mechanism**, limited to the local computer.
-- Fibry implements a very simple **Pub/Sub** mechanism, limited to the local computer.
-- Fibry implements a simple **TCP port forwarding**, both as a Stereotype and as a small cli application: TcpForwarding
-- Fibry implements some simple mechanisms to help processing messages in **batches**
+- It implements a very simple **Map/Reduce mechanism**, limited to the local computer.
+- It implements a very simple **Pub/Sub** mechanism, limited to the local computer.
+- It implements a simple **TCP port forwarding**, both as a Stereotype and as a small cli application: TcpForwarding
+- It implements some simple mechanisms to help processing messages in **batches**
+- It implements a mechanism to track progress for long running tasks, which can be extended to support progress of messages processed by another server
 
 Some numbers
 ===

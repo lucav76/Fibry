@@ -4,6 +4,9 @@ import eu.lucaventuri.common.Exceptions;
 import eu.lucaventuri.common.Exitable;
 import eu.lucaventuri.common.Stateful;
 import eu.lucaventuri.common.SystemUtils;
+import eu.lucaventuri.fibry.receipts.CompletableReceipt;
+import eu.lucaventuri.fibry.receipts.ImmutableReceipt;
+import eu.lucaventuri.fibry.receipts.ReceiptFactory;
 import eu.lucaventuri.functional.Either3;
 
 import java.util.ArrayList;
@@ -11,9 +14,6 @@ import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Flow;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -43,7 +43,7 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
      */
     public CompletableFuture<R> sendMessageReturn(T message) {
         if (isExiting())
-            return getCompletableFutureWhenExiting();
+            return getCompletableFutureWhenExiting(new CompletableFuture<R>());
 
         return ActorUtils.sendMessageReturn(queue, message);
     }
@@ -63,6 +63,30 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
             ar[i] = listFutures.get(i);
 
         return ar;
+    }
+
+    /**
+     * It can be applied to any actor, and produces a receipt, but the progress can only be 0 or 1.0, without notes.
+     * It could be useful to track if something got stuck, and to retrofit existing actors
+     */
+    public CompletableReceipt<T, R> sendMessageExternalReceipt(ReceiptFactory factory, T message) {
+        if (isExiting())
+            return (CompletableReceipt<T, R>) getCompletableFutureWhenExiting(factory.<T, R>newCompletableReceipt(message));
+
+        return ActorUtils.sendMessageReceipt(factory, queue, message);
+    }
+
+    /**
+     * It requires the actor to accept messages of type Receipt, but in this case the receipt can show progress and include notes
+     */
+    public CompletableReceipt<?, R> sendMessageInternalReceipt(T message) {
+        assert message instanceof ImmutableReceipt;
+        var receipt = (ImmutableReceipt) message;
+
+        if (isExiting())
+            return (CompletableReceipt<T, R>) getCompletableFutureWhenExiting(new CompletableReceipt<>(receipt));
+
+        return ActorUtils.sendMessageReceipt(receipt, queue, message);
     }
 
     /**
@@ -95,9 +119,8 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
         }
     }
 
-    private CompletableFuture getCompletableFutureWhenExiting() {
+    private <X> CompletableFuture<X> getCompletableFutureWhenExiting(CompletableFuture<X> cf) {
         assert isExiting();
-        CompletableFuture cf = new CompletableFuture();
 
         if (isFinished())
             cf.completeExceptionally(new IllegalStateException("Actor terminated"));
@@ -154,7 +177,7 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
      */
     public CompletableFuture<Void> execFuture(Consumer<PartialActor<T, S>> worker) {
         if (isExiting())
-            return getCompletableFutureWhenExiting();
+            return getCompletableFutureWhenExiting(new CompletableFuture<Void>());
 
         return ActorUtils.execFuture(queue, worker);
     }
@@ -180,7 +203,7 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
      */
     public CompletableFuture<Void> execFuture(Runnable worker) {
         if (isExiting())
-            return getCompletableFutureWhenExiting();
+            return getCompletableFutureWhenExiting(new CompletableFuture());
 
         return ActorUtils.execFuture(queue, state -> worker.run());
     }

@@ -4,6 +4,9 @@ import eu.lucaventuri.common.ConcurrentHashSet;
 import eu.lucaventuri.common.Exitable.CloseStrategy;
 import eu.lucaventuri.common.MultiExitable;
 import eu.lucaventuri.fibry.distributed.RemoteActorChannel;
+import eu.lucaventuri.fibry.receipts.CompletableReceipt;
+import eu.lucaventuri.fibry.receipts.ImmutableReceipt;
+import eu.lucaventuri.fibry.receipts.ReceiptFactory;
 import eu.lucaventuri.functional.Either;
 import eu.lucaventuri.functional.Either3;
 
@@ -437,6 +440,19 @@ public class ActorSystem {
         }
 
         return ActorUtils.sendMessageReturn(getOrCreateActorQueue(actorName, defaultQueueCapacity), message);
+    }
+
+    public static <T, R> CompletableReceipt<T, R> sendMessageReceipt(ReceiptFactory factory, String actorName, T message, String type, boolean forceDelivery) {
+        requireNameNotNull(actorName);
+
+        if (!forceDelivery && !isActorAvailable(actorName)) {
+            CompletableReceipt<T, R> r = new CompletableReceipt<>(factory.newReceipt(message));
+            r.completeExceptionally(new RuntimeException("Actors not existing and force delivery not enabled"));
+
+            return r;
+        }
+
+        return ActorUtils.sendMessageReceipt(factory, getOrCreateActorQueue(actorName, defaultQueueCapacity), message);
     }
 
     public static <S> void execAsync(String actorName, Consumer<S> worker) {

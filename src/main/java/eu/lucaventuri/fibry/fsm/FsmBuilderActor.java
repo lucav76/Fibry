@@ -26,6 +26,10 @@ public class FsmBuilderActor<S extends Enum, M, R, A extends MessageOnlyActor<Fs
             return FsmBuilderActor.this.addState(state, actor);
         }
 
+        public InStateActor addState(S state) {
+            return FsmBuilderActor.this.addState(state, null);
+        }
+
         public FsmTemplateActor<S, M, R, A, I> build() {
             return FsmBuilderActor.this.build();
         }

@@ -10,4 +10,8 @@ class TransitionState<E, S extends Enum, A extends Consumer<FsmContext<S, E, I>>
         this.event = event;
         this.targetState = targetState;
     }
+
+    TransitionState<E, S, A, I> withState(State<S, E, A, I> newState) {
+        return new TransitionState<>(event, newState);
+    }
 }

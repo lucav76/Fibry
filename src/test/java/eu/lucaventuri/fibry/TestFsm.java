@@ -78,7 +78,9 @@ public class TestFsm {
 
     @Test
     public void testActors() throws ExecutionException, InterruptedException {
-        var fsm = actorFsm(actorPrint).newFsmActor(States.A);
+        var fsmTemplate = actorFsm(actorPrint);
+        var fsm = fsmTemplate.newFsmActor(States.A);
+        var fsm2 = fsmTemplate.newFsmActorReplace(States.A, null);
 
         Assert.assertEquals("RET: b", fsm.onEvent("b", "Test", true).get());
         Assert.assertEquals(fsm.getCurrentState(), States.B);
@@ -86,5 +88,13 @@ public class TestFsm {
         Assert.assertEquals(fsm.getCurrentState(), States.C);
         Assert.assertEquals("RET: a", fsm.onEvent("a", "Test", true).get());
         Assert.assertEquals(fsm.getCurrentState(), States.A);
+
+        Assert.assertNull(fsm2.onEvent("b", "Test", true));
+        Assert.assertEquals(fsm2.getCurrentState(), States.B);
+        Assert.assertNull(fsm2.onEvent("c", "Test", true));
+        Assert.assertEquals(fsm2.getCurrentState(), States.C);
+        Assert.assertNull(fsm2.onEvent("a", "Test", true));
+        Assert.assertEquals(fsm2.getCurrentState(), States.A);
+
     }
 }

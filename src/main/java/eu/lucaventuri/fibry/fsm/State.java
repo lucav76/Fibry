@@ -5,9 +5,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 
-class State<S extends Enum, M, A extends Consumer<FsmContext<S, M>>> {
+class State<S extends Enum, M, A extends Consumer<FsmContext<S, M, I>>, I> {
     final S state;
-    private final List<TransitionState<M, S, A>> transitions = new ArrayList<>();
+    private final List<TransitionState<M, S, A, I>> transitions = new ArrayList<>();
     final A actor;
 
     State(S state, A actor) {
@@ -15,7 +15,7 @@ class State<S extends Enum, M, A extends Consumer<FsmContext<S, M>>> {
         this.actor = actor;
     }
 
-    void addTransition(TransitionState<M, S, A> transition) {
+    void addTransition(TransitionState<M, S, A, I> transition) {
         Objects.requireNonNull(transition.event);
         Objects.requireNonNull(transition.targetState);
 
@@ -26,7 +26,7 @@ class State<S extends Enum, M, A extends Consumer<FsmContext<S, M>>> {
         transitions.add(transition);
     }
 
-    State<S, M, A> onEvent(M event, boolean exceptionOnUnexpectedEvent) {
+    State<S, M, A, I> onEvent(M event, boolean exceptionOnUnexpectedEvent) {
         for (var tr : transitions) {
             if (tr.event.equals(event))
                 return tr.targetState;

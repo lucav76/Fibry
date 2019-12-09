@@ -3,11 +3,11 @@ package eu.lucaventuri.fibry.fsm;
 import java.util.Map;
 import java.util.function.Consumer;
 
-public class FsmBase<S extends Enum, M, A extends Consumer<FsmContext<S, M>>> {
-    protected final Map<S, State<S, M, A>> mapStates;
+public class FsmBase<S extends Enum, M, A extends Consumer<FsmContext<S, M, I>>, I> {
+    protected final Map<S, State<S, M, A, I>> mapStates;
     protected volatile S currentState;
 
-    public FsmBase(Map<S, State<S, M, A>> mapStates, S currentState) {
+    public FsmBase(Map<S, State<S, M, A, I>> mapStates, S currentState) {
         this.mapStates = mapStates;
         this.currentState = currentState;
 

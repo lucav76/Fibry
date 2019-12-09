@@ -11,17 +11,17 @@ import java.util.stream.Collectors;
  * @param <S> Type of the states, from an enum
  * @param <M> Type of the messages (they will need to support equals)
  */
-public class FsmTemplate<S extends Enum, M, A extends Consumer<FsmContext<S, M>>> {
-    final Map<S, State<S, M, A>> mapStates;
+public class FsmTemplate<S extends Enum, M, A extends Consumer<FsmContext<S, M, I>>, I> {
+    final Map<S, State<S, M, A, I>> mapStates;
 
-    public FsmTemplate(Map<S, StateData<S, M, A>> mapEnums) {
+    public FsmTemplate(Map<S, StateData<S, M, A, I>> mapEnums) {
         this.mapStates = new HashMap<>();
 
         ingestKeys(mapEnums);
         ingestTransitions(mapEnums);
     }
 
-    public FsmConsumer<S, M, A> newFsmConsumer(S state) {
+    public FsmConsumer<S, M, A, I> newFsmConsumer(S state) {
         return new FsmConsumer<>(mapStates, state);
     }
 
@@ -29,7 +29,7 @@ public class FsmTemplate<S extends Enum, M, A extends Consumer<FsmContext<S, M>>
         return new FsmActor<>(mapStates, state);
     }*/
 
-    private void ingestTransitions(Map<S, StateData<S, M, A>> mapEnums) {
+    private void ingestTransitions(Map<S, StateData<S, M, A, I>> mapEnums) {
         for (var st : mapEnums.entrySet()) {
             var state = mapStates.get(st.getKey());
             for (var tr : st.getValue().transtions) {
@@ -39,13 +39,13 @@ public class FsmTemplate<S extends Enum, M, A extends Consumer<FsmContext<S, M>>
 
     }
 
-    private TransitionState<M, S, A> convert(TransitionEnum<M, S> tr) {
+    private TransitionState<M, S, A, I> convert(TransitionEnum<M, S> tr) {
         var targetState = mapStates.get(tr.targetState);
 
         return new TransitionState<>(tr.event, targetState);
     }
 
-    private void ingestKeys(Map<S, StateData<S, M, A>> mapEnums) {
+    private void ingestKeys(Map<S, StateData<S, M, A, I>> mapEnums) {
         for (var state : mapEnums.entrySet()) {
             mapStates.put(state.getKey(), new State(state.getKey(), state.getValue().actor));
         }

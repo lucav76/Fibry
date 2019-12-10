@@ -22,4 +22,9 @@ public class FsmBase<S extends Enum, M, A extends Consumer<FsmContext<S, M, I>>,
     public A getActor() {
         return mapStates.get(currentState).actor;
     }
+
+    /** Change the state directly, bypassing any actors */
+    public void jumpToState(S newState) {
+        currentState = newState;
+    }
 }

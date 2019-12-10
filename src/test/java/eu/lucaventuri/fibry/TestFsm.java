@@ -77,24 +77,44 @@ public class TestFsm {
     }
 
     @Test
-    public void testActors() throws ExecutionException, InterruptedException {
+    public void testActorsAfter() throws ExecutionException, InterruptedException {
         var fsmTemplate = actorFsm(actorPrint);
         var fsm = fsmTemplate.newFsmActor(States.A);
         var fsm2 = fsmTemplate.newFsmActorReplace(States.A, null);
 
-        Assert.assertEquals("RET: b", fsm.onEvent("b", "Test", true).get());
+        Assert.assertEquals("RET: b", fsm.onEventAfter("b", "Test", true).get());
         Assert.assertEquals(fsm.getCurrentState(), States.B);
-        Assert.assertEquals("RET: c", fsm.onEvent("c", "Test", true).get());
+        Assert.assertEquals("RET: c", fsm.onEventAfter("c", "Test", true).get());
         Assert.assertEquals(fsm.getCurrentState(), States.C);
-        Assert.assertEquals("RET: a", fsm.onEvent("a", "Test", true).get());
+        Assert.assertEquals("RET: a", fsm.onEventAfter("a", "Test", true).get());
         Assert.assertEquals(fsm.getCurrentState(), States.A);
 
-        Assert.assertNull(fsm2.onEvent("b", "Test", true));
+        Assert.assertNull(fsm2.onEventAfter("b", "Test", true));
         Assert.assertEquals(fsm2.getCurrentState(), States.B);
-        Assert.assertNull(fsm2.onEvent("c", "Test", true));
+        Assert.assertNull(fsm2.onEventAfter("c", "Test", true));
         Assert.assertEquals(fsm2.getCurrentState(), States.C);
-        Assert.assertNull(fsm2.onEvent("a", "Test", true));
+        Assert.assertNull(fsm2.onEventAfter("a", "Test", true));
         Assert.assertEquals(fsm2.getCurrentState(), States.A);
+    }
 
+    @Test
+    public void testActorsBefore() throws ExecutionException, InterruptedException {
+        var fsmTemplate = actorFsm(actorPrint);
+        var fsm = fsmTemplate.newFsmActor(States.A);
+        var fsm2 = fsmTemplate.newFsmActorReplace(States.A, null);
+
+        Assert.assertEquals("RET: b", fsm.onEventBefore("b", "Test", true));
+        Assert.assertEquals(fsm.getCurrentState(), States.B);
+        Assert.assertEquals("RET: c", fsm.onEventBefore("c", "Test", true));
+        Assert.assertEquals(fsm.getCurrentState(), States.C);
+        Assert.assertEquals("RET: a", fsm.onEventBefore("a", "Test", true));
+        Assert.assertEquals(fsm.getCurrentState(), States.A);
+
+        Assert.assertNull(fsm2.onEventBefore("b", "Test", true));
+        Assert.assertEquals(fsm2.getCurrentState(), States.B);
+        Assert.assertNull(fsm2.onEventBefore("c", "Test", true));
+        Assert.assertEquals(fsm2.getCurrentState(), States.C);
+        Assert.assertNull(fsm2.onEventBefore("a", "Test", true));
+        Assert.assertEquals(fsm2.getCurrentState(), States.A);
     }
 }

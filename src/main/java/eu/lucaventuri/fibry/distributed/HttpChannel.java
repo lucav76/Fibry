@@ -68,7 +68,7 @@ public class HttpChannel<T, R> implements RemoteActorChannel<T, R> {
     }
 
     @Override
-    public CompletableFuture<R> sendMessageReturn(String remoteActorName, Serializer<T> ser, Deserializer<R> deser, T message) {
+    public CompletableFuture<R> sendMessageReturn(String remoteActorName, ChannelSerializer<T> ser, ChannelDeserializer<R> deser, T message) {
         Supplier<R> supplier = () -> {
             try {
                 String messageEncoded = encodeBase64 ? Base64.getEncoder().encodeToString(ser.serialize(message)) : encodeValue(ser.serializeToString(message));

@@ -1,6 +1,6 @@
 package eu.lucaventuri.fibry.distributed;
 
-public enum StringSerDeser implements RemoteActorChannel.SerDeser<String, String> {
+public enum StringSerDeser implements ChannelSerDeser<String, String> {
     INSTANCE;
 
     @Override

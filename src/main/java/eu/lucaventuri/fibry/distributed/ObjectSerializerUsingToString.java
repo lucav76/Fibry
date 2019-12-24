@@ -1,6 +1,6 @@
 package eu.lucaventuri.fibry.distributed;
 
-public class ObjectSerializerUsingToString<T> implements RemoteActorChannel.Serializer<T> {
+public class ObjectSerializerUsingToString<T> implements ChannelSerializer<T> {
     @Override
     public byte[] serialize(T message) {
         return message == null ? null : message.toString().getBytes();

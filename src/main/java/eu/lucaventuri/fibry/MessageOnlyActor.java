@@ -7,17 +7,22 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-/** Limited actor, that can only deal with messages; this could useful for remote actors or for pipelines */
-public interface MessageOnlyActor<T, R, S> extends Stateful<S>, Function<T, R>, Consumer<T>, AutoCloseable {
+/**
+ * Limited actor, that can only deal with messages; this could useful for remote actors or for pipelines
+ */
+public interface MessageOnlyActor<T, R, S> extends MessageSendOnlyActor<T, S>, Function<T, R> {
     MessageOnlyActor<T, R, S> sendMessage(T message);
+
     CompletableFuture<R> sendMessageReturn(T message);
-    boolean sendPoisonPill();
 
     @Override
-    default S getState() { return null; }
+    default S getState() {
+        return null;
+    }
 
     @Override
-    default void setState(S state) {}
+    default void setState(S state) {
+    }
 
     @Override
     default R apply(T message) {

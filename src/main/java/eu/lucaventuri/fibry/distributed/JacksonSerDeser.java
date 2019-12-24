@@ -6,8 +6,10 @@ import eu.lucaventuri.common.SystemUtils;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 
-/** Class able to serialize and deserialize using Jackson with Reflection, assuming that it is available */
-public class JacksonSerDeser<T, R> implements RemoteActorChannel.SerDeser<T, R> {
+/**
+ * Class able to serialize and deserialize using Jackson with Reflection, assuming that it is available
+ */
+public class JacksonSerDeser<T, R> implements ChannelSerDeser<T, R> {
     private final Object jacksonMapper;
     private final MethodHandle mhWriteValueAsString;
     private final MethodHandle mhReadValue;

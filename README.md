@@ -201,8 +201,9 @@ A Distributed Actor System
 ===
 Fibry 2.X is a Distributed Actor System, meaning that it can use multiple machines to run your actors. This feature is quite limited at the moment.
 Fibry provides a simple, generic, support to contact (named) actors running on other machines. It is based on two principles:
-- RemoteActorChannel: an interface to send messages to named actors running on remote machines.
-- Serializer / Deserializer / SerDeser: interfaces used for serialization and deserialization of messages
+- RemoteActorChannel: an interface to send messages to named actors running on remote machines; these actors can return a value.
+- RemoteActorChannelSendOnly: an interface to send messages to named actors running on remote machines; these actors cannot return any value (e.g. queues).
+- ChannelSerializer / ChannelDeserializer / ChannelSerDeser: interfaces used for serialization and deserialization of messages
 
 To make it more useful, Fibry provides an implementation:
 - HttpChannel: implements a channel using HTTP (and you can add your flavor of authentication)
@@ -211,6 +212,7 @@ To make it more useful, Fibry provides an implementation:
 
 While limited, this means that Fibry can be distributed across HTTP clusters, and in particular it could be used as a very simple **RPC** mechanism to send messages **across MicroServices**.
 For now, you are still responsible to create an endpoint to receive the messages and send them to the appropriate actors.
+It can also be used to deal with queues in a transparent way, though at the moment you have to implement the logic by yourself.
 
  
  

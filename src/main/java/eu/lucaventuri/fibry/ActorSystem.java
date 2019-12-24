@@ -3,9 +3,8 @@ package eu.lucaventuri.fibry;
 import eu.lucaventuri.common.ConcurrentHashSet;
 import eu.lucaventuri.common.Exitable.CloseStrategy;
 import eu.lucaventuri.common.MultiExitable;
-import eu.lucaventuri.fibry.distributed.RemoteActorChannel;
+import eu.lucaventuri.fibry.distributed.*;
 import eu.lucaventuri.fibry.receipts.CompletableReceipt;
-import eu.lucaventuri.fibry.receipts.ImmutableReceipt;
 import eu.lucaventuri.fibry.receipts.ReceiptFactory;
 import eu.lucaventuri.functional.Either;
 import eu.lucaventuri.functional.Either3;
@@ -295,15 +294,19 @@ public class ActorSystem {
             return new SynchronousActor<>(actorLogic, initialState, initializer, finalizer, closeStrategy, pollTimeoutMs);
         }
 
-        public <T> MessageOnlyActor<T, Void, Void> newRemoteActor(String remoteActorName, RemoteActorChannel channel, RemoteActorChannel.Serializer<T> serializer) {
+        public <T> MessageSendOnlyActor<T, Void> newRemoteActorSendOnly(String remoteActorName, RemoteActorChannelSendOnly channel, ChannelSerializer<T> serializer) {
+            return newActor(message -> channel.sendMessage(remoteActorName, serializer, message));
+        }
+
+        public <T> MessageOnlyActor<T, Void, Void> newRemoteActor(String remoteActorName, RemoteActorChannel channel, ChannelSerializer<T> serializer) {
             return newActor(message -> channel.sendMessageReturn(remoteActorName, serializer, null, message));
         }
 
-        public <T, R> MessageOnlyActor<T, R, Void> newRemoteActorWithReturn(String remoteActorName, RemoteActorChannel channel, RemoteActorChannel.SerDeser<T, R> serDeser) {
+        public <T, R> MessageOnlyActor<T, R, Void> newRemoteActorWithReturn(String remoteActorName, RemoteActorChannel channel, ChannelSerDeser<T, R> serDeser) {
             return newRemoteActorWithReturn(remoteActorName, channel, serDeser, serDeser);
         }
 
-        public <T, R> MessageOnlyActor<T, R, Void> newRemoteActorWithReturn(String remoteActorName, RemoteActorChannel channel, RemoteActorChannel.Serializer<T> serializer, RemoteActorChannel.Deserializer<R> deserializer) {
+        public <T, R> MessageOnlyActor<T, R, Void> newRemoteActorWithReturn(String remoteActorName, RemoteActorChannel channel, ChannelSerializer<T> serializer, ChannelDeserializer<R> deserializer) {
             return new MessageOnlyActor<T, R, Void>() {
                 Actor<T, CompletableFuture<R>, Void> localActor = newActorWithReturn((T message) -> {
                     return channel.sendMessageReturn(remoteActorName, serializer, deserializer, message);

@@ -8,7 +8,7 @@ import java.io.*;
  * Java serialization, because of its problems and limitations
  */
 @Deprecated
-public class JavaSerializationSerDeser<T, R> implements RemoteActorChannel.SerDeser<T, R> {
+public class JavaSerializationSerDeser<T, R> implements ChannelSerDeser<T, R> {
     @Override
     public byte[] serialize(T object) {
         try (

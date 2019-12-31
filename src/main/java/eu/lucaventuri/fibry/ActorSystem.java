@@ -294,6 +294,9 @@ public class ActorSystem {
             return new SynchronousActor<>(actorLogic, initialState, initializer, finalizer, closeStrategy, pollTimeoutMs);
         }
 
+        /**
+         * Creates a remote actor that can only send messages (e.g. fully asynchronous), without being able to get a return value. This is good for queues and for FSM
+         */
         public <T> MessageSendOnlyActor<T, Void> newRemoteActorSendOnly(String remoteActorName, RemoteActorChannelSendOnly channel, ChannelSerializer<T> serializer) {
             return newActor(message -> channel.sendMessage(remoteActorName, serializer, message));
         }

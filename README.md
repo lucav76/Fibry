@@ -29,7 +29,7 @@ Simplicity first
 - It implements a simple **TCP port forwarding**, both as a Stereotype and as a small cli application: TcpForwarding
 - It implements some simple mechanisms to help processing messages in **batches**
 - It implements a mechanism to **track progress** of long running tasks, which can be extended to support progress of messages processed by another server
-- It provides a way to create simple **Finite State Machines**, either with Actors or with Consumers 
+- It provides a way to create simple **Finite State Machines**, either with Actors or with Consumers (recommended)
 
 Some numbers
 ===

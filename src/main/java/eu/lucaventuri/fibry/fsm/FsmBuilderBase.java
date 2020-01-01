@@ -6,12 +6,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
-class StateData<S extends Enum, M, A extends Consumer<FsmContext<S, M, I>>, I> {
-    final A actor;
+class StateData<S extends Enum, M, C extends Consumer<FsmContext<S, M, I>>, I> {
+    final C consumer;
     final List<TransitionEnum<M, S>> transtions = new ArrayList();
 
-    StateData(A actor) {
-        this.actor = actor;
+    StateData(C consumer) {
+        this.consumer = consumer;
     }
 }
 
@@ -21,8 +21,8 @@ class StateData<S extends Enum, M, A extends Consumer<FsmContext<S, M, I>>, I> {
  * @param <S> Type of the states, from an enum
  * @param <M> Type of the messages (they will need to support equals)
  */
-class FsmBuilder<S extends Enum, M, A extends Consumer<FsmContext<S, M, I>>, I> {
-    final Map<S, StateData<S, M, A, I>> mapStatesEnum = new HashMap<>();
+abstract class FsmBuilderBase<S extends Enum, M, C extends Consumer<FsmContext<S, M, I>>, I> {
+    final Map<S, StateData<S, M, C, I>> mapStatesEnum = new HashMap<>();
 
     public class InState {
         final List<TransitionEnum<M, S>> transitions;
@@ -31,31 +31,31 @@ class FsmBuilder<S extends Enum, M, A extends Consumer<FsmContext<S, M, I>>, I> 
             this.transitions = transitions;
         }
 
-        public FsmBuilder<S, M, A, I>.InState goTo(S targetState, M message) {
+        public FsmBuilderBase<S, M, C, I>.InState goTo(S targetState, M message) {
             transitions.add(new TransitionEnum<>(message, targetState));
 
             return this;
         }
 
-        public InState addState(S state, A actor) {
-            return FsmBuilder.this.addState(state, actor);
+        public InState addState(S state, C consumer) {
+            return FsmBuilderBase.this.addState(state, consumer);
         }
 
         public FsmTemplate<S, M, ? extends Consumer<FsmContext<S, M, I>>, I> build() {
-            return FsmBuilder.this.build();
+            return FsmBuilderBase.this.build();
         }
     }
 
-    public InState addState(S state, A actor) {
+    public InState addState(S state, C consumer) {
         if (mapStatesEnum.containsKey(state))
             throw new IllegalArgumentException("State " + state + "already defined!");
 
-        mapStatesEnum.putIfAbsent(state, new StateData<S, M, A, I>(actor));
+        mapStatesEnum.putIfAbsent(state, new StateData<S, M, C, I>(consumer));
 
         return new InState(mapStatesEnum.get(state).transtions);
     }
 
-    public FsmTemplate<S, M, A, I> build() {
+    public FsmTemplate<S, M, C, I> build() {
         return new FsmTemplate<>(mapStatesEnum);
     }
 }

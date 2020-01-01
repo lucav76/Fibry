@@ -1,6 +1,7 @@
 package eu.lucaventuri.fibry.pubsub;
 
 import eu.lucaventuri.fibry.SinkActor;
+import eu.lucaventuri.fibry.fsm.FsmContext;
 
 import java.util.function.Consumer;
 
@@ -24,6 +25,18 @@ public interface PubSub<T> {
         return message -> publish(topic, message);
     }
 
+    /**
+     * Fully asynchronous FSM consumers should just know the new state (topic) and the attached data (e.g. the order that changed state).
+     * This is the intended way to attach a PubSub to a FSM
+     */
+    default <S extends Enum, M> Consumer<FsmContext<S, M, T>> asFsmContextConsumer() {
+        return context -> {
+            String topic = context.newState instanceof WithPubSubTopic ? ((WithPubSubTopic) context.newState).getPubSubTopic() : context.newState.toString();
+
+            publish(topic, context.info);
+        };
+    }
+
     void publish(String topic, T message);
 
     Subscription subscribe(String topic, Consumer<T> consumer);
@@ -31,6 +44,7 @@ public interface PubSub<T> {
     /**
      * No new actors will be created, messages are delivered synchronously in the same thread of the caller, immediately.
      * The publish() operation can therefore take some time to complete, and it is the only strategy that can make the publish() slow.
+     *
      * @param <T> Type of messages
      * @return a new PubSub system
      */
@@ -41,6 +55,7 @@ public interface PubSub<T> {
     /**
      * The message is sent to an actor that will deliver it to the subscribers; all the topic will use the same actor.
      * The function returns immediately as the subscriber will get notified by another actor. However, as there is only one actor, the messages are delivered oe after another, making the process potentially inefficient
+     *
      * @param <T> Type of messages
      * @return a new PubSub system
      */
@@ -52,6 +67,7 @@ public interface PubSub<T> {
      * The message is sent to an actor that will deliver it to the subscribers; all the topic will use the same actor.
      * The important thing to notice is that you can specify the actor, which means that you can provide an Actor Pool to achieve a better utilization of your CPU.
      * This strategy with an actor pool is recommended for threads.
+     *
      * @param <T> Type of messages
      * @return a new PubSub system
      */
@@ -63,6 +79,7 @@ public interface PubSub<T> {
      * The message is sent to an actor that will deliver it to the subscribers; every topic has a dedicate actor.
      * This works well if the topics usage is kind of uniform, and if there are not huge spikes on a particular topic.
      * This is recommended with threads or if the number of topics is not too high.
+     *
      * @param <T> Type of messages
      * @return a new PubSub system
      */
@@ -74,6 +91,7 @@ public interface PubSub<T> {
      * The message is sent to an actor that will deliver it to the subscribers; every topic has a dedicate actor, and there is an additional actor for each subscriber.
      * This allow parallelism at a subscriber level.
      * This strategy is recommended with fibers, unless the number of subscribers is low.
+     *
      * @param <T> Type of messages
      * @return a new PubSub system
      */
@@ -85,6 +103,7 @@ public interface PubSub<T> {
      * The message is sent to an actor that will deliver it to the subscribers, creating a new actor for each message for each subscriber.
      * This allow maximum parallelism, at a message level.
      * This strategy is recommended with fibers, unless the number of messages per second is guaranteed to be low.
+     *
      * @param <T> Type of messages
      * @return a new PubSub system
      */

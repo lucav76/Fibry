@@ -47,7 +47,7 @@ public class FsmTemplate<S extends Enum, M, A extends Consumer<FsmContext<S, M, 
 
     private void ingestKeys(Map<S, StateData<S, M, A, I>> mapEnums) {
         for (var state : mapEnums.entrySet()) {
-            mapStates.put(state.getKey(), new State(state.getKey(), state.getValue().actor));
+            mapStates.put(state.getKey(), new State(state.getKey(), state.getValue().consumer));
         }
 
         if (mapStates.size() < 2)

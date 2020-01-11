@@ -440,7 +440,7 @@ public class ActorSystem {
 
         if (!forceDelivery && !isActorAvailable(actorName)) {
             CompletableFuture<R> r = new CompletableFuture<>();
-            r.completeExceptionally(new RuntimeException("Actors not existing and force delivery not enabled"));
+            r.completeExceptionally(new RuntimeException("Actor " + actorName + " not existing and force delivery not enabled"));
 
             return r;
         }
@@ -453,7 +453,7 @@ public class ActorSystem {
 
         if (!forceDelivery && !isActorAvailable(actorName)) {
             CompletableReceipt<T, R> r = new CompletableReceipt<>(factory.newReceipt(message));
-            r.completeExceptionally(new RuntimeException("Actors not existing and force delivery not enabled"));
+            r.completeExceptionally(new RuntimeException("Actor " + actorName + " not existing and force delivery not enabled; receipt not created"));
 
             return r;
         }

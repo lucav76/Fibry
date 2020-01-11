@@ -24,24 +24,30 @@ public class HttpChannel<T, R> implements RemoteActorChannel<T, R> {
     private final HttpClient client = HttpClient.newBuilder().build();
 
     public enum HttpMethod {
-        GET {
+        GET(true) {
             @Override
             HttpRequest getRequest(String url, String remoteActorNameEncoded, String objectTypeEncoded, String messageEncoded) {
                 return HttpRequest.newBuilder().GET().uri(URI.create(url + "?actorName=" + remoteActorNameEncoded + "&type=" + objectTypeEncoded + "&message=" + messageEncoded)).build();
             }
         },
-        PUT {
+        PUT(false) {
             @Override
-            HttpRequest getRequest(String url, String remoteActorNameEncoded, String objectTypeEncoded, String messageEncoded) {
-                return HttpRequest.newBuilder().PUT(HttpRequest.BodyPublishers.ofString(messageEncoded)).uri(URI.create(url + "?actorName=" + remoteActorNameEncoded + "&type=" + objectTypeEncoded)).build();
+            HttpRequest getRequest(String url, String remoteActorNameEncoded, String objectTypeEncoded, String message) {
+                return HttpRequest.newBuilder().PUT(HttpRequest.BodyPublishers.ofString(message)).uri(URI.create(url + "?actorName=" + remoteActorNameEncoded + "&type=" + objectTypeEncoded)).build();
             }
         },
-        POST {
+        POST(false) {
             @Override
-            HttpRequest getRequest(String url, String remoteActorNameEncoded, String objectTypeEncoded, String messageEncoded) {
-                return HttpRequest.newBuilder().POST(HttpRequest.BodyPublishers.ofString(messageEncoded)).uri(URI.create(url + "?actorName=" + remoteActorNameEncoded + "&type=" + objectTypeEncoded)).build();
+            HttpRequest getRequest(String url, String remoteActorNameEncoded, String objectTypeEncoded, String message) {
+                return HttpRequest.newBuilder().POST(HttpRequest.BodyPublishers.ofString(message)).uri(URI.create(url + "?actorName=" + remoteActorNameEncoded + "&type=" + objectTypeEncoded)).build();
             }
         };
+
+        private final boolean encodeMessage;
+
+        HttpMethod(boolean encodeMessage) {
+            this.encodeMessage = encodeMessage;
+        }
 
         private static HttpRequest.BodyPublisher dataAsPublisher(String remoteActorNameEncoded, String objectTypeEncoded, String messageEncoded) {
             var builder = new StringBuilder();
@@ -71,8 +77,14 @@ public class HttpChannel<T, R> implements RemoteActorChannel<T, R> {
     public CompletableFuture<R> sendMessageReturn(String remoteActorName, ChannelSerializer<T> ser, ChannelDeserializer<R> deser, T message) {
         Supplier<R> supplier = () -> {
             try {
-                String messageEncoded = encodeBase64 ? Base64.getEncoder().encodeToString(ser.serialize(message)) : encodeValue(ser.serializeToString(message));
-                var request = method.getRequest(url, encodeValue(remoteActorName), encodeValue(message.getClass().getName()), messageEncoded);
+                final String messageToSend;
+
+                if (method.encodeMessage)
+                    messageToSend = encodeBase64 ? Base64.getEncoder().encodeToString(ser.serialize(message)) : encodeValue(ser.serializeToString(message));
+                else
+                    messageToSend = ser.serializeToString(message);
+
+                var request = method.getRequest(url, encodeValue(remoteActorName), encodeValue(message.getClass().getName()), messageToSend);
 
                 if (requestCustomizer != null)
                     requestCustomizer.accept(request);

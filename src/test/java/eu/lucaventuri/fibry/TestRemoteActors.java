@@ -111,7 +111,7 @@ public class TestRemoteActors {
 
         latch.await();
         System.out.println(result.get());
-        Assert.assertEquals("actorName=actor3&type=java.lang.String&message=Test3", result.get());
+        Assert.assertEquals(result.get(), "Test3");
     }
 
     public void testWithReturnPUT() throws IOException, InterruptedException, ExecutionException {
@@ -130,7 +130,7 @@ public class TestRemoteActors {
 
         latch.await();
         System.out.println(result.get());
-        Assert.assertEquals("actorName=actor4&type=java.lang.String&message=Test4", result.get());
+        Assert.assertEquals(result.get(), "Test4");
     }
 
     public void testWithReturnJackson() throws IOException, InterruptedException, ExecutionException {

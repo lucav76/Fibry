@@ -33,13 +33,13 @@ public class HttpChannel<T, R> implements RemoteActorChannel<T, R> {
         PUT {
             @Override
             HttpRequest getRequest(String url, String remoteActorNameEncoded, String objectTypeEncoded, String messageEncoded) {
-                return HttpRequest.newBuilder().PUT(dataAsPublisher(remoteActorNameEncoded, objectTypeEncoded, messageEncoded)).uri(URI.create(url)).build();
+                return HttpRequest.newBuilder().PUT(HttpRequest.BodyPublishers.ofString(messageEncoded)).uri(URI.create(url + "?actorName=" + remoteActorNameEncoded + "&type=" + objectTypeEncoded)).build();
             }
         },
         POST {
             @Override
             HttpRequest getRequest(String url, String remoteActorNameEncoded, String objectTypeEncoded, String messageEncoded) {
-                return HttpRequest.newBuilder().POST(dataAsPublisher(remoteActorNameEncoded, objectTypeEncoded, messageEncoded)).uri(URI.create(url)).build();
+                return HttpRequest.newBuilder().POST(HttpRequest.BodyPublishers.ofString(messageEncoded)).uri(URI.create(url + "?actorName=" + remoteActorNameEncoded + "&type=" + objectTypeEncoded)).build();
             }
         };
 

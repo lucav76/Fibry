@@ -23,7 +23,7 @@ public interface ReceiptFactory {
     <T> void save(ImmutableReceipt<T> receipt);
 
     default <T> ImmutableReceipt<T> refresh(ImmutableReceipt<T> receipt) {
-        return get(receipt.getId());
+        return get(receipt.getReceiptId());
     }
 
     default <T, F> CompletableReceipt<T, F> refresh(CompletableReceipt<T, F> receipt) {
@@ -53,7 +53,7 @@ public interface ReceiptFactory {
 
             @Override
             public <T> void save(ImmutableReceipt<T> receipt) {
-                map.put(receipt.getId(), receipt);
+                map.put(receipt.getReceiptId(), receipt);
             }
         };
     }

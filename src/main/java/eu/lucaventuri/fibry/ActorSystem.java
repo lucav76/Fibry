@@ -1,6 +1,7 @@
 package eu.lucaventuri.fibry;
 
 import eu.lucaventuri.common.ConcurrentHashSet;
+import eu.lucaventuri.common.Exceptions;
 import eu.lucaventuri.common.Exitable.CloseStrategy;
 import eu.lucaventuri.common.MultiExitable;
 import eu.lucaventuri.fibry.distributed.*;
@@ -309,19 +310,19 @@ public class ActorSystem {
         /**
          * Creates a remote actor that can only send messages (e.g. fully asynchronous), without being able to get a return value. This is good for queues and for FSM
          */
-        public <T> MessageSendOnlyActor<T, Void> newRemoteActorSendOnly(String remoteActorName, RemoteActorChannelSendOnly channel, ChannelSerializer<T> serializer) {
+        public <T> MessageSendOnlyActor<T, Void> newRemoteActorSendOnly(String remoteActorName, RemoteActorChannelSendOnly<T> channel, ChannelSerializer<T> serializer) {
             return newActor(message -> channel.sendMessage(remoteActorName, serializer, message));
         }
 
-        public <T> MessageOnlyActor<T, Void, Void> newRemoteActor(String remoteActorName, RemoteActorChannel channel, ChannelSerializer<T> serializer) {
-            return newActor(message -> channel.sendMessageReturn(remoteActorName, serializer, null, message));
+        public <T> MessageOnlyActor<T, Void, Void> newRemoteActor(String remoteActorName, RemoteActorChannel<T, Void> channel, ChannelSerializer<T> serializer) {
+            return newActor(message -> Exceptions.rethrowRuntime(() -> channel.sendMessage(remoteActorName, serializer, null, message)));
         }
 
-        public <T, R> MessageOnlyActor<T, R, Void> newRemoteActorWithReturn(String remoteActorName, RemoteActorChannel channel, ChannelSerDeser<T, R> serDeser) {
+        public <T, R> MessageOnlyActor<T, R, Void> newRemoteActorWithReturn(String remoteActorName, RemoteActorChannel<T, R> channel, ChannelSerDeser<T, R> serDeser) {
             return newRemoteActorWithReturn(remoteActorName, channel, serDeser, serDeser);
         }
 
-        public <T, R> MessageOnlyActor<T, R, Void> newRemoteActorWithReturn(String remoteActorName, RemoteActorChannel channel, ChannelSerializer<T> serializer, ChannelDeserializer<R> deserializer) {
+        public <T, R> MessageOnlyActor<T, R, Void> newRemoteActorWithReturn(String remoteActorName, RemoteActorChannel<T, R> channel, ChannelSerializer<T> serializer, ChannelDeserializer<R> deserializer) {
             return new MessageOnlyActor<T, R, Void>() {
                 Actor<T, CompletableFuture<R>, Void> localActor = newActorWithReturn((T message) -> {
                     return channel.sendMessageReturn(remoteActorName, serializer, deserializer, message);

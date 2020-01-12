@@ -92,7 +92,7 @@ public class TestRemoteActors {
 
         latch.await();
         System.out.println(result.get());
-        Assert.assertEquals("actorName=actor2&type=java.lang.String&message=Test2", result.get());
+        Assert.assertEquals("actorName=actor2&type=java.lang.String&waitResult=true&message=Test2", result.get());
     }
 
     public void testWithReturnPOST() throws IOException, InterruptedException, ExecutionException {

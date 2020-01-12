@@ -2,6 +2,7 @@ package eu.lucaventuri.fibry.distributed;
 
 import eu.lucaventuri.common.Exceptions;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -26,20 +27,20 @@ public class HttpChannel<T, R> implements RemoteActorChannel<T, R> {
     public enum HttpMethod {
         GET(true) {
             @Override
-            HttpRequest getRequest(String url, String remoteActorNameEncoded, String objectTypeEncoded, String messageEncoded) {
-                return HttpRequest.newBuilder().GET().uri(URI.create(url + "?actorName=" + remoteActorNameEncoded + "&type=" + objectTypeEncoded + "&message=" + messageEncoded)).build();
+            HttpRequest getRequest(String url, String remoteActorNameEncoded, String objectTypeEncoded, String messageEncoded, boolean waitResult) {
+                return HttpRequest.newBuilder().GET().uri(URI.create(url + "?actorName=" + remoteActorNameEncoded + "&type=" + objectTypeEncoded + "&waitResult=" + waitResult + "&message=" + messageEncoded)).build();
             }
         },
         PUT(false) {
             @Override
-            HttpRequest getRequest(String url, String remoteActorNameEncoded, String objectTypeEncoded, String message) {
-                return HttpRequest.newBuilder().PUT(HttpRequest.BodyPublishers.ofString(message)).uri(URI.create(url + "?actorName=" + remoteActorNameEncoded + "&type=" + objectTypeEncoded)).build();
+            HttpRequest getRequest(String url, String remoteActorNameEncoded, String objectTypeEncoded, String message, boolean waitResult) {
+                return HttpRequest.newBuilder().PUT(HttpRequest.BodyPublishers.ofString(message)).uri(URI.create(url + "?actorName=" + remoteActorNameEncoded + "&type=" + objectTypeEncoded + "&waitResult=" + waitResult)).build();
             }
         },
         POST(false) {
             @Override
-            HttpRequest getRequest(String url, String remoteActorNameEncoded, String objectTypeEncoded, String message) {
-                return HttpRequest.newBuilder().POST(HttpRequest.BodyPublishers.ofString(message)).uri(URI.create(url + "?actorName=" + remoteActorNameEncoded + "&type=" + objectTypeEncoded)).build();
+            HttpRequest getRequest(String url, String remoteActorNameEncoded, String objectTypeEncoded, String message, boolean waitResult) {
+                return HttpRequest.newBuilder().POST(HttpRequest.BodyPublishers.ofString(message)).uri(URI.create(url + "?actorName=" + remoteActorNameEncoded + "&type=" + objectTypeEncoded + "&waitResult=" + waitResult)).build();
             }
         };
 
@@ -62,7 +63,7 @@ public class HttpChannel<T, R> implements RemoteActorChannel<T, R> {
             return HttpRequest.BodyPublishers.ofString(builder.toString());
         }
 
-        abstract HttpRequest getRequest(String url, String actorName, String objectType, String messageEncoded);
+        abstract HttpRequest getRequest(String url, String actorName, String objectType, String messageEncoded, boolean waitResult);
     }
 
     public HttpChannel(String url, HttpMethod method, Executor executor, Consumer<HttpRequest> requestCustomizer, boolean encodeBase64) {
@@ -77,24 +78,11 @@ public class HttpChannel<T, R> implements RemoteActorChannel<T, R> {
     public CompletableFuture<R> sendMessageReturn(String remoteActorName, ChannelSerializer<T> ser, ChannelDeserializer<R> deser, T message) {
         Supplier<R> supplier = () -> {
             try {
-                final String messageToSend;
+                final String messageToSend = prepareMessageToSend(ser, message);
 
-                if (method.encodeMessage)
-                    messageToSend = encodeBase64 ? Base64.getEncoder().encodeToString(ser.serialize(message)) : encodeValue(ser.serializeToString(message));
-                else
-                    messageToSend = ser.serializeToString(message);
+                var request = method.getRequest(url, encodeValue(remoteActorName), encodeValue(message.getClass().getName()), messageToSend, true);
 
-                var request = method.getRequest(url, encodeValue(remoteActorName), encodeValue(message.getClass().getName()), messageToSend);
-
-                if (requestCustomizer != null)
-                    requestCustomizer.accept(request);
-
-                var response = client.send(request, HttpResponse.BodyHandlers.ofString());
-
-                if (encodeBase64)
-                    return deser.deserialize(Base64.getDecoder().decode(response.body()));
-                else
-                    return deser.deserializeString(response.body());
+                return sendRequest(deser, request);
             } catch (Throwable t) {
                 throw new CompletionException(t);
             }
@@ -104,6 +92,44 @@ public class HttpChannel<T, R> implements RemoteActorChannel<T, R> {
             return CompletableFuture.supplyAsync(supplier, executor);
         else
             return CompletableFuture.supplyAsync(supplier);
+    }
+
+    @Override
+    public void sendMessage(String remoteActorName, ChannelSerializer<T> ser, ChannelDeserializer<R> deser, T message) throws IOException {
+        try {
+            final String messageToSend = prepareMessageToSend(ser, message);
+
+            var request = method.getRequest(url, encodeValue(remoteActorName), encodeValue(message.getClass().getName()), messageToSend, false);
+
+            sendRequest(deser, request);
+        } catch (InterruptedException e) {
+            throw new IOException(e);
+        }
+    }
+
+    private R sendRequest(ChannelDeserializer<R> deser, HttpRequest request) throws java.io.IOException, InterruptedException {
+        if (requestCustomizer != null)
+            requestCustomizer.accept(request);
+
+        var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+        if (deser == null)
+            return null;
+
+        if (encodeBase64)
+            return deser.deserialize(Base64.getDecoder().decode(response.body()));
+        else
+            return deser.deserializeString(response.body());
+    }
+
+    private String prepareMessageToSend(ChannelSerializer<T> ser, T message) {
+        final String messageToSend;
+
+        if (method.encodeMessage)
+            messageToSend = encodeBase64 ? Base64.getEncoder().encodeToString(ser.serialize(message)) : encodeValue(ser.serializeToString(message));
+        else
+            messageToSend = ser.serializeToString(message);
+        return messageToSend;
     }
 
     private static String encodeValue(String value) {

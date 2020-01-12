@@ -1,5 +1,6 @@
 package eu.lucaventuri.fibry.distributed;
 
+import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -7,4 +8,8 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface RemoteActorChannel<T, R> {
     CompletableFuture<R> sendMessageReturn(String remoteActorName, ChannelSerializer<T> ser, ChannelDeserializer<R> deser, T message);
+
+    default void sendMessage(String remoteActorName, ChannelSerializer<T> ser, ChannelDeserializer<R> deser, T message) throws IOException {
+        sendMessageReturn(remoteActorName, ser, deser, message);
+    }
 }

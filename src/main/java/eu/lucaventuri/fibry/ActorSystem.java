@@ -282,7 +282,13 @@ public class ActorSystem {
          */
         public <T> Actor<T, Void, Void> newSynchronousActor(Consumer<T> actorLogic) {
             registerActorName(name, allowReuse);
-            return new SynchronousActor<>(actorLogic, initialState, initializer, finalizer, closeStrategy, pollTimeoutMs);
+
+            SynchronousActor<T, Void, Void> actor = new SynchronousActor<>(actorLogic, initialState, initializer, finalizer, closeStrategy, pollTimeoutMs);
+
+            if (name != null)
+                namedQueues.putIfAbsent(name, actor);
+
+            return actor;
         }
 
         /**
@@ -291,7 +297,13 @@ public class ActorSystem {
          */
         public <T, R> Actor<T, R, Void> newSynchronousActorWithReturn(Function<T, R> actorLogic) {
             registerActorName(name, allowReuse);
-            return new SynchronousActor<>(actorLogic, initialState, initializer, finalizer, closeStrategy, pollTimeoutMs);
+
+            SynchronousActor<T, R, Void> actor = new SynchronousActor<>(actorLogic, initialState, initializer, finalizer, closeStrategy, pollTimeoutMs);
+
+            if (name != null)
+                namedQueues.putIfAbsent(name, actor);
+
+            return actor;
         }
 
         /**

@@ -664,7 +664,7 @@ public class TestActors {
     }
 
     @Test
-    public void testSynchronousActor() throws ExecutionException, InterruptedException {
+    public void testAnonymousSynchronousActor() throws ExecutionException, InterruptedException {
         AtomicInteger num = new AtomicInteger();
         Consumer<String> logic = s -> {
             sleep(10);
@@ -693,6 +693,41 @@ public class TestActors {
         act2.sendMessage("C");
         assertEquals(num.get(), 4);
         var s = act3.sendMessageReturn("E").get();
+        assertEquals("E5", s);
+    }
+
+    @Test
+    public void testNamedSynchronousActor() throws ExecutionException, InterruptedException {
+        String act2Name = "s_act2";
+        String act3Name = "s_act3";
+        AtomicInteger num = new AtomicInteger();
+        Consumer<String> logic = s -> {
+            sleep(10);
+            num.incrementAndGet();
+        };
+        var act1 = ActorSystem.anonymous().newActor(logic);
+        ActorSystem.named(act2Name).newSynchronousActor(logic);
+        ActorSystem.named(act3Name).<String, String>newSynchronousActorWithReturn(s -> {
+            sleep(10);
+            num.incrementAndGet();
+
+            return s + num.get();
+        });
+
+        act1.sendMessage("A");
+        assertEquals(num.get(), 0);
+
+        act1.sendPoisonPill();
+        act1.waitForExit();
+        assertEquals(num.get(), 1);
+
+        ActorSystem.sendMessage(act2Name, "A", false);
+        assertEquals(num.get(), 2);
+        ActorSystem.sendMessage(act2Name, "B", false);
+        assertEquals(num.get(), 3);
+        ActorSystem.sendMessage(act2Name, "C", false);
+        assertEquals(num.get(), 4);
+        var s = ActorSystem.sendMessageReturn(act3Name, "E", false).get();
         assertEquals("E5", s);
     }
 

@@ -1,7 +1,10 @@
 package eu.lucaventuri.fibry;
 
+import eu.lucaventuri.common.Mergeable;
 import eu.lucaventuri.common.SystemUtils;
-import org.junit.*;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -13,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Vector;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -440,9 +444,58 @@ public class TestStereotypes {
         final List<String> listJoined = new Vector<>();
         BaseActor<String, Void, Void> actor = Stereotypes.def().batchProcessList(list -> listJoined.add(String.join(",", list)), 3, 100, 1, true);
 
-        createMessages(listJoined, actor);
+        createMessagesAndCheck(listJoined, actor);
 
         checkSize(listJoined);
+    }
+
+    @Test
+    public void testMergeableBatches() {
+        class M implements Mergeable {
+            private final String key;
+            private final String value;
+
+            M(String key, String value) {
+                this.key = key;
+                this.value = value;
+            }
+
+            @Override
+            public String getKey() {
+                return key;
+            }
+
+            @Override
+            public Mergeable mergeWith(Mergeable m) {
+                if (!key.equals(m.getKey()))
+                    throw new IllegalArgumentException("Cannot merge two different keys: " + key + " vs " + m.getKey());
+
+                return new M(key, value + ((M) m).value);
+            }
+
+            @Override
+            public String toString() {
+                return key + ": " + value;
+            }
+        }
+        Map<String, Mergeable> mapJoined = new ConcurrentHashMap<>();
+        BaseActor<Mergeable, Void, Void> actor = Stereotypes.def().batchProcessMerge(map -> map.forEach(mapJoined::put), 30, 100_000, 1, true);
+
+        actor.sendMessage(new M("a", "1"));
+        actor.sendMessage(new M("b", "2"));
+        actor.sendMessage(new M("c", "3"));
+        actor.sendMessage(new M("a", "4"));
+        SystemUtils.sleep(200);
+        actor.sendMessage(new M("d", "4.5"));
+        actor.sendMessage(new M("a", "5"));
+        actor.sendPoisonPill();
+        actor.waitForExit();
+
+        assertEquals(4, mapJoined.size());
+        assertEquals("a: 145", mapJoined.get("a").toString());
+        assertEquals("b: 2", mapJoined.get("b").toString());
+        assertEquals("c: 3", mapJoined.get("c").toString());
+        assertEquals("d: 4.5", mapJoined.get("d").toString());
     }
 
     private void checkSize(List<String> listJoined) {
@@ -468,12 +521,12 @@ public class TestStereotypes {
         final List<String> listJoined = new Vector<>();
         BaseActor<String, Void, Void> actor = Stereotypes.def().batchProcessList(list -> listJoined.add(String.join(",", list)), 3, 100, 1, false);
 
-        createMessages(listJoined, actor);
+        createMessagesAndCheck(listJoined, actor);
 
         checkSize(listJoined);
     }
 
-    private void createMessages(List<String> listJoined, BaseActor<String, Void, Void> actor) {
+    private void createMessagesAndCheck(List<String> listJoined, BaseActor<String, Void, Void> actor) {
         actor.sendMessage("a");
         actor.sendMessage("b");
         actor.sendMessage("c");

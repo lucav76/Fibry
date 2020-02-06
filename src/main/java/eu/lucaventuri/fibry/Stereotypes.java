@@ -614,6 +614,30 @@ public class Stereotypes {
         }
 
         /**
+         * Process messages in batch, after merging them when possible
+         *
+         * @param batchProcessor Object that can process the list of messages collected
+         * @param batchMaxSize Maximum size of the batch (when reached, the batch will be process)
+         * @param batchMs Maximum ms to wait before processing a batch, even if batchMaxSize has not been reached
+         * @param precisionMs Tentative precision (e.g. the batch is tentatively processed between batchMs and batchMs+precisionMs milliseconds); decreasing this value will increase precision but it might affect negatively a bit the performance
+         * @param skipTimeWithoutMessages It applies only if there are no messages. If true, the first message will reset the timeout of the batch (e.g. it can buffer the message for a full batchMs ms, even if it has been some time before the last batch)
+         * @param <T> Type of messages
+         * @return Actor
+         */
+        public <T extends Mergeable> BaseActor<T, Void, Void> batchProcessMerge(Consumer<Map<String, T>> batchProcessor, int batchMaxSize, int batchMs, int precisionMs, boolean skipTimeWithoutMessages) {
+            Map<String, T> map = new HashMap<>();
+
+            return batchProcess(message -> {
+                map.merge(message.getKey(), message, (agg, value) -> (T) agg.mergeWith(value));
+                return map.size();
+            }, () -> {
+                if (!map.isEmpty())
+                    batchProcessor.accept(map);
+                map.clear();
+            }, batchMaxSize, batchMs, precisionMs, skipTimeWithoutMessages);
+        }
+
+        /**
          * Process messages in batch
          *
          * @param itemProcessor Object that can process a single message and collect it in a batch; it returns the number of elements in the batch (which could be different than the number of messages processed if they can be dropped or aggregated)

@@ -118,12 +118,17 @@ public class TestPools {
 
     @Test
     public void testFinalizer() {
-        AtomicBoolean finished = new AtomicBoolean();
-        AtomicInteger num = new AtomicInteger();
+        AtomicInteger numLeaderFinished = new AtomicInteger();
+        AtomicInteger numWorkersFinished = new AtomicInteger();
+        AtomicInteger numMessages = new AtomicInteger();
 
-        PoolActorLeader<Object, Void, Object> leader = ActorSystem.anonymous().poolParams(PoolParameters.fixedSize(3), null, null, s -> finished.set(true)).newPool(t -> {
+        var leader = ActorSystem.anonymous().poolParams(PoolParameters.fixedSize(3), null, null, s -> numWorkersFinished.incrementAndGet()).newPool(t -> {
             SystemUtils.sleep(25);
-            num.incrementAndGet();
+            numMessages.incrementAndGet();
+        }, s -> {
+            System.out.println("Leader finishind!");
+            SystemUtils.sleep(25);
+            numLeaderFinished.incrementAndGet();
         });
 
         leader.sendMessage("a");
@@ -132,19 +137,24 @@ public class TestPools {
         leader.sendPoisonPill();
         leader.waitForExit();
 
-        assertEquals(3, num.get());
-        assertEquals(true, finished.get());
+        assertEquals(3, numMessages.get());
+        assertEquals(3, numWorkersFinished.get());
+        assertEquals(1, numLeaderFinished.get());
     }
 
     @Test
     public void testFinalizer2() {
-        AtomicBoolean finished = new AtomicBoolean();
-        AtomicInteger num = new AtomicInteger();
+        AtomicInteger numLeaderFinished = new AtomicInteger();
+        AtomicInteger numWorkersFinished = new AtomicInteger();
+        AtomicInteger numMessages = new AtomicInteger();
 
-        PoolActorLeader<Object, Void, Object> leader = ActorSystem.anonymous().poolParams(PoolParameters.fixedSize(3), null, null, s -> {
+        var leader = ActorSystem.anonymous().poolParams(PoolParameters.fixedSize(3), null, null, s -> {
             SystemUtils.sleep(25);
-            finished.set(true);
-        }).newPool(t -> num.incrementAndGet());
+            numWorkersFinished.incrementAndGet();
+        }).newPool(t -> {
+            SystemUtils.sleep(25);
+            numMessages.incrementAndGet();
+        }, s -> numLeaderFinished.incrementAndGet());
 
         leader.sendMessage("a");
         leader.sendMessage("a");
@@ -152,7 +162,8 @@ public class TestPools {
         leader.sendPoisonPill();
         leader.waitForExit();
 
-        assertEquals(3, num.get());
-        assertEquals(true, finished.get());
+        assertEquals(3, numMessages.get());
+        assertEquals(3, numWorkersFinished.get());
+        assertEquals(1, numLeaderFinished.get());
     }
 }

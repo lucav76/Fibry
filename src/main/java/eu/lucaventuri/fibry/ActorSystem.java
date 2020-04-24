@@ -45,11 +45,11 @@ public class ActorSystem {
         }
 
         // By design, group pools logic should not have access to the actor itself
-        private <T, R> PoolActorLeader<T, R, S> createFixedPool(Either<Consumer<T>, Function<T, R>> actorLogic) {
+        private <T, R> PoolActorLeader<T, R, S> createFixedPool(Either<Consumer<T>, Function<T, R>> actorLogic, Consumer<S> leaderFinalizer) {
             MultiExitable groupExit = new MultiExitable();
             // As the leader has no state, it cannot run the finalizer
             // We add queue protection because it's unlikely to have millions of pools
-            PoolActorLeader<T, R, S> groupLeader = new PoolActorLeader<>(getOrCreateActorQueue(registerActorName(name, false), defaultQueueCapacity), null, groupExit, getQueueFinalizer(name, null, true));
+            PoolActorLeader<T, R, S> groupLeader = new PoolActorLeader<>(getOrCreateActorQueue(registerActorName(name, false), defaultQueueCapacity), null, groupExit, getQueueFinalizer(name, leaderFinalizer, true));
 
             for (int i = 0; i < poolParams.minSize; i++)
                 createNewWorkerAndAddToPool(groupLeader, actorLogic);
@@ -63,8 +63,8 @@ public class ActorSystem {
                     logic -> groupLeader.getGroupExit().add(creator.newActorWithReturn(logic).setDrainMessagesOnExit(false).setExitSendsPoisonPill(false)));
         }
 
-        private <T, R> PoolActorLeader<T, R, S> createPool(Either<Consumer<T>, Function<T, R>> actorLogic) {
-            PoolActorLeader<T, R, S> leader = createFixedPool(actorLogic);
+        private <T, R> PoolActorLeader<T, R, S> createPool(Either<Consumer<T>, Function<T, R>> actorLogic, Consumer<S> leaderFinalizer) {
+            PoolActorLeader<T, R, S> leader = createFixedPool(actorLogic, leaderFinalizer);
 
             if (poolParams.minSize != poolParams.maxSize)
                 autoScale(leader, actorLogic);
@@ -89,12 +89,20 @@ public class ActorSystem {
             }, poolParams.timePollingMs);
         }
 
+        public <T> PoolActorLeader<T, Void, S> newPool(Consumer<T> actorLogic, Consumer<S> leaderFinalizer) {
+            return createPool(Either.left(actorLogic), leaderFinalizer);
+        }
+
         public <T> PoolActorLeader<T, Void, S> newPool(Consumer<T> actorLogic) {
-            return createPool(Either.left(actorLogic));
+            return createPool(Either.left(actorLogic), null);
+        }
+
+        public <T, R> PoolActorLeader<T, R, S> newPoolWithReturn(Function<T, R> actorLogic, Consumer<S> leaderFinalizer) {
+            return createPool(Either.right(actorLogic), leaderFinalizer);
         }
 
         public <T, R> PoolActorLeader<T, R, S> newPoolWithReturn(Function<T, R> actorLogic) {
-            return createPool(Either.right(actorLogic));
+            return createPool(Either.right(actorLogic), null);
         }
     }
 

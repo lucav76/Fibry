@@ -1,20 +1,20 @@
 Fibry
 ===
 
-Fibry is an experimental Actor System built to be simple and flexible to use. Hopefully it will also be fun to use.
+Fibry is an experimental Actor System built to be simple and flexible to use. Hopefully, it will also be fun to use.
 Fibry is the the **first Java Actor System using fibers from [Project Loom](https://openjdk.java.net/projects/loom/)**.
 
 Project Loom is an OpenJDK project that is expected to bring fibers (green threads) and continuations (co-routines) to Java.
-Fibry 1.X works with any version of Java starting from Java 8, while Fibry 2.X is targeting **Java 11**, but in both cases you will need to use Loom if you want to leverage the power of fibers.
+Fibry 1.X works with any version of Java starting from Java 8, while Fibry 2.X is targeting **Java 11**, but in both cases, you will need to use Loom if you want to leverage the power of fibers.
 Fibry aims to replicate some of the features of the Erlang Actor System in Java.
-Fibry allows you to send code to be execute in the thread/fiber of an actor, a mechanism similar to the one used in Chromium.
+Fibry allows you to send code to be executed in the thread/fiber of an actor, a mechanism similar to the one used in Chromium.
 
 Simplicity first
 ===
 *Fibry* has been designed to be simple yet flexible:
 - Your actor can and should use synchronous logic
 - There is a series of Stereotypes to handle common scenarios
-- You actors don't need to extend any particular class but they can just implement **Consumer** or **Function**
+- Your actors don't need to extend any particular class but they can just implement **Consumer** or **Function**
 - You actors have anyway the option to extend **CustomActor** and **CustomActorWithResult**, if this suits you best 
 - If you choose to simply implements **Consumer** and **Function**, your actors can also be used "transparently" in code that knows nothing about Fibry
 - It is simple to retrieve the result of a message
@@ -27,8 +27,8 @@ Simplicity first
 - It implements a very simple **Map/Reduce mechanism**, limited to the local computer.
 - It implements a very simple **Pub/Sub** mechanism, limited to the local computer.
 - It implements a simple **TCP port forwarding**, both as a Stereotype and as a small cli application: TcpForwarding
-- It implements some simple mechanisms to help processing messages in **batches**
-- It implements a mechanism to **track progress** of long running tasks, which can be extended to support progress of messages processed by another server
+- It implements some simple mechanisms to help to process messages in **batches**
+- It implements a mechanism to **track progress** of long-running tasks, which can be extended to support the progress of messages processed by another server
 - It provides a way to create simple **Finite State Machines**, either with Actors or with Consumers (recommended)
 
 Some numbers
@@ -36,11 +36,11 @@ Some numbers
 So, fibers are better than threads. Got it. How much better?
 Very much. Depending on your problem, you can consider them 10X-100X better than threads.
 Please remember that Fibry is not optimized for performance, though performance have been taken into high consideration.
-Also Loom is not completed yet, so its performance can change.
+Also, Loom is not completed yet, so its performance can change.
 I took some informal benchmarks using a C5.2xlarge VM instance, without tuning of the OS or of Loom:
 
 - Number of concurrent threads that can be created without OS tuning: around 3K
-- Expected maximum with OS tuning: around 33K
+- The expected maximum with OS tuning: around 33K
 - Number of concurrent fibers that can be created without OS tuning: more than 3M (**100x - 1000X better**)
 - Threads created per second: 15K
 - Fibers created per second: 600K (**40x better**)
@@ -81,8 +81,8 @@ That's why **Fibry** was born: to let you write simple actors with synchronous l
 
 Project Loom?
 ===
-That's the trick. Project Loom enable fibers. While fibers are nice but themselves, they were not very useful to do network operations until JDK 13 (due in September 2019) merged [JEP 353](https://openjdk.java.net/jeps/353), that rewrote part the network stack of Java to be Fiber friendly.
-Unfortunately, Loom is not yet merged into the OpenJDK, so you will have to build it by yourself. This might sounds scaring, but it is not.
+That's the trick. Project Loom enables fibers. While fibers are nice but themselves, they were not very useful to do network operations until JDK 13 (due in September 2019) merged [JEP 353](https://openjdk.java.net/jeps/353), that rewrote part the network stack of Java to be Fiber friendly.
+Unfortunately, Loom is not yet merged into the OpenJDK, so you will have to build it by yourself. This might sound scary, but it is not.
 On Linux, building Loom is a matter of running a few commands and waiting:
 ```bash
 hg clone http://hg.openjdk.java.net/loom/loom 
@@ -97,9 +97,9 @@ Most likely you will need to install some packages, but *sh configure* kindly te
 When you are done, you will have a new JVM at your disposal. Mine was on this path: **build/linux-x86_64-server-release/images/jdk/bin/java**
 
 More info in [Loom Wiki](https://wiki.openjdk.java.net/display/loom/Main#Main-DownloadandBuildfromSource)
-On Windows you might have to use a Virtual Machine, and I would recommend to avoid shared folders as they can be issues with symbolic links.
+On Windows you might have to use a Virtual Machine, and I would recommend avoiding shared folders as they can be issues with symbolic links.
 
-To recognize Loom you don't need to do anything particular, **Fibry will detect if fibers are available** and use them automatically. But you do have to choose to use the FIBER or AUTO strategy, as Fibry allows you to force the creation of threads, if that's what you need.
+To recognize Loom you don't need to do anything particular, **Fibry will detect if fibers are available** and use them automatically. But you do have to choose to use the FIBER or AUTO strategy, as Fibry allows you to force the creation of threads if that's what you need.
 
 Creating actors with the ActorSystem class
 ===
@@ -114,8 +114,8 @@ You can create several types of actor:
 - Normal Actors: they receive messages without returning any result; they need to implement Consumer or BiConsumer (if you need access to the actor)
 - Returning Actors: they compute a result and return a CompletableFuture for each message; they need to implement Function or BiFunction  (if you need access to the actor)
 - Multi-messages actors: they can handle more than one type of message; they need a message handler with public methods in the form *onXXX(message)*, and they can return or not a value
-- Receiving actors: they are normal actor that can also "receive", meaning that they can ask the actor system to deliver some particular message while processing another message, e.g. if you are waiting for another actor to provide some information; they need to implement BiConsumer
-- Receiving and returning actors: the are receiving actors that can also return a result; they need to implement BiFunction
+- Receiving actors: they are a normal actor that can also "receive", meaning that they can ask the actor system to deliver some particular message while processing another message, e.g. if you are waiting for another actor to provide some information; they need to implement BiConsumer
+- Receiving and returning actors: they are receiving actors that can also return a result; they need to implement BiFunction
 
 Please take into consideration that while Receiving actors are the most powerful, there is some overhead in their use, and the receive operation must be used carefully as in the worst case it might have to scan all the message in the queue. In fact, I expect many cases to be covered with returning actors (e.g. you ask something to another actor and wait for the result), and they should be preferred.
 
@@ -137,31 +137,31 @@ actor.apply(2).intValue()
 ```
 
 Please notice that **apply()** is blocking and it is therefore equivalent to **sendMessageReturnWait()**, while sendMessageReturn() returns a CompletableFuture that can allow the code to do other things while waiting.
-An excessive use of apply() and sendMessageReturnWait() can have negative effects on performance.
+Excessive use of apply() and sendMessageReturnWait() can have negative effects on performance.
 
 Thread confinement
 ===
 Actors systems exist to implement thread confinement: your thread/fiber executes in the same thread/fiber and therefore you don't need synchronization or thread-safe classes.
-Usually the logic of the actor is supplied during the creation, but sometimes instead of implementing several message types it would be easier to just "send some code" to be executed in the context of the actor.
+Usually, the logic of the actor is supplied during the creation, but sometimes instead of implementing several message types, it would be easier to just "send some code" to be executed in the context of the actor.
 An example would be **Platform.runLater()** in JavaFX.
 Fibry support this behavior for every actor, with the methods *execAsync()*, *execAndWait()* and *execFuture()*, all accepting Runnable and Consumer interface.
 In addition, almost every Actor implements the Executor interface.  
  
 Creating actors with the Stereotypes class
 ===
-As you start to us actors, some patterns might emerge on the way that the actors are configured.
-Some fo this patterns have been implemented in the Stereotypes class.
+As you start to use actors, some patterns might emerge on the way that the actors are configured.
+Some of these patterns have been implemented in the Stereotypes class.
 Please check it and feel free to send me suggestions for new stereotypes.
 You are encouraged to use the **Stereotypes** class instead of relying on ActorSystem, if it provides something useful to you.
 
 Some examples:
 - *workersAsConsumerCreator()*: creates a master actor returned as Consumer; every call to **accept()** will spawn a new actor that will process the message, making multi-thread as simple as it can be
 - *workersAsFunctionCreator()*: as before, but it accepts a Function, so it can actually return a result
-- *embeddedHttpServer*: creates and embedded HTTP Server (using the standard HTTP Server included in Java), that process any request with an actor
+- *embeddedHttpServer*: creates an embedded HTTP Server (using the standard HTTP Server included in Java), that process any request with an actor
 - *sink()*: creates an actor that cannot process messages, but that can still be used for thread confinement, sending code to it
 - *runOnce()*: creates an actor that executes some logic in a separated thread, once.
 - *schedule()*: creates an actor that executes some logic in a separated thread, as many times as requested, as often as requested
-- *tcpAcceptor()*: creates a master actor that will receive TCP connections, delegating the processing of each connection to a dedicated fiber. This is nice for IoI, to design a chat system or in general if you have a proxy.
+- *tcpAcceptor()*: creates a master actor that will receive TCP connections, delegating the processing of each connection to a dedicated fiber. This is nice for IoI, to design a chat system or in general, if you have a proxy.
 
 Please check the **examples** package for inspiration.
 
@@ -179,7 +179,7 @@ Just remember to call **CreationStrategy.start()** to start it.
 Shutting down the actors
 ===
 Shutting down the actors is a bit complicated, depending on which goal you want to achieve.
-One way is to call **askExit()**, which will ask the actor to terminate as soon as possible, which by default means after finishing the current message; long running actors should check for their **isExiting()** method. This will however loose the messages on the queue (and the actor will clear the queue). 
+One way is to call **askExit()**, which will ask the actor to terminate as soon as possible, which by default means after finishing the current message; long running actors should check for their **isExiting()** method. This will, however, lose the messages on the queue (and the actor will clear the queue). 
 Another way is to call **sendPoisonPill()**, which will queue a message able to shut down the actor: the messages after the poison pill will be lost, the ones before it will be processed.
 The actors are Closeable(), so they can be put in a try-with-resources block. Please keep in mind that the default behavior is to call **askExit()**, so when the code leaves the try-with-resources block the actor might still be alive and working. This behavior can be customised using a different ClosingStrategy. For example, **SEND_POISON_PILL_AND_WAIT** will block in the try catch until all the messages in the queue (before the poison pill) are processed.
 The ClosingStrategy can be set using the **strategy()** call in ActorSystem, which can also set creation strategy.
@@ -190,8 +190,8 @@ For more information, please look at the Exitable class.
 Named Actors
 ===
 Named actors can allow clients to send messages even before they are created. This means the messages are queued.
-Unfortunately, it means that if the actor is terminated and thequeue is removed, clients could still recreate the queue and cause an OOM.
-To avoid this, when named actors are created "queue protection" can be activated. This will create a fake queue that does not accept new messages. Unfortunately it still use some small memory, for each actor.
+Unfortunately, it means that if the actor is terminated and the queue is removed, clients could still recreate the queue and cause an OOM.
+To avoid this, when named actors are created "queue protection" can be activated. This will create a fake queue that does not accept new messages. Unfortunately, it still uses some small memory, for each actor.
 
 In practice, if you plan to have millions of named actors you could either:
 - call *ActorSystem.sendMessage()* with forceDelivery==false, and avoid queue protection, which would save memory but would not allow clients to send messages before the actor is created.
@@ -207,8 +207,8 @@ Fibry provides a simple, generic, support to contact (named) actors running on o
 - ChannelSerializer / ChannelDeserializer / ChannelSerDeser: interfaces used for serialization and deserialization of messages
 
 To make it more useful, Fibry provides an implementation:
-- HttpChannel: implements a channel using HTTP (and you can add your flavor of authentication)
-- JacksonSerDeser: serialization and deserialization done with Jackson (if present, as Fibry does ont import it asa dependency)
+- HttpChannel: implements a channel using HTTP (and you can add your flavour of authentication)
+- JacksonSerDeser: serialization and deserialization is done with Jackson (if present, as Fibry does not import it as a dependency)
 - JavaSerializationSerDeser and ObjectSerializerUsingToString, mainly for testing purposes.
 
 While limited, this means that Fibry can be distributed across HTTP clusters, and in particular it could be used as a very simple **RPC** mechanism to send messages **across MicroServices**.
@@ -221,7 +221,7 @@ It can also be used to deal with queues in a transparent way, though at the mome
 Actor Pools
 ===
 Fibry supports the concept of actor pool, a scalable pool of actors than can quickly scale based on the number of messages in the queue.
-The pools can be created using the class ActorSystem. However, please be careful because some operations might behave differently than with other actors. In particular thread confinement will no longer work as before, because your code can run on multiple actors. However, as long as you access the state of the actor, you are guaranteed that the state is thread confined.
+The pools can be created using the class ActorSystem. However, please be careful because some operations might behave differently than with other actors. In particular, thread confinement will no longer work as before, because your code can run on multiple actors. However, as long as you access the state of the actor, you are guaranteed that the state is thread confined.
 When creating a pool, you get access to the PoolActorLeader, which is a representative of the group but does not really process messages. If the pool is scalable, another actor is created to monitor the work queue. So creating a pool of N actors might actually create N=1 or N+2 actors.
 The leader can be used as a normal actor, and will take care to send the messages to the workers. 
 
@@ -238,7 +238,7 @@ var leader = ActorSystem.anonymous().<String>poolParams(PoolParameters.scaling(3
 
 Map-Reduce
 ===
-Fibry implements two types of map-reduce: unbounded (one actor per computation) or bounded (backed by an acotrs pool).
+Fibry implements two types of map-reduce: unbounded (one actor per computation) or bounded (backed by an actors pool).
 
 The following code a map-reduce job with 4 mappers that compute the square of a number, and one reduced that sum the results:
 
@@ -283,11 +283,12 @@ If you start to use Fibry and find some bugs, please notify me.
 The API is going to change a bit, while I start to use it in more projects. Nothing drastic, but you might find a new parameter in some methods. I apologise for that, but it is necessary.
 
 As of today, not every network operation is *fiber friendly*. You can find a list of what works and what does not [here](https://wiki.openjdk.java.net/display/loom/Networking+IO). 
-In particular UDP is only partially supported. Selectors are also not supported, but as avoiding non-blocking operation is a key goal of fibers, this should not be a concern.
+In particular, UDP is only partially supported. Selectors are also not supported, but as avoiding non-blocking operation is a key goal of fibers, this should not be a concern.
 
 
 Enjoy!
 
 Acknowledgements
 ===
-Big thank you to Deniz Türkoglu: his code, advise, code reviews and endless discussions made Fibry a much better product. 
+Big thank you to Deniz Türkoglu: his code, advice, code reviews and endless discussions made Fibry a much better product. 
+

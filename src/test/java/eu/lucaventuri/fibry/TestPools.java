@@ -1,11 +1,13 @@
 package eu.lucaventuri.fibry;
 
+import eu.lucaventuri.common.ConcurrentHashSet;
 import eu.lucaventuri.common.SystemUtils;
 import org.junit.Test;
 
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -165,5 +167,27 @@ public class TestPools {
         assertEquals(3, numMessages.get());
         assertEquals(3, numWorkersFinished.get());
         assertEquals(1, numLeaderFinished.get());
+    }
+
+    @Test
+    public void testState() {
+        Set<Double> numbersSeen = ConcurrentHashSet.build();
+        AtomicInteger messages = new AtomicInteger();
+
+        PoolActorLeader<Object, Void, Double> leader = ActorSystem.anonymous().poolParams(PoolParameters.fixedSize(3), Math::random).newPool((m, actor) ->
+        {
+            numbersSeen.add(actor.getState());
+            SystemUtils.sleep(0);
+            messages.incrementAndGet();
+        }, null);
+
+        for (int i = 0; i < 100; i++)
+            leader.sendMessage("abc");
+
+        leader.sendPoisonPill();
+        leader.waitForExit();
+
+        assertEquals(3, numbersSeen.size()); // It could be less, maybe if one thread has not been scheduled yet
+        assertEquals(100, messages.get());
     }
 }

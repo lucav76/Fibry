@@ -6,15 +6,17 @@ Fibry is the the **first Java Actor System using fibers from [Project Loom](http
 
 Project Loom is an OpenJDK project that is expected to bring fibers (green threads) and continuations (co-routines) to Java.
 Fibry 1.X works with any version of Java starting from Java 8, while Fibry 2.X is targeting **Java 11**, but in both cases, you will need to use Loom if you want to leverage the power of fibers.
+Fibry 1.X is supported, and changes are available in the **jdk8** branch.
 Fibry aims to replicate some of the features of the Erlang Actor System in Java.
 Fibry allows you to send code to be executed in the thread/fiber of an actor, a mechanism similar to the one used in Chromium.
 
 Simplicity first
 ===
-*Fibry* has been designed to be simple yet flexible:
-- Your actor can and should use synchronous logic
+*Fibry* has been designed to be simple yet flexible, **easy to add to an existing project**:
+- **Fibry has no dependencies**, so no conflicts, no surprises and just a tiny jar available in the Maven Central repository
+- Your actors can and should use synchronous logic
 - There is a series of Stereotypes to handle common scenarios
-- Your actors don't need to extend any particular class but they can just implement **Consumer** or **Function**
+- Your actors don't need to extend any particular class, they can just implement **Consumer** or **Function**
 - You actors have anyway the option to extend **CustomActor** and **CustomActorWithResult**, if this suits you best 
 - If you choose to simply implements **Consumer** and **Function**, your actors can also be used "transparently" in code that knows nothing about Fibry
 - It is simple to retrieve the result of a message
@@ -22,7 +24,6 @@ Simplicity first
 - There is a fluid interface to build the actors
 - You can receive messages of your choice while processing a message  
 - Many types of actor implement the **Executor** interface, so you can "send code" to be executed in the thread/fiber of almost any actors, and use them on service that are not actor-aware
-- **Fibry has no dependencies**, so no conflicts, no surprises and just a tiny jar available in the Maven Central repository
 - Most actors can be converted to **Reactive Flow Subscribers** (TCK tested), calling *asReactiveSubscriber()*
 - It implements a very simple **Map/Reduce mechanism**, limited to the local computer.
 - It implements a very simple **Pub/Sub** mechanism, limited to the local computer.
@@ -277,10 +278,10 @@ Listening to changes in a directory can be a bit difficult in Java. Fibry provid
  
 Some warnings
 ===
-Fibry is experimental, and to leverage its potential you need to use Loom, which is a project under development that it's not clear when it will be merged into the OpenJDK; that said, the development of Loom seems very active and proceeding well.
+Fibry is still experimental (though I am using it in several projects), and to leverage its full potential you need to use Loom, which is a project under development that it's not clear when it will be merged into the OpenJDK; that said, the development of Loom seems very active and proceeding well.
 Loom might still have some bugs, as I saw some errors popping up when exchanging sync messages between a thread and a fiber, so it might be better to not mix them for now.
 If you start to use Fibry and find some bugs, please notify me.
-The API is going to change a bit, while I start to use it in more projects. Nothing drastic, but you might find a new parameter in some methods. I apologise for that, but it is necessary.
+The API is going to change a bit, while I start to use it in more real-world projects. Nothing drastic, but you might find a new parameter in some methods. I apologise for that, but it will be necessary.
 
 As of today, not every network operation is *fiber friendly*. You can find a list of what works and what does not [here](https://wiki.openjdk.java.net/display/loom/Networking+IO). 
 In particular, UDP is only partially supported. Selectors are also not supported, but as avoiding non-blocking operation is a key goal of fibers, this should not be a concern.

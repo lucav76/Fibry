@@ -50,15 +50,29 @@ public class ActorSystem {
 
         // By design, group pools logic should not have access to the actor itself
         private <T, R> PoolActorLeader<T, R, S> createFixedPool(Either<Consumer<T>, Function<T, R>> actorLogic, Consumer<S> leaderFinalizer) {
-            MultiExitable groupExit = new MultiExitable();
-            // As the leader has no state, it cannot run the finalizer
-            // We add queue protection because it's unlikely to have millions of pools
-            PoolActorLeader<T, R, S> groupLeader = new PoolActorLeader<>(getOrCreateActorQueue(registerActorName(name, false), defaultQueueCapacity), null, groupExit, null, getQueueFinalizer(name, leaderFinalizer, true));
+            PoolActorLeader<T, R, S> groupLeader = createPoolActorLeader(leaderFinalizer);
 
             for (int i = 0; i < poolParams.minSize; i++)
                 createNewWorkerAndAddToPool(groupLeader, actorLogic);
 
             return groupLeader;
+        }
+
+        // By design, group pools logic should not have access to the actor itself
+        private <T, R> PoolActorLeader<T, R, S> createFixedPool(BiConsumer<T, PartialActor<T, S>> actorBiLogic, Consumer<S> leaderFinalizer) {
+            PoolActorLeader<T, R, S> groupLeader = createPoolActorLeader((Consumer<S>) leaderFinalizer);
+
+            for (int i = 0; i < poolParams.minSize; i++)
+                createNewWorkerAndAddToPool(groupLeader, actorBiLogic);
+
+            return groupLeader;
+        }
+
+        private <T, R> PoolActorLeader<T, R, S> createPoolActorLeader(Consumer<S> leaderFinalizer) {
+            MultiExitable groupExit = new MultiExitable();
+            // As the leader has no state, it cannot run the finalizer
+            // We add queue protection because it's unlikely to have millions of pools
+            return new PoolActorLeader<>(getOrCreateActorQueue(registerActorName(name, false), defaultQueueCapacity), null, groupExit, getQueueFinalizer(name, leaderFinalizer, true), leaderFinalizer);
         }
 
         private <T, R> void createNewWorkerAndAddToPool(PoolActorLeader<T, R, S> groupLeader, Either<Consumer<T>, Function<T, R>> actorLogic) {
@@ -67,11 +81,25 @@ public class ActorSystem {
                     logic -> groupLeader.getGroupExit().add(creator.newActorWithReturn(logic).setDrainMessagesOnExit(false).setExitSendsPoisonPill(false)));
         }
 
+        private <T, R> void createNewWorkerAndAddToPool(PoolActorLeader<T, R, S> groupLeader, BiConsumer<T, PartialActor<T, S>> actorBiLogic) {
+            NamedStateActorCreator<S> creator = new NamedStateActorCreator<S>(name, strategy, stateSupplier == null ? null : stateSupplier.get(), true, initializer, finalizer, null, defaultQueueCapacity, true, 50);
+            groupLeader.getGroupExit().add(creator.newActor(actorBiLogic).setDrainMessagesOnExit(false).setExitSendsPoisonPill(false));
+        }
+
         private <T, R> PoolActorLeader<T, R, S> createPool(Either<Consumer<T>, Function<T, R>> actorLogic, Consumer<S> leaderFinalizer) {
             PoolActorLeader<T, R, S> leader = createFixedPool(actorLogic, leaderFinalizer);
 
             if (poolParams.minSize != poolParams.maxSize)
                 autoScale(leader, actorLogic);
+
+            return leader;
+        }
+
+        private <T, R> PoolActorLeader<T, R, S> createPool(BiConsumer<T, PartialActor<T, S>> actorBiLogic, Consumer<S> leaderFinalizer) {
+            PoolActorLeader<T, R, S> leader = createFixedPool(actorBiLogic, leaderFinalizer);
+
+            if (poolParams.minSize != poolParams.maxSize)
+                autoScale(leader, actorBiLogic);
 
             return leader;
         }
@@ -91,6 +119,27 @@ public class ActorSystem {
                         groupExit.evictRandomly(true);
                 }
             }, poolParams.timePollingMs);
+        }
+
+        private <R, T> void autoScale(PoolActorLeader<T, R, S> leader, BiConsumer<T, PartialActor<T, S>> actorBiLogic) {
+            MultiExitable groupExit = leader.getGroupExit();
+
+            Stereotypes.auto().schedule(() -> {
+                long queueSize = leader.getQueueLength();
+                //System.out.println("Queue size: " + queueSize);
+
+                if (queueSize >= poolParams.scalingUpThreshold) {
+                    for (int i = 0; i < poolParams.scalingSpeed && groupExit.size() < poolParams.maxSize; i++)
+                        createNewWorkerAndAddToPool(leader, actorBiLogic);
+                } else if (queueSize <= poolParams.scalingDownThreshold) {
+                    for (int i = 0; i < poolParams.scalingSpeed && groupExit.size() > poolParams.minSize; i++)
+                        groupExit.evictRandomly(true);
+                }
+            }, poolParams.timePollingMs);
+        }
+
+        public <T> PoolActorLeader<T, Void, S> newPool(BiConsumer<T, PartialActor<T, S>> actorBiLogic, Consumer<S> leaderFinalizer) {
+            return createPool(actorBiLogic, leaderFinalizer);
         }
 
         public <T> PoolActorLeader<T, Void, S> newPool(Consumer<T> actorLogic, Consumer<S> leaderFinalizer) {

@@ -32,13 +32,15 @@ public class ActorSystem {
         private final String name;  // Can be null
         private final Supplier<S> stateSupplier;
         private final PoolParameters poolParams;
+        private final Consumer<S> initializer;
         private final Consumer<S> finalizer;
 
-        private ActorPoolCreator(CreationStrategy strategy, String name, PoolParameters poolParams, Supplier<S> stateSupplier, Consumer<S> finalizer) {
+        private ActorPoolCreator(CreationStrategy strategy, String name, PoolParameters poolParams, Supplier<S> stateSupplier, Consumer<S> initializer, Consumer<S> finalizer) {
             this.strategy = strategy;
             this.name = name != null ? name : "__pool__" + progressivePoolId.incrementAndGet() + "__" + Math.random() + "__";
             this.poolParams = poolParams;
             this.stateSupplier = stateSupplier;
+            this.initializer = initializer;
             this.finalizer = finalizer;
         }
 
@@ -239,18 +241,18 @@ public class ActorSystem {
         }
 
         public <S> ActorPoolCreator<S> poolParams(PoolParameters params, Supplier<S> stateSupplier) {
-            return new ActorPoolCreator<>(strategy, name, params, stateSupplier, null);
+            return new ActorPoolCreator<>(strategy, name, params, stateSupplier, null, null);
         }
 
         /**
-         * @param params Parameters to create the pool
+         * @param params        Parameters to create the pool
          * @param stateSupplier Supplier of states, as the pool will probably need more than one
-         * @param finalizer Finalizer called after the actor finished to process all its message
+         * @param finalizer     Finalizer called after the actor finished to process all its message
          * @return an object part of the fluent interface
          */
 
-        public <S> ActorPoolCreator<S> poolParams(PoolParameters params, Supplier<S> stateSupplier, Consumer<S> finalizer) {
-            return new ActorPoolCreator<>(strategy, name, params, stateSupplier, finalizer);
+        public <S> ActorPoolCreator<S> poolParams(PoolParameters params, Supplier<S> stateSupplier, Consumer<S> initializer, Consumer<S> finalizer) {
+            return new ActorPoolCreator<>(strategy, name, params, stateSupplier, initializer, finalizer);
         }
     }
 

@@ -8,6 +8,8 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -112,5 +114,45 @@ public class TestPools {
     private PoolActorLeader<Object, Void, Object> fixedSink(int numActors) {
         return ActorSystem.anonymous().poolParams(PoolParameters.fixedSize(numActors), null).newPool(data -> {
         });
+    }
+
+    @Test
+    public void testFinalizer() {
+        AtomicBoolean finished = new AtomicBoolean();
+        AtomicInteger num = new AtomicInteger();
+
+        PoolActorLeader<Object, Void, Object> leader = ActorSystem.anonymous().poolParams(PoolParameters.fixedSize(3), null, null, s -> finished.set(true)).newPool(t -> {
+            SystemUtils.sleep(25);
+            num.incrementAndGet();
+        });
+
+        leader.sendMessage("a");
+        leader.sendMessage("a");
+        leader.sendMessage("a");
+        leader.sendPoisonPill();
+        leader.waitForExit();
+
+        assertEquals(3, num.get());
+        assertEquals(true, finished.get());
+    }
+
+    @Test
+    public void testFinalizer2() {
+        AtomicBoolean finished = new AtomicBoolean();
+        AtomicInteger num = new AtomicInteger();
+
+        PoolActorLeader<Object, Void, Object> leader = ActorSystem.anonymous().poolParams(PoolParameters.fixedSize(3), null, null, s -> {
+            SystemUtils.sleep(25);
+            finished.set(true);
+        }).newPool(t -> num.incrementAndGet());
+
+        leader.sendMessage("a");
+        leader.sendMessage("a");
+        leader.sendMessage("a");
+        leader.sendPoisonPill();
+        leader.waitForExit();
+
+        assertEquals(3, num.get());
+        assertEquals(true, finished.get());
     }
 }

@@ -53,7 +53,7 @@ public class ActorSystem {
             MultiExitable groupExit = new MultiExitable();
             // As the leader has no state, it cannot run the finalizer
             // We add queue protection because it's unlikely to have millions of pools
-            PoolActorLeader<T, R, S> groupLeader = new PoolActorLeader<>(getOrCreateActorQueue(registerActorName(name, false), defaultQueueCapacity), null, groupExit, null, getQueueFinalizer(name, null, true));
+            PoolActorLeader<T, R, S> groupLeader = new PoolActorLeader<>(getOrCreateActorQueue(registerActorName(name, false), defaultQueueCapacity), null, groupExit, initializer, getQueueFinalizer(name, finalizer, true));
 
             for (int i = 0; i < poolParams.minSize; i++)
                 createNewWorkerAndAddToPool(groupLeader, actorLogic);

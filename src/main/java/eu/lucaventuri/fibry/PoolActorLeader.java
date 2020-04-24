@@ -53,11 +53,17 @@ public class PoolActorLeader<T, R, S> extends Actor<T, R, S> {
     @Override
     public void waitForExit() {
         groupExit.waitForExit();
+
+        if (finalizer != null)
+            finalizer.accept(state);
     }
 
     @Override
     public void waitForExit(long timeout, TimeUnit unit) {
         groupExit.waitForExit(timeout, unit);
+
+        if (finalizer != null)
+            finalizer.accept(state);
     }
 
     MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> getQueue() {

@@ -1,2 +1,3 @@
-- Added a finalizer for the group leader
+- Changed Autocloseable behaviour of group leader: now it sends a poison pill and waits
+- Added method sendPoisonPillOnExit()
  

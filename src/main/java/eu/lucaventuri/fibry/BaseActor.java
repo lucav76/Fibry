@@ -251,6 +251,13 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
         return this;
     }
 
+    public BaseActor<T, R, S> sendPoisonPillOnExit(Exitable... exitables) {
+        for (Exitable exitable : exitables)
+            closeOnExit.add(exitable::sendPoisonPill);
+
+        return this;
+    }
+
     protected void finalOperations() {
         if (finalizer != null)
             finalizer.accept(state);

@@ -124,7 +124,7 @@ public class TestPools {
         AtomicInteger numWorkersFinished = new AtomicInteger();
         AtomicInteger numMessages = new AtomicInteger();
 
-        var leader = ActorSystem.anonymous().poolParams(PoolParameters.fixedSize(3), null, null, s -> numWorkersFinished.incrementAndGet()).newPool(t -> {
+        PoolActorLeader<Object, Void, Object> leader = ActorSystem.anonymous().poolParams(PoolParameters.fixedSize(3), null, null, s -> numWorkersFinished.incrementAndGet()).newPool(t -> {
             SystemUtils.sleep(25);
             numMessages.incrementAndGet();
         }, s -> {
@@ -150,7 +150,7 @@ public class TestPools {
         AtomicInteger numWorkersFinished = new AtomicInteger();
         AtomicInteger numMessages = new AtomicInteger();
 
-        var leader = ActorSystem.anonymous().poolParams(PoolParameters.fixedSize(3), null, null, s -> {
+        PoolActorLeader<Object, Void, Object> leader = ActorSystem.anonymous().poolParams(PoolParameters.fixedSize(3), null, null, s -> {
             SystemUtils.sleep(25);
             numWorkersFinished.incrementAndGet();
         }).newPool(t -> {
@@ -168,6 +168,54 @@ public class TestPools {
         assertEquals(3, numWorkersFinished.get());
         assertEquals(1, numLeaderFinished.get());
     }
+
+    @Test
+    public void testExitable() {
+        AtomicInteger numLeaderFinished = new AtomicInteger();
+        AtomicInteger numWorkersFinished = new AtomicInteger();
+        AtomicInteger numMessages = new AtomicInteger();
+
+        try (PoolActorLeader<Object, Void, Object> leader = ActorSystem.anonymous().poolParams(PoolParameters.fixedSize(3), null, null, s -> numWorkersFinished.incrementAndGet()).newPool(t -> {
+            SystemUtils.sleep(25);
+            numMessages.incrementAndGet();
+        }, s -> {
+            System.out.println("Leader finishind!");
+            SystemUtils.sleep(25);
+            numLeaderFinished.incrementAndGet();
+        })) {
+            leader.sendMessage("a");
+            leader.sendMessage("a");
+            leader.sendMessage("a");
+        }
+
+        assertEquals(3, numMessages.get());
+        assertEquals(3, numWorkersFinished.get());
+        assertEquals(1, numLeaderFinished.get());
+    }
+
+    @Test
+    public void testExitable2() {
+        AtomicInteger numLeaderFinished = new AtomicInteger();
+        AtomicInteger numWorkersFinished = new AtomicInteger();
+        AtomicInteger numMessages = new AtomicInteger();
+
+        try (PoolActorLeader<Object, Void, Object> leader = ActorSystem.anonymous().poolParams(PoolParameters.fixedSize(3), null, null, s -> {
+            SystemUtils.sleep(25);
+            numWorkersFinished.incrementAndGet();
+        }).newPool(t -> {
+            SystemUtils.sleep(25);
+            numMessages.incrementAndGet();
+        }, s -> numLeaderFinished.incrementAndGet())) {
+            leader.sendMessage("a");
+            leader.sendMessage("a");
+            leader.sendMessage("a");
+        }
+
+        assertEquals(3, numMessages.get());
+        assertEquals(3, numWorkersFinished.get());
+        assertEquals(1, numLeaderFinished.get());
+    }
+
 
     @Test
     public void testState() {

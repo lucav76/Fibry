@@ -226,6 +226,7 @@ public class TestPools {
         {
             numbersSeen.add(actor.getState());
             messages.incrementAndGet();
+            SystemUtils.sleep(1);
         }, null);
 
         for (int i = 0; i < 100; i++)

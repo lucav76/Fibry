@@ -76,6 +76,16 @@ public final class ActorUtils {
         queue.add(Either3.left(worker));
     }
 
+    static <T, R, S> boolean execAsyncTimeout(MiniQueue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> worker, int timeoutMs) {
+        try {
+            return queue.offer(Either3.left(worker), timeoutMs, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            System.err.println(e);
+
+            return false;
+        }
+    }
+
     static <T, R, S> void execAndWait(MiniQueue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> worker) {
         SignalingSingleConsumer<S> sc = SignalingSingleConsumer.of(worker);
 
@@ -221,7 +231,7 @@ public final class ActorUtils {
         final Set<Map.Entry<Class, Method>> types = extractEventHandlers(messageHandler.getClass()).entrySet();
 
         return message -> Exceptions.logShort(() -> {
-            Method methodToCall = findBestMethod(types, message,messageHandler.getClass().getName() );
+            Method methodToCall = findBestMethod(types, message, messageHandler.getClass().getName());
 
             methodToCall.invoke(messageHandler, message);
         });
@@ -231,7 +241,7 @@ public final class ActorUtils {
         final Set<Map.Entry<Class, Method>> types = extractEventHandlers(messageHandler.getClass()).entrySet();
 
         return message -> Exceptions.logShort(() -> {
-            Method methodToCall = findBestMethod(types, message,messageHandler.getClass().getName() );
+            Method methodToCall = findBestMethod(types, message, messageHandler.getClass().getName());
 
             return (R) methodToCall.invoke(messageHandler, message);
         }, null);

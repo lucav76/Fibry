@@ -13,9 +13,12 @@ import java.util.function.Consumer;
 public interface SinkActor<S> extends SinkActorSingleTask<S>, Executor {
     public void execAsync(Runnable worker);
 
+    public boolean execAsyncTimeout(Runnable worker, int timeoutMs);
+
     @Override
+    /** Executing a command on a bounded queue will now wait forever instead of throwing an exception; this allow the caller code (e.g. producer) to slow-down */
     default public void execute(Runnable command) {
-        execAsync(command);
+        execAsyncTimeout(command, Integer.MAX_VALUE);
     }
 
     public void execAsyncStateful(Consumer<Stateful<S>> worker);

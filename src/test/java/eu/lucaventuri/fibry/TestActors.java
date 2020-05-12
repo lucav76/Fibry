@@ -201,6 +201,51 @@ public class TestActors {
     }
 
     @Test
+    public void testCapacityExecutor() {
+        Actor<Object, Void, Void> actor = ActorSystem.anonymous(2).newActor(message -> {
+            SystemUtils.sleep(10);
+        });
+
+        long start = System.currentTimeMillis();
+
+        actor.execute(() -> {
+            SystemUtils.sleep(10);
+            System.out.println(1);
+        });
+        actor.execute(() -> {
+            SystemUtils.sleep(10);
+            System.out.println(2);
+        });
+
+        try {
+            actor.execute(() -> {
+                SystemUtils.sleep(10);
+                System.out.println(3);
+            });
+            actor.execute(() -> {
+                SystemUtils.sleep(10);
+                System.out.println(4);
+            });
+            actor.execAsyncTimeout(() -> {
+                SystemUtils.sleep(10);
+                System.out.println(5);
+            }, 100);
+        } catch (IllegalStateException e) {
+            fail("The executor should wait");
+        }
+
+        actor.sendPoisonPill();
+        actor.waitForExit();
+        long end = System.currentTimeMillis();
+
+        System.out.println("Time required: " + (end - start));
+
+        assertTrue(end - start >= 25);
+
+
+    }
+
+    @Test
     public void testFinalizersWithProtection() throws InterruptedException, ExecutionException {
         final AtomicInteger num = new AtomicInteger();
         String actorName = "testFinalizersWithProtection";

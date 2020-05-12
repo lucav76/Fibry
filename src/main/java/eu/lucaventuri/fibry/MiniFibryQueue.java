@@ -7,9 +7,14 @@ import java.util.function.Consumer;
 
 public interface MiniFibryQueue<T, R, S> extends MiniQueue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> {
     public static <T, R, S> MiniFibryQueue dropping() {
-        return new MiniFibryQueue<T,R,S>() {
+        return new MiniFibryQueue<T, R, S>() {
             @Override
             public boolean add(Either3<Consumer<S>, T, MessageWithAnswer<T, R>> message) {
+                return false;
+            }
+
+            @Override
+            public boolean offer(Either3<Consumer<S>, T, MessageWithAnswer<T, R>> message, long timeout, TimeUnit unit) throws InterruptedException {
                 return false;
             }
 

@@ -171,6 +171,16 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
     }
 
     /**
+     * Asynchronously executes some logic in the actor. This method is useful for bounded queues, when the caller should wait instead of getting an exception (e.g. Excutors).
+     */
+    public boolean execAsyncTimeout(Runnable worker, int timeoutMs) {
+        if (!isExiting())
+            return ActorUtils.execAsyncTimeout(queue, state -> worker.run(), timeoutMs);
+
+        return false;
+    }
+
+    /**
      * Synchronously executes some logic in the actor.
      */
     public void execAndWait(Runnable worker) {
@@ -205,13 +215,9 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
      */
     @Override
     public boolean sendPoisonPill() {
-        try {
-            execAsync(state -> askExit());
+        execAsyncTimeout(() -> askExit(), Integer.MAX_VALUE);
 
-            return true;
-        } catch (IllegalStateException state) {
-            return false;
-        }
+        return true;
     }
 
     /**

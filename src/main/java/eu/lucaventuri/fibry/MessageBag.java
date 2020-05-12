@@ -143,6 +143,11 @@ public class MessageBag<T, CONV> extends AbstractQueue<T> implements MessageRece
     }
 
     @Override
+    public boolean offer(T message, long timeout, TimeUnit unit) throws InterruptedException {
+        return queue.offer(message, timeout, unit);
+    }
+
+    @Override
     public boolean offer(T element) {
         return queue.offer(element);
     }

@@ -12,12 +12,89 @@ import java.io.OutputStream;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.*;
 
 import static eu.lucaventuri.fibry.CreationStrategy.*;
+
+class SingleTracker<T> {
+    long lastBatchSentTime = 0;
+    int lastNumMessages = 0;
+
+    boolean readyToProcess(long now, long batchMaxSize, long batchMs) {
+        if (lastBatchSentTime == 0)
+            lastBatchSentTime = now;
+
+        if (lastNumMessages >= batchMaxSize || now >= lastBatchSentTime + batchMs) {
+            lastBatchSentTime = now;
+
+            if (lastNumMessages > 0)
+                return true;
+        }
+
+        return false;
+    }
+
+    boolean isEmpty() {
+        return lastNumMessages == 0;
+    }
+
+    void setLastBatchSentTime(long time) {
+        lastBatchSentTime = time;
+    }
+
+    void setLastNumMessages(int numMessages) {
+        this.lastNumMessages = numMessages;
+    }
+
+}
+
+class MultiTracker<T extends MergeableParallelBatches> {
+    Map<String, SingleTracker<T>> mapTrackers = new ConcurrentHashMap<>();
+
+    private SingleTracker<T> tracker(T message) {
+        assert message != null;
+
+        return mapTrackers.computeIfAbsent(message.getKey(), key -> new SingleTracker());
+    }
+
+    boolean readyToProcess(T message, long now, long batchMaxSize, long batchMs) {
+        if (message == null)
+            return false;
+
+        return tracker(message).readyToProcess(now, batchMaxSize, batchMs);
+    }
+
+    boolean isEmpty(T message) {
+        if (message == null)
+            return false;
+
+        return tracker(message).isEmpty();
+    }
+
+    void setLastBatchSentTime(T message, long time) {
+        if (message == null)
+            return;
+
+        tracker(message).setLastBatchSentTime(time);
+    }
+
+    void setLastNumMessages(T message, int numMessages) {
+        if (message == null)
+            return;
+
+        tracker(message).setLastNumMessages(numMessages);
+    }
+
+    void visitTrackers(BiConsumer<String, SingleTracker> visitor) {
+        for (Map.Entry<String, SingleTracker<T>> entry : mapTrackers.entrySet())
+            visitor.accept(entry.getKey(), entry.getValue());
+    }
+}
 
 /**
  * Class providing functions for common use cases
@@ -60,7 +137,7 @@ public class Stereotypes {
 
         /**
          * @param actorLogic Logic associated to each actor (no value returned as a result of the message)
-         * @param <T> Message type
+         * @param <T>        Message type
          * @return a supplier of actors that are going to use the specified logic
          */
         public <T> Supplier<Actor<T, Void, Void>> workersCreator(Consumer<T> actorLogic) {
@@ -71,7 +148,7 @@ public class Stereotypes {
 
         /**
          * @param actorLogic Logic associated to each actor
-         * @param <T> Message type
+         * @param <T>        Message type
          * @return a consumer that for each message accepted will create a new actor that will process it, then dies.
          * When appropriate, this is a simple way to run parallel processing, as long as you don't need to know the result
          */
@@ -83,8 +160,8 @@ public class Stereotypes {
 
         /**
          * @param actorLogic Logic associated to each actor (a value can be returned as a result of the message)
-         * @param <T> Message type
-         * @param <R> Return type
+         * @param <T>        Message type
+         * @param <R>        Return type
          * @return a supplier of actors that are going to use the specified logic
          */
         public <T, R> Supplier<Actor<T, R, Void>> workersWithReturnCreator(Function<T, R> actorLogic) {
@@ -95,7 +172,7 @@ public class Stereotypes {
 
         /**
          * @param actorLogic Logic associated to each actor
-         * @param <T> Message type
+         * @param <T>        Message type
          * @return a function that for each message accepted will create a new actor that will process it, then dies.
          * When appropriate, this is a simple way to run parallel processing
          */
@@ -117,7 +194,7 @@ public class Stereotypes {
          * The workers need to implement the HttpHandler interface.
          * This method is not recommended for a real server, but if you need something simple, it can be useful.
          *
-         * @param port HTTP port to open
+         * @param port    HTTP port to open
          * @param workers pairs of context and handler, associating a path to a worker
          * @throws IOException Thrown if there are IO errors
          */
@@ -141,7 +218,7 @@ public class Stereotypes {
          * The workers need to implement Function&lt;HttpExchange, String&gt;, therefore they can just return a string (so they are only useful on very simple cases).
          * This method is not recommended for a real server, but if you need something simple, it can be useful.
          *
-         * @param port HTTP port to open
+         * @param port         HTTP port to open
          * @param otherWorkers pairs of context and handler, associating a path to a worker
          * @throws IOException
          */
@@ -159,7 +236,7 @@ public class Stereotypes {
          * The workers need to implement Function&lt;HttpExchange, String&gt;, therefore they can just return a string (so they are only useful on very simple cases).
          * This method is not recommended for a real server, but if you need something simple, it can be useful.
          *
-         * @param port HTTP port to open
+         * @param port    HTTP port to open
          * @param workers pairs of context and handler, associating a path to a worker
          * @throws IOException Thrown in case of I/O errors
          */
@@ -208,13 +285,13 @@ public class Stereotypes {
         /**
          * Creates a map-reduce local system, using a pool of actors and a single reducer. This is preferred method to do a Map-reduce job.
          *
-         * @param params Parameters for the creation of the pool
-         * @param mapLogic Logic of the mapper (input -&gt; output)
-         * @param reduceLogic Logic of the reducer (accumulator, newValue -&gt; newAccumulator)
+         * @param params              Parameters for the creation of the pool
+         * @param mapLogic            Logic of the mapper (input -&gt; output)
+         * @param reduceLogic         Logic of the reducer (accumulator, newValue -&gt; newAccumulator)
          * @param initialReducerState Initial state of the reducer. Note: mappers should be stateless
-         * @param <TM> Input type of the mapper
-         * @param <RM> Output type of the mapper == Input type of the reducer
-         * @param <RR> Output type of the reducer
+         * @param <TM>                Input type of the mapper
+         * @param <RM>                Output type of the mapper == Input type of the reducer
+         * @param <RR>                Output type of the reducer
          * @return a MapReducer
          */
         public <TM, RM, RR> MapReducer<TM, RR> mapReduce(PoolParameters params, Function<TM, RM> mapLogic, BiFunction<RR, RM, RR> reduceLogic, RR initialReducerState) {
@@ -230,12 +307,12 @@ public class Stereotypes {
         /**
          * Creates a map-reduce local system, using one actor per request
          *
-         * @param mapLogic Logic of the mapper (input -&gt; output)
-         * @param reduceLogic Logic of the reducer (accumulator, newValue -&gt; newAccumulator)
+         * @param mapLogic            Logic of the mapper (input -&gt; output)
+         * @param reduceLogic         Logic of the reducer (accumulator, newValue -&gt; newAccumulator)
          * @param initialReducerState Initial state of the reducer. Note: mappers should be stateless
-         * @param <TM> Input type of the mapper
-         * @param <RM> Output type of the mapper == Input type of the reducer
-         * @param <RR> Output type of the reducer
+         * @param <TM>                Input type of the mapper
+         * @param <RM>                Output type of the mapper == Input type of the reducer
+         * @param <RR>                Output type of the reducer
          * @return a MapReducer
          */
         public <TM, RM, RR> MapReducer<TM, RR> mapReduce(Function<TM, RM> mapLogic, BiFunction<RR, RM, RR> reduceLogic, RR initialReducerState) {
@@ -338,10 +415,10 @@ public class Stereotypes {
          * - They workers take ownership of the connection, however the acceptor will try to close it anyway. So the worker don't need to close it.
          * - After the connection, a poison pill will be sent, so the actor will die after processing one connection
          *
-         * @param port TCP port
-         * @param workersLogic Logic of each worker
+         * @param port                          TCP port
+         * @param workersLogic                  Logic of each worker
          * @param timeoutConnectionAcceptanceMs Timeout used to check for new connections. The shorter it is, the more responsive will be the acceptor to exit, but it might have an impact on performance. You could try 1000 as a start
-         * @param <S> Type of state
+         * @param <S>                           Type of state
          * @return the acceptor actor
          * @throws IOException this is only thrown if it happens at the beginning, when the ServerSocket is created. Other exceptions will be sent to the console, and the socket will be created again. If the exception is thrown, the actor will also be killed, else it will keep going and retry
          */
@@ -365,9 +442,9 @@ public class Stereotypes {
          * - They workers take ownership of the connection, however the acceptor will try to close it anyway. So the worker don't need to close it.
          * - After the connection, a poison pill will be sent, so the actor will die after processing one connection
          *
-         * @param port TCP port
+         * @param port         TCP port
          * @param workersLogic Logic of each worker
-         * @param <S> Type of state
+         * @param <S>          Type of state
          * @return the acceptor actor
          * @throws IOException this is only thrown if it happens at the beginning, when the ServerSocket is created. Other exceptions will be sent to the console, and the socket will be created again. If the exception is thrown, the actor will also be killed, else it will keep going and retry
          */
@@ -385,11 +462,11 @@ public class Stereotypes {
          * - They workers take ownership of the connection, however the acceptor will try to close it anyway. So the worker don't need to close it.
          * - After the connection, a poison pill will be sent, so the actor will die after processing one connection
          *
-         * @param port TCP port
-         * @param workersBiLogic Logic of each worker
-         * @param stateSupplier Optional state supplier
+         * @param port                          TCP port
+         * @param workersBiLogic                Logic of each worker
+         * @param stateSupplier                 Optional state supplier
          * @param timeoutConnectionAcceptanceMs Timeout used to check for new connections. The shorter it is, the more responsive will be the acceptor to exit, but it might have an impact on performance. You could try 1000 as a start
-         * @param <S> Type of state
+         * @param <S>                           Type of state
          * @return the acceptor actor
          * @throws IOException this is only thrown if it happens at the beginning, when the ServerSocket is created. Other exceptions will be sent to the console, and the socket will be created again. If the exception is thrown, the actor will also be killed, else it will keep going and retry
          */
@@ -413,10 +490,10 @@ public class Stereotypes {
          * - They workers take ownership of the connection, however the acceptor will try to close it anyway. So the worker don't need to close it.
          * - After the connection, a poison pill will be sent, so the actor will die after processing one connection
          *
-         * @param port TCP port
+         * @param port           TCP port
          * @param workersBiLogic Logic of each worker
-         * @param stateSupplier Optional state supplier
-         * @param <S> Type of state
+         * @param stateSupplier  Optional state supplier
+         * @param <S>            Type of state
          * @return the acceptor actor
          * @throws IOException this is only thrown if it happens at the beginning, when the ServerSocket is created. Other exceptions will be sent to the console, and the socket will be created again. If the exception is thrown, the actor will also be killed, else it will keep going and retry
          */
@@ -533,14 +610,14 @@ public class Stereotypes {
         /**
          * Create a mini chat system:
          *
-         * @param actorsPrefix prefix assigned to the user actors (e.g. CHAT|), to prevent sending messages to other actors
+         * @param actorsPrefix     prefix assigned to the user actors (e.g. CHAT|), to prevent sending messages to other actors
          * @param persistenceLogic What to do to persist the messages
-         * - T is the type of message, and it might contain info like the sender, the time and the message;
-         * - The BiConsumer accept the name of the user and the message
-         * - persistenceLogic, is present, can record the message on a DB; this will be done asynchronously
-         * - The message will be also sent to an actor called actorsPrefix+userName (from BiConsumer); but if the actor is not present, it will be dropped. The actor should retrieve the messages from the DB
-         * <p>`
-         * To receive answers, messages need to be sent to the sender using the BiConsumer
+         *                         - T is the type of message, and it might contain info like the sender, the time and the message;
+         *                         - The BiConsumer accept the name of the user and the message
+         *                         - persistenceLogic, is present, can record the message on a DB; this will be done asynchronously
+         *                         - The message will be also sent to an actor called actorsPrefix+userName (from BiConsumer); but if the actor is not present, it will be dropped. The actor should retrieve the messages from the DB
+         *                         <p>`
+         *                         To receive answers, messages need to be sent to the sender using the BiConsumer
          */
         public <T> BiConsumer<String, T> chatSystem(String actorsPrefix, Consumer<T> persistenceLogic) {
             Consumer<T> persistActor = persistenceLogic == null || persistenceLogic instanceof PartialActor ? persistenceLogic : workersAsConsumerCreator(persistenceLogic);
@@ -565,15 +642,16 @@ public class Stereotypes {
         }
 
         /**
-         * Process messages in batch, after grouping by the key and counting how many messages are received.
+         * Process messages in batches, after grouping by the key and counting how many messages are received.
          * e.g. ['a', 'a', 'b', 'c', 'a'] would generate ['a':3, 'b':1, 'c':1]
          *
-         * @param batchProcessor Object that can process the map of messages:num collected
-         * @param batchMaxSize Maximum size of the batch (when reached, the batch will be process)
-         * @param batchMs Maximum ms to wait before processing a batch, even if batchMaxSize has not been reached
-         * @param precisionMs Tentative precision (e.g. the batch is tentatively processed between batchMs and batchMs+precisionMs milliseconds); decreasing this value will increase precision but it might affect negatively a bit the performance
+         * @param batchProcessor          Object that can process the map of messages:num collected
+         * @param batchMaxSize            Maximum size of the batch (when reached, the batch will be process);
+         *                                this is the size of the groupBy labels, not of the messages grouped, so the size of ['a':3, 'b':1, 'c':1] is 3, not 5.
+         * @param batchMs                 Maximum ms to wait before processing a batch, even if batchMaxSize has not been reached
+         * @param precisionMs             Tentative precision (e.g. the batch is tentatively processed between batchMs and batchMs+precisionMs milliseconds); decreasing this value will increase precision but it might affect negatively a bit the performance
          * @param skipTimeWithoutMessages It applies only if there are no messages. If true, the first message will reset the timeout of the batch (e.g. it can buffer the message for a full batchMs ms, even if it has been some time before the last batch)
-         * @param <T> Type of messages
+         * @param <T>                     Type of messages
          * @return Actor
          */
         public <T> BaseActor<T, Void, Void> batchProcessGroupBy(Consumer<Map<T, Long>> batchProcessor, int batchMaxSize, int batchMs, int precisionMs, boolean skipTimeWithoutMessages) {
@@ -590,14 +668,14 @@ public class Stereotypes {
         }
 
         /**
-         * Process messages in batch, after putting them on a list
+         * Process messages in batches, after putting them on a list
          *
-         * @param batchProcessor Object that can process the list of messages collected
-         * @param batchMaxSize Maximum size of the batch (when reached, the batch will be process)
-         * @param batchMs Maximum ms to wait before processing a batch, even if batchMaxSize has not been reached
-         * @param precisionMs Tentative precision (e.g. the batch is tentatively processed between batchMs and batchMs+precisionMs milliseconds); decreasing this value will increase precision but it might affect negatively a bit the performance
+         * @param batchProcessor          Object that can process the list of messages collected
+         * @param batchMaxSize            Maximum size of the batch (when reached, the batch will be process)
+         * @param batchMs                 Maximum ms to wait before processing a batch, even if batchMaxSize has not been reached
+         * @param precisionMs             Tentative precision (e.g. the batch is tentatively processed between batchMs and batchMs+precisionMs milliseconds); decreasing this value will increase precision but it might affect negatively a bit the performance
          * @param skipTimeWithoutMessages It applies only if there are no messages. If true, the first message will reset the timeout of the batch (e.g. it can buffer the message for a full batchMs ms, even if it has been some time before the last batch)
-         * @param <T> Type of messages
+         * @param <T>                     Type of messages
          * @return Actor
          */
         public <T> BaseActor<T, Void, Void> batchProcessList(Consumer<List<T>> batchProcessor, int batchMaxSize, int batchMs, int precisionMs, boolean skipTimeWithoutMessages) {
@@ -614,14 +692,15 @@ public class Stereotypes {
         }
 
         /**
-         * Process messages in batch, after merging them when possible
+         * Process messages in batches, after merging them when possible;
          *
-         * @param batchProcessor Object that can process the list of messages collected
-         * @param batchMaxSize Maximum size of the batch (when reached, the batch will be process)
-         * @param batchMs Maximum ms to wait before processing a batch, even if batchMaxSize has not been reached
-         * @param precisionMs Tentative precision (e.g. the batch is tentatively processed between batchMs and batchMs+precisionMs milliseconds); decreasing this value will increase precision but it might affect negatively a bit the performance
+         * @param batchProcessor          Object that can process the list of messages collected
+         * @param batchMaxSize            Maximum size of the batch (when reached, the batch will be process);
+         *                                this is the number of merged categories, not of the messages arrived, so the size of ['a':3, 'b':1, 'c':1] is 3, not 5.
+         * @param batchMs                 Maximum ms to wait before processing a batch, even if batchMaxSize has not been reached
+         * @param precisionMs             Tentative precision (e.g. the batch is tentatively processed between batchMs and batchMs+precisionMs milliseconds); decreasing this value will increase precision but it might affect negatively a bit the performance
          * @param skipTimeWithoutMessages It applies only if there are no messages. If true, the first message will reset the timeout of the batch (e.g. it can buffer the message for a full batchMs ms, even if it has been some time before the last batch)
-         * @param <T> Type of messages
+         * @param <T>                     Type of messages
          * @return Actor
          */
         public <T extends Mergeable> BaseActor<T, Void, Void> batchProcessMerge(Consumer<Map<String, T>> batchProcessor, int batchMaxSize, int batchMs, int precisionMs, boolean skipTimeWithoutMessages) {
@@ -638,53 +717,122 @@ public class Stereotypes {
         }
 
         /**
-         * Process messages in batch
+         * Process messages in batches, after merging them when possible; the key difference with batchProcessMerge() is that we
+         * Do not process all the batches when a certain number of batches is reached, but we process the single parallel batch composed by a single MergeableParallelBatches
          *
-         * @param itemProcessor Object that can process a single message and collect it in a batch; it returns the number of elements in the batch (which could be different than the number of messages processed if they can be dropped or aggregated)
-         * @param batchProcessor Object that can process the group of messages collected by the itemProcessor
-         * @param batchMaxSize Maximum size of the batch (when reached, the batch will be process)
-         * @param batchMs Maximum ms to wait before processing a batch, even if batchMaxSize has not been reached
-         * @param precisionMs Tentative precision (e.g. the batch is tentatively processed between batchMs and batchMs+precisionMs milliseconds); decreasing this value will increase precision but it might affect negatively a bit the performance
-         * @param <T> Type of messages
+         * @param batchProcessor          Object that can process the list of messages collected
+         * @param batchMaxSize            Maximum size of the batch (when reached, the batch will be process);
+         *                                this is the number of merged categories, not of the messages arrived, so the size of ['a':3, 'b':1, 'c':1] is 3, not 5.
+         * @param batchMs                 Maximum ms to wait before processing a batch, even if batchMaxSize has not been reached
+         * @param precisionMs             Tentative precision (e.g. the batch is tentatively processed between batchMs and batchMs+precisionMs milliseconds); decreasing this value will increase precision but it might affect negatively a bit the performance
+         * @param skipTimeWithoutMessages It applies only if there are no messages. If true, the first message will reset the timeout of the batch (e.g. it can buffer the message for a full batchMs ms, even if it has been some time before the last batch)
+         * @param <T>                     Type of messages
+         * @return Actor
+         */
+        public <T extends MergeableParallelBatches> BaseActor<T, Void, Void> batchProcessMergeParallelBatches(Consumer<T> batchProcessor, int batchMaxSize, int batchMs, int precisionMs, boolean skipTimeWithoutMessages) {
+            Map<String, T> map = new HashMap<>();
+
+            return batchProcessParallelBatch(new MultiTracker<T>(), message -> {
+                AtomicInteger size = new AtomicInteger();
+
+                map.merge(message.getKey(), message, (agg, value) -> {
+                    T result = (T) agg.mergeWith(value);
+
+                    size.set(result.elementsMerged());
+
+                    return result;
+                });
+                return size.get();
+            }, messageKey -> {
+                T mergedMessage = map.get(messageKey);
+
+                if (mergedMessage != null) {
+                    map.remove(mergedMessage.getKey());
+                    batchProcessor.accept(mergedMessage);
+                }
+            }, () -> {
+                for (Map.Entry<String, T> entry : map.entrySet())
+                    batchProcessor.accept(entry.getValue());
+                map.clear();
+            }, batchMaxSize, batchMs, precisionMs, skipTimeWithoutMessages);
+        }
+
+        /**
+         * Process messages in batchex. Note: itemMerger and batchProcessor are working together
+         *
+         * @param itemMerger     Object that can process a single message and collect it in a batch; it returns the number of elements in the batch (which could be different than the number of messages processed if they can be dropped or aggregated)
+         * @param batchProcessor Object that can process the group of messages collected by the itemMerger
+         * @param batchMaxSize   Maximum size of the batch (when reached, the batch will be process)
+         * @param batchMs        Maximum ms to wait before processing a batch, even if batchMaxSize has not been reached
+         * @param precisionMs    Tentative precision (e.g. the batch is tentatively processed between batchMs and batchMs+precisionMs milliseconds); decreasing this value will increase precision but it might affect negatively a bit the performance
+         * @param <T>            Type of messages
          * @return an actor that can process messages in batches
          */
-        public <T> BaseActor<T, Void, Void> batchProcess(Function<T, Integer> itemProcessor, Runnable batchProcessor, int batchMaxSize, int batchMs, int precisionMs, boolean skipTimeWithoutMessages) {
+        public <T> BaseActor<T, Void, Void> batchProcess(Function<T, Integer> itemMerger, Runnable batchProcessor, int batchMaxSize, int batchMs, int precisionMs, boolean skipTimeWithoutMessages) {
+            SingleTracker tracker = new SingleTracker();
+
             BaseActor<T, Void, Void> actor = ActorUtils.initRef(ref -> {
                 return new CustomActor<T, Void, Void>(new FibryQueue<>(), null, state -> Exceptions.silence(batchProcessor::run), precisionMs) {
-                    long lastBatchSentTime = 0;
-                    int numMessages;
-
                     @Override
                     protected void onMessage(T message) {
-                        if (skipTimeWithoutMessages && numMessages == 0)
-                            lastBatchSentTime = System.currentTimeMillis();
+                        if (skipTimeWithoutMessages && tracker.isEmpty())
+                            tracker.setLastBatchSentTime(System.currentTimeMillis());
 
-                        numMessages = itemProcessor.apply(message);
+                        tracker.setLastNumMessages(itemMerger.apply(message));
 
                         processBatchIfReady();
                     }
 
                     @Override
                     protected void onNoMessages() {
-                        if (lastBatchSentTime == 0)
-                            lastBatchSentTime = System.currentTimeMillis();
                         processBatchIfReady();
                     }
 
                     private void processBatchIfReady() {
-                        long now = System.currentTimeMillis();
-
-                        if (lastBatchSentTime == 0)
-                            lastBatchSentTime = now;
-
-                        if (numMessages >= batchMaxSize || now >= lastBatchSentTime + batchMs) {
-                            lastBatchSentTime = now;
-
-                            if (numMessages > 0)
-                                batchProcessor.run();
-                        }
+                        if (tracker.readyToProcess(System.currentTimeMillis(), batchMaxSize, batchMs))
+                            batchProcessor.run();
                     }
                 };
+            });
+
+            return strategy.start(actor);
+        }
+
+        /**
+         * Process messages in batches. Note: itemMerger and batchProcessorByKey are working together
+         *
+         * @param itemMerger          Object that can process a single message and collect it in a batch; it returns the number of elements in the batch (which could be different than the number of messages processed if they can be dropped or aggregated)
+         * @param batchProcessorByKey Object that can process the group of messages collected by the itemMerger, for a single key
+         * @param batchMaxSize        Maximum size of the batch (when reached, the batch will be process)
+         * @param batchMs             Maximum ms to wait before processing a batch, even if batchMaxSize has not been reached
+         * @param precisionMs         Tentative precision (e.g. the batch is tentatively processed between batchMs and batchMs+precisionMs milliseconds); decreasing this value will increase precision but it might affect negatively a bit the performance
+         * @param <T>                 Type of messages
+         * @return an actor that can process messages in batches
+         */
+        private <T extends MergeableParallelBatches> BaseActor<T, Void, Void> batchProcessParallelBatch(MultiTracker<T> tracker, Function<T, Integer> itemMerger, Consumer<String> batchProcessorByKey, Runnable batchProcessorOnShutdown, int batchMaxSize, int batchMs, int precisionMs, boolean skipTimeWithoutMessages) {
+            BaseActor<T, Void, Void> actor = ActorUtils.initRef(ref -> new CustomActor<T, Void, Void>(new FibryQueue<>(), null, state -> Exceptions.silence(batchProcessorOnShutdown::run), precisionMs) {
+                @Override
+                protected void onMessage(T message) {
+                    if (skipTimeWithoutMessages && tracker.isEmpty(message))
+                        tracker.setLastBatchSentTime(message, System.currentTimeMillis());
+
+                    tracker.setLastNumMessages(message, itemMerger.apply(message));
+
+                    processBatchIfReady(message);
+                }
+
+                @Override
+                protected void onNoMessages() {
+                    tracker.visitTrackers((key, singleTracker) -> {
+                        if (singleTracker.readyToProcess(System.currentTimeMillis(), batchMaxSize, batchMs))
+                            batchProcessorByKey.accept(key);
+                    });
+                }
+
+                private void processBatchIfReady(T message) {
+                    if (tracker.readyToProcess(message, System.currentTimeMillis(), batchMaxSize, batchMs))
+                        batchProcessorByKey.accept(message.getKey());
+                }
             });
 
             return strategy.start(actor);

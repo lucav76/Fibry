@@ -1,6 +1,7 @@
 package eu.lucaventuri.fibry;
 
 import eu.lucaventuri.common.Mergeable;
+import eu.lucaventuri.common.MergeableParallelBatches;
 import eu.lucaventuri.common.SystemUtils;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -27,7 +28,48 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+
+class M implements MergeableParallelBatches {
+    private final String key;
+    private final String value;
+    private final int numMerged;
+
+    M(String key, String value) {
+        this(key, value, 1);
+    }
+
+    M(String key, String value, int numMerged) {
+        this.key = key;
+        this.value = value;
+        this.numMerged = numMerged;
+    }
+
+    @Override
+    public String getKey() {
+        return key;
+    }
+
+    @Override
+    public Mergeable mergeWith(Mergeable m) {
+        if (!key.equals(m.getKey()))
+            throw new IllegalArgumentException("Cannot merge two different keys: " + key + " vs " + m.getKey());
+
+        return new M(key, value + ((M) m).value, numMerged + 1);
+    }
+
+    @Override
+    public String toString() {
+        return key + ": " + value;
+    }
+
+    @Override
+    public int elementsMerged() {
+        return numMerged;
+    }
+}
+
 
 public class TestStereotypes {
 
@@ -451,33 +493,7 @@ public class TestStereotypes {
 
     @Test
     public void testMergeableBatches() {
-        class M implements Mergeable {
-            private final String key;
-            private final String value;
 
-            M(String key, String value) {
-                this.key = key;
-                this.value = value;
-            }
-
-            @Override
-            public String getKey() {
-                return key;
-            }
-
-            @Override
-            public Mergeable mergeWith(Mergeable m) {
-                if (!key.equals(m.getKey()))
-                    throw new IllegalArgumentException("Cannot merge two different keys: " + key + " vs " + m.getKey());
-
-                return new M(key, value + ((M) m).value);
-            }
-
-            @Override
-            public String toString() {
-                return key + ": " + value;
-            }
-        }
         Map<String, Mergeable> mapJoined = new ConcurrentHashMap<>();
         BaseActor<Mergeable, Void, Void> actor = Stereotypes.def().batchProcessMerge(map -> map.forEach(mapJoined::put), 30, 100_000, 1, true);
 
@@ -545,7 +561,56 @@ public class TestStereotypes {
     }
 
     @Test
-    public void testBatchesGroupBy() {
+    public void testBatchesGroupBy() throws InterruptedException {
+        CountDownLatch latch = new CountDownLatch(1);
+
+        BaseActor<String, Void, Void> actor = Stereotypes.def().batchProcessGroupBy(mapGroupBy -> {
+            if (mapGroupBy.get("A") == 3)
+                latch.countDown();
+        }, 5, 1_000_000, 1, true);
+
+
+        actor.sendMessage("A");
+        actor.sendMessage("A");
+        actor.sendMessage("B");
+        actor.sendMessage("C");
+        actor.sendMessage("D");
+        actor.sendMessage("D");
+        actor.sendMessage("B");
+        actor.sendMessage("A");
+        actor.sendMessage("E");
+
+        latch.await();
+        actor.sendPoisonPill();
+        actor.waitForExit();  // Added to the batch when the actor exits
+    }
+
+    @Test
+    public void testBatchesGroupByWait() throws InterruptedException {
+        CountDownLatch latch = new CountDownLatch(1);
+
+        BaseActor<String, Void, Void> actor = Stereotypes.def().batchProcessGroupBy(mapGroupBy -> {
+            if (mapGroupBy.get("A") == 3)
+                latch.countDown();
+        }, 10, 10, 1, true);
+
+
+        actor.sendMessage("A");
+        actor.sendMessage("A");
+        actor.sendMessage("B");
+        actor.sendMessage("C");
+        actor.sendMessage("D");
+        actor.sendMessage("D");
+        actor.sendMessage("B");
+        actor.sendMessage("A");
+
+        latch.await();
+        actor.sendPoisonPill();
+        actor.waitForExit();  // Added to the batch when the actor exits
+    }
+
+    @Test
+    public void testBatchesGroupByCleaning() {
         final AtomicReference<Map<String, Long>> map = new AtomicReference<>();
         BaseActor<String, Void, Void> actor = Stereotypes.def().batchProcessGroupBy(res -> map.set(new HashMap<>(res)), 10, 1_000_000, 1, true);
 
@@ -566,5 +631,59 @@ public class TestStereotypes {
         assertEquals(Long.valueOf(2), map.get().get("B"));
         assertEquals(Long.valueOf(1), map.get().get("C"));
         assertEquals(Long.valueOf(2), map.get().get("D"));
+    }
+
+    @Test
+    public void testParallelBatchesBySize() throws InterruptedException {
+        testParallelBatches(3, 10_000_000);
+    }
+
+    @Test
+    public void testParallelBatchesByTimeout() throws InterruptedException {
+        testParallelBatches(5, 50);
+        return;
+    }
+
+    private void testParallelBatches(int parallelBatchSize, int timeout) throws InterruptedException {
+        CountDownLatch countA = new CountDownLatch(1);
+        CountDownLatch countB = new CountDownLatch(1);
+        CountDownLatch countC = new CountDownLatch(1);
+        BaseActor<M, Void, Void> actor = Stereotypes.def().batchProcessMergeParallelBatches(
+                m -> {
+                    System.out.println(m);
+                    if (m.getKey().equals("A")) {
+                        assertEquals(countA.getCount(), 1);
+                        countA.countDown();
+                        assertEquals(m.toString(), "A: 123");
+                    }
+                    if (m.getKey().equals("B")) {
+                        assertEquals(countB.getCount(), 1);
+                        countB.countDown();
+                        assertEquals(m.toString(), "B: 456");
+                    }
+                    if (m.getKey().equals("C")) {
+                        assertEquals(countA.getCount(), 0);
+                        assertEquals(countB.getCount(), 0);
+                        assertEquals(countC.getCount(), 1);
+                        countC.countDown();
+                        assertEquals(m.toString(), "C: 0"); // Sent at cleanup if not by timeout
+                    }
+                }, parallelBatchSize, timeout, 1, false);
+
+        actor.sendMessage(new M("A", "1"));
+        actor.sendMessage(new M("B", "4"));
+        actor.sendMessage(new M("A", "2"));
+        actor.sendMessage(new M("B", "5"));
+        actor.sendMessage(new M("B", "6"));
+        actor.sendMessage(new M("C", "0"));
+        actor.sendMessage(new M("A", "3"));
+
+
+        countA.await();
+        countB.await();
+        actor.sendPoisonPill();
+        actor.waitForExit();  // Added to the batch when the actor exits
+
+        countC.await();
     }
 }

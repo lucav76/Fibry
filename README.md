@@ -257,13 +257,13 @@ Listening to changes in a directory can be a bit difficult in Java. Fibry provid
  
 Some warnings
 ===
-Fibry is experimental, and to leverage its potential you need to use Loom, which is a project under development that it's not clear when it will be merged into the OpenJDK; that said, the development of Loom seems very active and proceeding well.
+Fibry is still experimental (though I am using it in several projects), and to leverage its full potential you need to use Loom, which is a project under development, and is not clear when Loom will be merged into the OpenJDK; that said, the development of Loom seems very active and proceeding well.
 Loom might still have some bugs, as I saw some errors popping up when exchanging sync messages between a thread and a fiber, so it might be better to not mix them for now.
 If you start to use Fibry and find some bugs, please notify me.
 The API is going to change a bit, while I start to use it in more projects. Nothing drastic, but you might find a new parameter in some methods. I apologise for that, but it is necessary.
 
 As of today, not every network operation is *fiber friendly*. You can find a list of what works and what does not [here](https://wiki.openjdk.java.net/display/loom/Networking+IO). 
-In particular UDP is only partially supported. Selectors are also not supported, but as avoiding non-blocking operation is a key goal of fibers, this should not be a concern.
+In particular, UDP is only supported starting from Java 15. Selectors are also problematic, but as avoiding non-blocking operation is a key goal of fibers, this should not be a concern.
 
 At the moment I have no plans to make a distributed version of Fibry, but if there is real interest I would be happy to do it.
 

@@ -1,8 +1,8 @@
 Fibry
 ===
 
-Fibry is an experimental Actor System built to be simple and flexible to use. Hopefully, it will also be fun to use.
-Fibry is the the **first Java Actor System using fibers from [Project Loom](https://openjdk.java.net/projects/loom/)**.
+Fibry is an experimental Actor System built to be simple and flexible. Hopefully, it will also be fun to use.
+Fibry is the **first Java Actor System using fibers from [Project Loom](https://openjdk.java.net/projects/loom/)**, however it also works with threads.
 
 Project Loom is an OpenJDK project that is expected to bring fibers (green threads) and continuations (co-routines) to Java.
 Fibry 1.X works with any version of Java starting from Java 8, while Fibry 2.X is targeting **Java 11**, but in both cases, you will need to use Loom if you want to leverage the power of fibers.
@@ -14,7 +14,8 @@ Simplicity first
 ===
 *Fibry* has been designed to be simple yet flexible, **easy to add to an existing project**:
 - **Fibry has no dependencies**, so no conflicts, no surprises and just a tiny jar available in the Maven Central repository
-- Your actors can and should use synchronous logic
+- Your actors can and should use **synchronous logic**
+- You can use both **fibers** (if you run on Loom) and **threads**
 - There is a series of Stereotypes to handle common scenarios
 - Your actors don't need to extend any particular class, they can just implement **Consumer** or **Function**
 - You actors have anyway the option to extend **CustomActor** and **CustomActorWithResult**, if this suits you best 

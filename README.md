@@ -1,8 +1,8 @@
 Fibry
 ===
 
-Fibry is an experimental Actor System built to be simple and flexible to use. Hopefully it will also be fun to use.
-Fibry is the the **first Java Actor System using fibers from [Project Loom](https://openjdk.java.net/projects/loom/)**.
+Fibry is an experimental Actor System built to be simple and flexible. Hopefully it will also be fun to use.
+Fibry is the **first Java Actor System using fibers from [Project Loom](https://openjdk.java.net/projects/loom/)**, however it also works with threads.
 
 Project Loom is an OpenJDK project that is expected to bring fibers (green threads) and continuations (co-routines) to Java.
 Fibry works from any version of Java **starting from Java 8**, but you will need to use Loom if you want to leverage the power of fibers.
@@ -12,7 +12,8 @@ Fibry allows you to send code to be execute in the thread/fiber of an actor, a m
 Simplicity first
 ===
 *Fibry* has been designed to be simple yet flexible:
-- Your actor can and should use synchronous logic
+- Your actor can and should use **synchronous logic**
+- You can use both **fibers** (if you run on Loom) and **threads**
 - There is a series of Stereotypes to handle common scenarios
 - You actors don't need to extend any particular class but they can just implement **Consumer** or **Function**
 - You actors have anyway the option to extend **CustomActor** and **CustomActorWithResult**, if this suits you best 
@@ -20,8 +21,8 @@ Simplicity first
 - It is simple to retrieve the result of a message
 - It is possible to send messages to named actors even before they are created, potentially simplifying your logic; the messages can be discarded or processed when the actor will be available 
 - There is a fluid interface to build the actors
-- You can receive messages of your choice while processing a message  
-- Many types of actor implement the **Executor** interface, so you can "send code" to be executed in the thread/fiber of almost any actors, and use them on service that are not actor-aware
+- You can *receive* messages of your choice while processing a message (like in Erlang)
+- Many types of actor implement the **Executor** interface, so you can "send code" to be executed in the thread/fiber of almost any actors, and use them on services that are not actor-aware
 - **Fibry has no dependencies**, so no conflicts, no surprises and just a tiny jar available in the Maven Central repository
 - Fibry implements a very simple **Map/Reduce mechanism**, limited to the local computer.
 - Fibry implements a very simple **Pub/Sub** mechanism, limited to the local computer.

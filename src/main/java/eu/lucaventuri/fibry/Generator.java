@@ -26,8 +26,6 @@ public interface Generator<T> extends Iterable<T> {
         GENERATING,
         /** All the elements have been produced */
         FINISHED;
-
-        static boolean verifyCorrectState = true;
     }
 
     interface Yielder<T> {
@@ -61,15 +59,17 @@ public interface Generator<T> extends Iterable<T> {
      * Transforms a blocking queue in a generator; the difference being that we will explicitly says when the data are over.
      * This is an advanced method, and callers should preferably use fromProducer() or fromAdvancedProducer()
      */
-    private static <T> Iterator<T> fromQueue(BlockingQueue<T> queue, AtomicReference<State> stateRef) {
+    private static <T> Iterator<T> fromQueue(BlockingQueue<T> queue, AtomicReference<State> stateRef, final boolean maxThroughput) {
         return new Iterator<T>() {
             @Override
             public boolean hasNext() {
                 State state;
 
                 // Waiting to understand if there is an element or not
-                while ((state = stateRef.get()) == State.WAITING && queue.isEmpty())
-                    Thread.onSpinWait();
+                while ((state = stateRef.get()) == State.WAITING && queue.isEmpty()) {
+                    if (!maxThroughput)
+                        Thread.onSpinWait();
+                }
 
                 return state == State.GENERATING || !queue.isEmpty();
             }
@@ -99,6 +99,13 @@ public interface Generator<T> extends Iterable<T> {
      * Simplest way to create a generator, but it can be slow if the queue size is small, so a queue size of 100+ is recommended if performance are not good
      */
     static <T> Generator<T> fromProducer(GeneratorProducer<T> producer, int queueSize) {
+        return fromProducer(producer, queueSize, false);
+    }
+
+    /**
+     * Simplest way to create a generator, but it can be slow if the queue size is small, so a queue size of 100+ is recommended if performance are not good
+     */
+    static <T> Generator<T> fromProducer(GeneratorProducer<T> producer, int queueSize, boolean maxThroughput) {
         assert queueSize >= 1;
 
         return () -> {
@@ -112,7 +119,7 @@ public interface Generator<T> extends Iterable<T> {
                 stateRef.set(State.FINISHED);
             });
 
-            return fromQueue(queue, stateRef);
+            return fromQueue(queue, stateRef, maxThroughput);
         };
     }
 
@@ -120,6 +127,13 @@ public interface Generator<T> extends Iterable<T> {
      * Simplest way to create a generator, but it can be slow if the queue size is small, so a queue size of 100+ is recommended if performance are not good
      */
     static <T> Generator<T> fromParallelProducers(Supplier<GeneratorProducer<T>> producerSupplier, int numProducers, int queueSize) {
+        return fromParallelProducers(producerSupplier, numProducers, queueSize, false);
+    }
+
+    /**
+     * Simplest way to create a generator, but it can be slow if the queue size is small, so a queue size of 100+ is recommended if performance are not good
+     */
+    static <T> Generator<T> fromParallelProducers(Supplier<GeneratorProducer<T>> producerSupplier, int numProducers, int queueSize, boolean maxThroughput) {
         assert queueSize >= 1;
 
         return () -> {
@@ -146,7 +160,7 @@ public interface Generator<T> extends Iterable<T> {
                 });
             }
 
-            return fromQueue(queue, stateRef);
+            return fromQueue(queue, stateRef, maxThroughput);
         };
     }
 
@@ -155,6 +169,14 @@ public interface Generator<T> extends Iterable<T> {
      * Failing to do so and returning null, will eventually result in a NoSuchElementException
      */
     static <T> Generator<T> fromAdvancedProducer(AdvancedGeneratorProducer<T> producer, int queueSize) {
+        return fromAdvancedProducer(producer, queueSize, false);
+    }
+
+    /**
+     * This is the way to create a fast generator, with the small inconvenience that the last element should be returned, not yielded.
+     * Failing to do so and returning null, will eventually result in a NoSuchElementException
+     */
+    static <T> Generator<T> fromAdvancedProducer(AdvancedGeneratorProducer<T> producer, int queueSize, boolean maxThroughput) {
         assert queueSize >= 1;
 
         return () -> {
@@ -169,7 +191,7 @@ public interface Generator<T> extends Iterable<T> {
                 offerLastElement(stateRef, queue, lastElement);
             });
 
-            return fromQueue(queue, stateRef);
+            return fromQueue(queue, stateRef, maxThroughput);
         };
     }
 
@@ -180,6 +202,16 @@ public interface Generator<T> extends Iterable<T> {
      * Failing to do so and returning null, will eventually result in a NoSuchElementException
      */
     static <T> Generator<T> fromNonEmptyAdvancedProduce(AdvancedGeneratorProducer<T> producer, int queueSize) {
+        return fromNonEmptyAdvancedProduce(producer, queueSize, false);
+    }
+
+    /**
+     * This creates the fastest generator (slightly faster than advanced generators), with two small inconveniences:
+     * - the last element should be returned, not yielded
+     * - the generator needs to produce at least one element (the one that is returned)
+     * Failing to do so and returning null, will eventually result in a NoSuchElementException
+     */
+    static <T> Generator<T> fromNonEmptyAdvancedProduce(AdvancedGeneratorProducer<T> producer, int queueSize, boolean maxThroughput) {
         assert queueSize >= 1;
 
         return () -> {
@@ -193,12 +225,12 @@ public interface Generator<T> extends Iterable<T> {
                 offerLastElement(stateRef, queue, lastElement);
             });
 
-            return fromQueue(queue, stateRef);
+            return fromQueue(queue, stateRef, maxThroughput);
         };
     }
 
     static <T> void offerLastElement(AtomicReference<State> stateRef, BlockingQueue<T> queue, T lastElement) {
-        assert !State.verifyCorrectState || lastElement != null || stateRef.get() == State.WAITING;
+        assert lastElement != null || stateRef.get() == State.WAITING;
 
         if (lastElement != null) {
             stateRef.set(State.WAITING);

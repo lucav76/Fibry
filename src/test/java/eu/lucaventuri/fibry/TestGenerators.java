@@ -11,12 +11,12 @@ import java.util.stream.Stream;
 
 public class TestGenerators extends TestCase {
     public void testGeneratorSmall() {
-        testGenerator(1, 10);
-        testGenerator(5, 10);
-        testGenerator(20, 10);
+        testGenerator(1, 10, false);
+        testGenerator(5, 10, false);
+        testGenerator(20, 10, false);
 
-        testGenerator(1, 100_000);
-        testGenerator(100, 100_000);
+        testGenerator(1, 100_000, false);
+        testGenerator(100, 100_000, false);
     }
 
     public void testGeneratorMultipleTimes() {
@@ -33,19 +33,23 @@ public class TestGenerators extends TestCase {
     }
 
     public void testGenerator100K_1() {
-        testGenerator(1, 100_000);
+        testGenerator(1, 100_000, false);
     }
 
     public void testGenerator100K_10() {
-        testGenerator(1, 100_000);
+        testGenerator(1, 100_000, false);
     }
 
     public void testGenerator100K_100() {
-        testGenerator(100, 100_000);
+        testGenerator(100, 100_000, false);
     }
 
     public void testGenerator1M_100() {
-        testGenerator(100, 1_000_000);
+        testGenerator(100, 1_000_000, false);
+    }
+
+    public void testGenerator1M_100_max() {
+        testGenerator(100, 1_000_000, true);
     }
 
     public void testStream() {
@@ -92,13 +96,17 @@ public class TestGenerators extends TestCase {
     }
 
     public void testParallelGenerator1M_100_8() {
-        testParallelGenerators(1000, 125_000, 8);
+        testParallelGenerators(1000, 125_000, 8, false);
+    }
+
+    public void testParallelGenerator1M_100_8_MAX() {
+        testParallelGenerators(1000, 125_000, 8, true);
     }
 
     public void testAdvancedGeneratorSmall() {
-        testAdvancedGenerator(1, 10);
-        testAdvancedGenerator(5, 10);
-        testAdvancedGenerator(20, 10);
+        testAdvancedGenerator(1, 10, false);
+        testAdvancedGenerator(5, 10, false);
+        testAdvancedGenerator(20, 10, false);
     }
 
     public void testAdvancedGeneratorNonEmptyError() throws InterruptedException {
@@ -106,62 +114,65 @@ public class TestGenerators extends TestCase {
     }
 
     public void testAdvancedGeneratorError() throws InterruptedException {
-        testForErrors(() -> testAdvancedGenerator(1, 5));
+        testForErrors(() -> testAdvancedGenerator(1, 5, false));
     }
 
     public void testGeneratorError() throws InterruptedException {
-        testForErrors(() -> testGenerator(1, 5));
+        testForErrors(() -> testGenerator(1, 5, false));
     }
 
     public void testForErrors(Runnable run) throws InterruptedException {
-        Generator.State.verifyCorrectState = false;
+        int n = 50;
+        CountDownLatch latch = new CountDownLatch(n);
 
-        try {
-            int n = 100;
-            CountDownLatch latch = new CountDownLatch(n);
-
-            for (int i = 0; i < n; i++) {
-                new Thread(() -> {
-                    run.run();
-                    latch.countDown();
-                    //System.out.println("Counting down...");
-                }).start();
-            }
-
-            latch.await();
-        } finally {
-            Generator.State.verifyCorrectState = true;
+        for (int i = 0; i < n; i++) {
+            new Thread(() -> {
+                run.run();
+                latch.countDown();
+                //System.out.println("Counting down...");
+            }).start();
         }
+
+        latch.await();
     }
 
     public void testAdvancedGenerator1M_1() {
-        testAdvancedGenerator(1, 1_000_000);
+        testAdvancedGenerator(1, 1_000_000, false);
     }
 
+    public void testAdvancedGenerator1M_1_MAX() {
+        testAdvancedGenerator(1, 1_000_000, true);
+    }
+
+
     public void testAdvancedGenerator1M_100() {
-        testAdvancedGenerator(100, 1_000_000);
+        testAdvancedGenerator(100, 1_000_000, false);
+    }
+
+    public void testAdvancedGenerator1M_100_MAX() {
+        testAdvancedGenerator(100, 1_000_000, true);
     }
 
     public void testAdvancedGeneratorNonEmpty1M_100() {
         testAdvancedGeneratorNonEmpty(100, 1_000_000);
     }
 
-    private void testGenerator(int queueSize, int num) {
+    private void testGenerator(int queueSize, int num, boolean maxThroughput) {
         Generator<Integer> gen = Generator.fromProducer(yielder -> {
             for (int i = 0; i <= num; i++)
                 yielder.yield(i);
-        }, queueSize);
+        }, queueSize, maxThroughput);
 
         testResult(gen);
     }
 
-    private void testParallelGenerators(int queueSize, int numPerProducer, int numProducers) {
+    private void testParallelGenerators(int queueSize, int numPerProducer, int numProducers, boolean maxThroughput) {
         AtomicInteger index = new AtomicInteger();
         Generator<Integer> gen = Generator.fromParallelProducers(() -> yielder -> {
             int ind = index.getAndIncrement();
             for (int i = 0; i <= numPerProducer; i++)
                 yielder.yield((numPerProducer + 1) * ind + i);
-        }, numProducers, queueSize);
+        }, numProducers, queueSize, maxThroughput);
 
         testResult(gen);
     }
@@ -180,13 +191,13 @@ public class TestGenerators extends TestCase {
         return sum;
     }
 
-    private void testAdvancedGenerator(int queueSize, int num) {
+    private void testAdvancedGenerator(int queueSize, int num, boolean maxThroughput) {
         Generator<Integer> gen = Generator.fromAdvancedProducer(yielder -> {
             for (int i = 0; i <= num - 1; i++)
                 yielder.yield(i);
 
             return num;
-        }, num);
+        }, num, maxThroughput);
 
         testResult(gen);
     }

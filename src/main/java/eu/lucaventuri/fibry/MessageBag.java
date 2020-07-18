@@ -42,7 +42,7 @@ public class MessageBag<T, CONV> extends AbstractQueue<T> implements MessageRece
             try {
                 return queue.take();
             } catch (InterruptedException e) {
-                SystemUtils.sleep(1);
+                SystemUtils.sleep(0);
             }
         }
     }

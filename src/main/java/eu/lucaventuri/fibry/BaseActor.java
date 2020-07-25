@@ -297,6 +297,11 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
     }
 
     @Override
+    public BaseActor<T, R, S> sendMessages(T... messages) {
+        return (BaseActor<T, R, S>) PartialActor.super.sendMessages(messages);
+    }
+
+    @Override
     public void setState(S state) {
         this.state = state;
     }

@@ -249,18 +249,6 @@ public final class ActorUtils {
         }
     }
 
-    public static void runAsFiber(Callable... callables) {
-        if (mmhFiberScopeScheduleCallable == null)
-            throw new UnsupportedOperationException("No fibers available!");
-
-        try {
-            for (Callable callable : callables)
-                mhFiberScopeScheduleRunnable.invoke(globalFiberScope, callable);
-        } catch (Throwable e) {
-            e.printStackTrace();
-        }
-    }
-
     /**
      * Implements a typical initialization where ac actor is created and its logic needs access to the actor address
      */

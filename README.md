@@ -10,7 +10,7 @@ Fibry 1.X is supported, and changes are available in the **jdk8** branch.
 Fibry aims to replicate some of the features of the Erlang Actor System in Java.
 Fibry allows you to send code to be executed in the thread/fiber of an actor, a mechanism similar to the one used in Chromium.
 
-Simplicity first
+Simplicity first, flexibility second
 ===
 *Fibry* has been designed to be simple yet flexible, **easy to add to an existing project**:
 - **Fibry has no dependencies**, so no conflicts, no surprises and just a tiny jar available in the Maven Central repository
@@ -26,6 +26,7 @@ Simplicity first
 - You can receive messages of your choice while processing a message  
 - Many types of actor implement the **Executor** interface, so you can "send code" to be executed in the thread/fiber of almost any actors, and use them on service that are not actor-aware
 - Most actors can be converted to **Reactive Flow Subscribers** (TCK tested), calling *asReactiveSubscriber()*
+- Fibry can create generators (Iterable) in a simple and effective way
 - It implements a very simple **Map/Reduce mechanism**, limited to the local computer.
 - It implements a very simple **Pub/Sub** mechanism, limited to the local computer.
 - It implements a simple **TCP port forwarding**, both as a Stereotype and as a small cli application: TcpForwarding
@@ -217,6 +218,30 @@ While limited, this means that Fibry can be distributed across HTTP clusters, an
 For now, you are still responsible to create an endpoint to receive the messages and send them to the appropriate actors.
 It can also be used to deal with queues in a transparent way, though at the moment you have to implement the logic by yourself.
 
+ 
+ Generators
+ ===
+ Some languages like Python have the possibility to *yield* a value, meaning that the function returns an iterator / generator.
+ Java does not have such a feature, but now Fibry implements several mechanisms for that, offering you a choice between simplicity and speed.
+ Clearly this is a bit less elegant and more complex than having a yield keyword, but in at least it can be customized based on your needs.
+ 
+ This is a basic example, but you can find more examples in the unit test. I plan to write an article about this feature, but not anytime soon.
+ 
+ ```Java
+Iterable<Integer> gen = Generator.fromProducer(yielder -> {
+  for (int i = 0; i <= 100; i++) {
+    if (Math.random() < 0.5)
+      yielder.yield(i);
+  }
+}, 5, true);
+```
+ 
+Stream can often substitute generators, but this example would be tricky because you don't know ina dvance the length of the stream.
+You could use a list, but then you need to keep all the elements in RAM, which is not always possible.
+You can write an Iterable, but it is qutie some code, and not always super straightforward.
+
+Fibry Generators don't have these limitations, and can let you customize how many elements to keep in memory (5 in mt example); more elements usually mean better performance, but Fibry has also other ways to tune speed.
+Please note that every generator is back by a thread / fiber, and while it can process millions of elements per second, it might still be slower than other solutions.
  
  
 

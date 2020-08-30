@@ -10,6 +10,18 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 public class TestGenerators extends TestCase {
+    public void testGeneratorRndom() {
+        Iterable<Integer> gen = Generator.fromProducer(yielder -> {
+            for (int i = 0; i <= 10; i++) {
+                if (Math.random() < 0.5)
+                    yielder.yield(i);
+            }
+        }, 5, true);
+
+        for(int n: gen)
+            System.out.println(n);
+    }
+
     public void testGeneratorSmall() {
         testGenerator(1, 10, false);
         testGenerator(5, 10, false);

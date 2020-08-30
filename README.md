@@ -2,7 +2,7 @@ Fibry
 ===
 
 Fibry is an experimental Actor System built to be simple and flexible. Hopefully, it will also be fun to use.
-Fibry is the **first Java Actor System using fibers from [Project Loom](https://openjdk.java.net/projects/loom/)**, however it also works with threads.
+Fibry is the **first Java Actor System using fibers (now called **Virtual Threads**) from [Project Loom](https://openjdk.java.net/projects/loom/)**, however it also works with threads.
 
 Project Loom is an OpenJDK project that is expected to bring fibers (green threads) and continuations (co-routines) to Java.
 Fibry 1.X works with any version of Java starting from Java 8, while Fibry 2.X is targeting **Java 11**, but in both cases, you will need to use Loom if you want to leverage the power of fibers.

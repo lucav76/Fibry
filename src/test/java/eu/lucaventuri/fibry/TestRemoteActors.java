@@ -63,7 +63,7 @@ class PhoneNumber implements Serializable {
 public class TestRemoteActors {
     public void testNoReturn() throws IOException, InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
-        int port = 9001;
+        int port = 19001;
 
         Stereotypes.def().embeddedHttpServer(port, (HttpExchange ex) -> {
             latch.countDown();
@@ -78,7 +78,7 @@ public class TestRemoteActors {
 
     public void testWithReturnGET() throws IOException, InterruptedException, ExecutionException {
         CountDownLatch latch = new CountDownLatch(1);
-        int port = 9002;
+        int port = 19002;
 
         Stereotypes.def().embeddedHttpServer(port, (HttpExchange ex) -> {
             latch.countDown();
@@ -97,7 +97,7 @@ public class TestRemoteActors {
 
     public void testWithReturnPOST() throws IOException, InterruptedException, ExecutionException {
         CountDownLatch latch = new CountDownLatch(1);
-        int port = 9003;
+        int port = 19003;
 
         Stereotypes.def().embeddedHttpServer(port, (HttpExchange ex) -> {
             latch.countDown();
@@ -116,7 +116,7 @@ public class TestRemoteActors {
 
     public void testWithReturnPUT() throws IOException, InterruptedException, ExecutionException {
         CountDownLatch latch = new CountDownLatch(1);
-        int port = 9004;
+        int port = 19004;
 
         Stereotypes.def().embeddedHttpServer(port, (HttpExchange ex) -> {
             latch.countDown();
@@ -135,7 +135,7 @@ public class TestRemoteActors {
 
     public void testWithReturnJackson() throws IOException, InterruptedException, ExecutionException {
         CountDownLatch latch = new CountDownLatch(1);
-        int port = 9005;
+        int port = 19005;
 
         Stereotypes.def().embeddedHttpServer(port, (HttpExchange ex) -> {
             latch.countDown();
@@ -156,7 +156,7 @@ public class TestRemoteActors {
 
     public void testWithReturnJavaSerialization() throws IOException, InterruptedException, ExecutionException {
         CountDownLatch latch = new CountDownLatch(1);
-        int port = 9006;
+        int port = 19006;
 
         Stereotypes.def().embeddedHttpServer(port, (HttpExchange ex) -> {
             latch.countDown();

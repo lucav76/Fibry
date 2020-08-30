@@ -26,6 +26,7 @@ public final class ActorUtils {
     private final static MethodHandle mhFiberScopeOpen;
     private final static MethodHandle mhFiberScopeScheduleRunnable;
     private final static MethodHandle mmhFiberScopeScheduleCallable;
+    private final static MethodHandle mhVirtualThread;
     private final static Object options;
     private final static AutoCloseable globalFiberScope;
 
@@ -34,6 +35,7 @@ public final class ActorUtils {
         MethodHandle tmpMethodOpen = null;
         MethodHandle tmpMethodScheduleRunnable = null;
         MethodHandle tmpMethodScheduleCallable = null;
+        MethodHandle tmpMethodVirtualThread = null;
         clzFiberScope = SystemUtils.findClassByName("java.lang.FiberScope");
 
         clzFiber = SystemUtils.findClassByName("java.lang.Fiber");
@@ -41,6 +43,7 @@ public final class ActorUtils {
         options = clzOptionArray == null ? null : Array.newInstance(clzOptionArray, 0);
 
         try {
+            // Fibers version 1
             MethodType mtOpen = clzFiberScope == null ? null : MethodType.methodType(clzFiberScope, clzOptionArray);
             tmpMethodOpen = clzFiberScope == null ? null : SystemUtils.publicLookup.findStatic(clzFiberScope, "open", mtOpen);
 
@@ -52,11 +55,23 @@ public final class ActorUtils {
             e.printStackTrace();
         }
 
+        try {
+            // Fibers version 2
+            MethodType mtThreadRunnable = MethodType.methodType(Thread.class, Runnable.class);
+            tmpMethodVirtualThread = SystemUtils.publicLookup.findStatic(Thread.class, "startVirtualThread", mtThreadRunnable);
+        } catch (NoSuchMethodException | IllegalAccessException e) {
+            e.printStackTrace();
+        }
+
+        // Fibers version 1
         mhFiberScopeOpen = tmpMethodOpen;
         mhFiberScopeScheduleRunnable = tmpMethodScheduleRunnable;
         mmhFiberScopeScheduleCallable = tmpMethodScheduleCallable;
-
         globalFiberScope = clzFiberScope == null ? null : openFiberScope();
+
+        // Fibers version 2
+        mhVirtualThread = tmpMethodVirtualThread;
+
 
         //System.out.println("clzOptionArray: " + clzOptionArray);
     }
@@ -162,7 +177,15 @@ public final class ActorUtils {
     }
 
     public static boolean areFibersAvailable() {
+        return areFibersV2Available() || areFibersV1Available();
+    }
+
+    public static boolean areFibersV1Available() {
         return clzFiberScope != null;
+    }
+
+    public static boolean areFibersV2Available() {
+        return mhVirtualThread != null;
     }
 
     public static AutoCloseable openFiberScope() {
@@ -202,6 +225,19 @@ public final class ActorUtils {
     }
 
     public static void runAsFiber(Runnable... runnables) {
+        // Fibers V2
+        if (mhVirtualThread != null) {
+            try {
+                for (Runnable run : runnables)
+                    mhVirtualThread.invoke(run);
+            } catch (Throwable e) {
+                e.printStackTrace();
+            }
+
+            return;
+        }
+
+        // Fibers V1
         if (mhFiberScopeScheduleRunnable == null)
             throw new UnsupportedOperationException("No fibers available!");
 

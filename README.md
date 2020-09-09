@@ -58,7 +58,7 @@ You can find Fibry on Maven Central.
 
 To include it using Gradle:
 ```gradle
-compile group: 'eu.lucaventuri', name: 'fibry', version: '2.2'
+compile group: 'eu.lucaventuri', name: 'fibry', version: '2.2.1'
 ```
 
 To include it using Maven:

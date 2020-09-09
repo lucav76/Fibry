@@ -52,7 +52,6 @@ public final class ActorUtils {
             tmpMethodScheduleRunnable = clzFiberScope == null ? null : SystemUtils.publicLookup.findVirtual(clzFiberScope, "schedule", mtScheduleRunnable);
             tmpMethodScheduleCallable = clzFiberScope == null ? null : SystemUtils.publicLookup.findVirtual(clzFiberScope, "schedule", mtScheduleCallable);
         } catch (NoSuchMethodException | IllegalAccessException e) {
-            e.printStackTrace();
         }
 
         try {
@@ -60,7 +59,6 @@ public final class ActorUtils {
             MethodType mtThreadRunnable = MethodType.methodType(Thread.class, Runnable.class);
             tmpMethodVirtualThread = SystemUtils.publicLookup.findStatic(Thread.class, "startVirtualThread", mtThreadRunnable);
         } catch (NoSuchMethodException | IllegalAccessException e) {
-            e.printStackTrace();
         }
 
         // Fibers version 1

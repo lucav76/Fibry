@@ -26,7 +26,7 @@ public interface PubSub<T> {
     }
 
     /**
-     * Fully asynchronous FSM consumers should just know the new state (topic) and the attached data (e.g. the order that changed state).
+     * Fully asynchronous FSM consumers should just know the new state (topic) and the attached data (e.g. the message that changed state).
      * This is the intended way to attach a PubSub to a FSM
      */
     default <S extends Enum, M> Consumer<FsmContext<S, M, T>> asFsmContextConsumer() {
@@ -79,6 +79,7 @@ public interface PubSub<T> {
      * The message is sent to an actor that will deliver it to the subscribers; every topic has a dedicate actor.
      * This works well if the topics usage is kind of uniform, and if there are not huge spikes on a particular topic.
      * This is recommended with threads or if the number of topics is not too high.
+     * This is also recommended if the consumers are actor, as the delivery will be fast.
      *
      * @param <T> Type of messages
      * @return a new PubSub system

@@ -58,7 +58,7 @@ You can find Fibry on Maven Central.
 
 To include it using Gradle:
 ```gradle
-compile group: 'eu.lucaventuri', name: 'fibry', version: '2.2.1'
+compile group: 'eu.lucaventuri', name: 'fibry', version: '2.3.0'
 ```
 
 To include it using Maven:
@@ -66,7 +66,7 @@ To include it using Maven:
 <dependency>
     <groupId>eu.lucaventuri</groupId>
     <artifactId>fibry</artifactId>
-    <version>2.2</version>
+    <version>2.3.0</version>
 </dependency>
 ```
 
@@ -160,7 +160,8 @@ You are encouraged to use the **Stereotypes** class instead of relying on ActorS
 Some examples:
 - *workersAsConsumerCreator()*: creates a master actor returned as Consumer; every call to **accept()** will spawn a new actor that will process the message, making multi-thread as simple as it can be
 - *workersAsFunctionCreator()*: as before, but it accepts a Function, so it can actually return a result
-- *embeddedHttpServer*: creates an embedded HTTP Server (using the standard HTTP Server included in Java), that process any request with an actor
+- *embeddedHttpServer()*: creates an embedded HTTP Server (using the standard HTTP Server included in Java), that process any request with an actor
+- *udpServer() and udpServerString()*: create a UDP server that forwards any message to a consumer
 - *sink()*: creates an actor that cannot process messages, but that can still be used for thread confinement, sending code to it
 - *runOnce()*: creates an actor that executes some logic in a separated thread, once.
 - *schedule()*: creates an actor that executes some logic in a separated thread, as many times as requested, as often as requested
@@ -171,6 +172,13 @@ Please check the **examples** package for inspiration.
 This is a very simple HTTP Hello World:
 ```java
 Stereotypes.def().embeddedHttpServer(8080, new Stereotypes.HttpStringWorker("/", ex -> "Hello world!"));
+```
+
+This is a very simple UDP Server:
+```java
+var actor = Stereotypes.def().udpServerString(port, message -> {
+    System.out.println("UDP message received: " + message);
+});
 ```
 
 Extending CustomActor and CustomActorWithResult
@@ -214,7 +222,7 @@ To make it more useful, Fibry provides an implementation:
 - JacksonSerDeser: serialization and deserialization is done with Jackson (if present, as Fibry does not import it as a dependency)
 - JavaSerializationSerDeser and ObjectSerializerUsingToString, mainly for testing purposes.
 
-While limited, this means that Fibry can be distributed across HTTP clusters, and in particular it could be used as a very simple **RPC** mechanism to send messages **across MicroServices**.
+While limited, this means that Fibry can run as a distributed actor system across HTTP clusters, and in particular it could be used as a very simple **RPC** mechanism to send messages **across MicroServices**.
 For now, you are still responsible to create an endpoint to receive the messages and send them to the appropriate actors.
 It can also be used to deal with queues in a transparent way, though at the moment you have to implement the logic by yourself.
 
@@ -309,9 +317,7 @@ Loom might still have some bugs, as I saw some errors popping up when exchanging
 If you start to use Fibry and find some bugs, please notify me.
 The API is going to change a bit, while I start to use it in more real-world projects. Nothing drastic, but you might find a new parameter in some methods. I apologise for that, but it will be necessary.
 
-As of today, not every network operation is *fiber friendly*. You can find a list of what works and what does not [here](https://wiki.openjdk.java.net/display/loom/Networking+IO). 
-In particular, UDP is only supported starting from Java 15. Selectors are also problematic, but as avoiding non-blocking operation is a key goal of fibers, this should not be a concern.
-
+There are some network operations that are not virtual thread friendly, but the network stack of Java 15+ has been basically rewritten to support Loom. You can find a list of what works and what does not [here](https://wiki.openjdk.java.net/display/loom/Networking+IO). 
 
 Enjoy!
 

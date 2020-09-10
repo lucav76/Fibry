@@ -4,7 +4,9 @@ import eu.lucaventuri.common.SystemUtils;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.lang.reflect.Method;
+import java.net.*;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -760,6 +762,24 @@ public class TestActors {
         }
 
         assertFalse(error.get());
+    }
+
+    @Test
+    public void testUdp() throws IOException, InterruptedException {
+        CountDownLatch latch = new CountDownLatch(1);
+        int port = 13001;
+        String data = "Test";
+
+        Stereotypes.def().udpServerString(port, message -> {
+            assertEquals(data, message);
+            latch.countDown();
+        });
+
+        var socket = new DatagramSocket();
+        socket.send(new DatagramPacket(data.getBytes(), 4, InetAddress.getByName("localhost"), port));
+
+        latch.await();
+        socket.close();
     }
 }
 

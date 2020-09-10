@@ -262,6 +262,33 @@ public class Stereotypes {
             server.start();
         }
 
+        /** Creates a UDP server on the specified port and forward the packets to a consumer.
+         * It is recommended to use as a consumer an actor with a limited queue, to reduce memory consumption in case of problems *
+         * @return*/
+        public SinkActorSingleTask<Void> udpServer(int port, Consumer<DatagramPacket> consumer) throws SocketException {
+            var socket = new DatagramSocket(port);
+
+            return Stereotypes.def().runOnceWithThis( thisActor -> {
+                while(!thisActor.isExiting()) {
+                    final byte[] buf = new byte[65536];
+                    DatagramPacket packet = new DatagramPacket(buf, buf.length);
+                    try {
+                        socket.receive(packet);
+                        consumer.accept(packet);
+                    } catch (IOException e) {
+                        System.err.println(e);
+                    }
+                }
+            });
+        }
+
+        /** Creates a UDP server on the specified port and forward the packets as strings to a consumer.
+         * It is recommended to use as a consumer an actor with a limited queue, to reduce memory consumption in case of problems *
+         * @return*/
+        public SinkActorSingleTask<Void> udpServerString(int port, Consumer<String> consumer) throws SocketException {
+            return udpServer(port, datagram -> consumer.accept(new String(datagram.getData(), 0, datagram.getLength())));
+        }
+
         /**
          * Creates a named actor that does not receive messages; this is useful to execute code in a remote thread
          */

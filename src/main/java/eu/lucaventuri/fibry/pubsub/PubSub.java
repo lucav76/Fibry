@@ -39,7 +39,15 @@ public interface PubSub<T> {
 
     void publish(String topic, T message);
 
-    Subscription subscribe(String topic, Consumer<T> consumer);
+    /**
+     * Returns an object that can be used to cancel the subscription.
+     * If the topic cannot have more consumers, it will retunr null.
+     */
+    default Subscription subscribe(String topic, Consumer<T> consumer) {
+        return subscribe(topic, consumer, Integer.MAX_VALUE);
+    }
+
+    Subscription subscribe(String topic, Consumer<T> consumer, int maxSubscribers);
 
     /**
      * No new actors will be created, messages are delivered synchronously in the same thread of the caller, immediately.

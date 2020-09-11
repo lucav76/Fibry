@@ -150,4 +150,14 @@ public class TestPubSub {
 
         SystemUtils.sleep(10);
     }
+
+    @Test
+    public void testMaxSize() throws InterruptedException {
+        PubSub ps = PubSub.oneActorPerTopic();
+
+        assertNotNull(ps.subscribe("a", obj -> {}, 3));
+        assertNotNull(ps.subscribe("a", obj -> {}, 3));
+        assertNotNull(ps.subscribe("a", obj -> {}, 3));
+        assertNull(ps.subscribe("a", obj -> {}, 3));
+    }
 }

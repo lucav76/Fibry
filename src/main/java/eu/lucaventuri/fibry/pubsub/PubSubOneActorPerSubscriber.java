@@ -12,9 +12,12 @@ import java.util.function.Consumer;
  */
 public class PubSubOneActorPerSubscriber<T> extends PubSubOneActorPerTopic<T> {
     @Override
-    public Subscription subscribe(String topic, Consumer<T> consumer) {
+    public Subscription subscribe(String topic, Consumer<T> consumer, int maxSubscribers) {
         Actor<T, Void, Void> subscriberActor = ActorSystem.anonymous().newActor(consumer);
-        Subscription subscription = super.subscribe(topic, subscriberActor);
+        Subscription subscription = super.subscribe(topic, subscriberActor, maxSubscribers);
+
+        if (subscription == null)
+            return subscription;
 
         return () -> {
             subscription.cancel();

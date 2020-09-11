@@ -10,7 +10,7 @@ import java.util.function.Consumer;
  * Thread safe (e.g. publish() and subscribe() and cancel() can be called from any thread) implementation of PubSub that reuses the thread of the publisher to send the messages
  */
 class PubSubSameThread<T> implements PubSub<T> {
-    protected final static ConcurrentHashMap<String, List<Consumer>> subscribers = new ConcurrentHashMap();
+    protected final ConcurrentHashMap<String, List<Consumer>> subscribers = new ConcurrentHashMap();
 
     @Override
     public void publish(String topic, T message) {
@@ -23,14 +23,17 @@ class PubSubSameThread<T> implements PubSub<T> {
     }
 
     @Override
-    public Subscription subscribe(String topic, Consumer<T> consumer) {
+    public Subscription subscribe(String topic, Consumer<T> consumer, int maxSubscribers) {
         // We try to make the subscription thread safe without locking on subscribers (for performance) or somehow on topic (for memory usage).
 
         // If empty, crates with the new consumer
         List<Consumer> topicSubscribers = subscribers.computeIfAbsent(topic, key -> oneElementList(consumer));
 
         synchronized (topicSubscribers) {
-            // This can onl;y happen if another thread cleared it, so it also removed it from subscribers. We have to add a new one
+            if (topicSubscribers.size() >= maxSubscribers)
+                return null;
+
+            // This can only happen if another thread cleared it, so it also removed it from subscribers. We have to add a new one
             if (topicSubscribers.isEmpty()) {
                 subscribers.computeIfAbsent(topic, key -> oneElementList(consumer)); // Just in case another subscriber created it
             } else if (!topicSubscribers.contains(consumer))

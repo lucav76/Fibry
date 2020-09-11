@@ -28,8 +28,11 @@ public class PubSubOneActorPerTopic<T> extends PubSubSameThread<T> {
     }
 
     @Override
-    public Subscription subscribe(String topic, Consumer<T> consumer) {
-        Subscription subscription = super.subscribe(topic, consumer);
+    public Subscription subscribe(String topic, Consumer<T> consumer, int maxSubscribers) {
+        Subscription subscription = super.subscribe(topic, consumer, maxSubscribers);
+
+        if (subscription == null)
+            return null;
 
         ensureActor(topic, subscribers.get(topic));
 

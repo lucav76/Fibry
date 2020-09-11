@@ -12,7 +12,7 @@ import java.util.function.Consumer;
  * */
 public class PubSubOneActorPerMessage<T> extends PubSubOneActorPerTopic<T> {
     @Override
-    public Subscription subscribe(String topic, Consumer<T> consumer) {
-        return super.subscribe(topic, message -> Stereotypes.def().runOnce(() -> consumer.accept(message)));
+    public Subscription subscribe(String topic, Consumer<T> consumer, int maxSubscribers) {
+        return super.subscribe(topic, message -> Stereotypes.def().runOnce(() -> consumer.accept(message)), maxSubscribers);
     }
 }

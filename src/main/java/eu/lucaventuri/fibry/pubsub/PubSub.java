@@ -3,6 +3,7 @@ package eu.lucaventuri.fibry.pubsub;
 import eu.lucaventuri.fibry.SinkActor;
 import eu.lucaventuri.fibry.fsm.FsmContext;
 
+import java.util.Collection;
 import java.util.function.Consumer;
 
 /**
@@ -48,6 +49,12 @@ public interface PubSub<T> {
     }
 
     Subscription subscribe(String topic, Consumer<T> consumer, int maxSubscribers);
+
+    int getNumberOfActors(String topic);
+
+    Collection<Consumer<T>> getActors(String topic);
+
+    void removeTopic(String topic);
 
     /**
      * No new actors will be created, messages are delivered synchronously in the same thread of the caller, immediately.

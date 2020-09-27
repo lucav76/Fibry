@@ -5,17 +5,17 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public interface ReceiptFactory {
-    default ImmutableReceipt newReceipt() {
+    default ImmutableReceipt newReceipt() throws IOException {
         return newReceipt(new ImmutableProgress());
     }
 
-    ImmutableReceipt newReceipt(ImmutableProgress progress);
+    ImmutableReceipt newReceipt(ImmutableProgress progress) throws IOException;
 
-    default CompletableReceipt newCompletableReceipt() {
+    default CompletableReceipt newCompletableReceipt() throws IOException {
         return new CompletableReceipt(newReceipt(new ImmutableProgress()));
     }
 
-    default CompletableReceipt newCompletableReceipt(String type, ImmutableProgress progress) {
+    default CompletableReceipt newCompletableReceipt(String type, ImmutableProgress progress) throws IOException {
         return new CompletableReceipt(newReceipt(progress));
     }
 

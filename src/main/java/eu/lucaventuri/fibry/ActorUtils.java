@@ -8,6 +8,7 @@ import eu.lucaventuri.fibry.receipts.ImmutableReceipt;
 import eu.lucaventuri.fibry.receipts.ReceiptFactory;
 import eu.lucaventuri.functional.Either3;
 
+import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Array;
@@ -87,7 +88,7 @@ public final class ActorUtils {
         return mwr.answer;
     }
 
-    static <T, R, S> CompletableReceipt<R> sendMessageReceipt(ReceiptFactory factory, MiniQueue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, T message) {
+    static <T, R, S> CompletableReceipt<R> sendMessageReceipt(ReceiptFactory factory, MiniQueue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, T message) throws IOException {
         return sendMessageReceipt(factory.newReceipt(), queue, message);
     }
 

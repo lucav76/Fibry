@@ -16,7 +16,7 @@ public class TestReceipts {
     final ReceiptFactory factory = ReceiptFactory.fromMap();
 
     @Test
-    public void testAutoComplete() throws ExecutionException, InterruptedException {
+    public void testAutoComplete() throws ExecutionException, InterruptedException, IOException {
         final Actor<String, String, Void> actor = ActorSystem.anonymous().newActorWithReturn((Function<String, String>) String::toUpperCase);
         assertEquals("ABC", actor.sendMessageReturn("abc").get());
 

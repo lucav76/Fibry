@@ -10,6 +10,7 @@ import eu.lucaventuri.fibry.receipts.ReceiptFactory;
 import eu.lucaventuri.functional.Either;
 import eu.lucaventuri.functional.Either3;
 
+import java.io.IOException;
 import java.util.Enumeration;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -518,7 +519,7 @@ public class ActorSystem {
         return ActorUtils.sendMessageReturn(getOrCreateActorQueue(actorName, defaultQueueCapacity), message);
     }
 
-    public static <T, R> CompletableReceipt<R> sendMessageReceipt(ReceiptFactory factory, String actorName, T message, String type, boolean forceDelivery) {
+    public static <T, R> CompletableReceipt<R> sendMessageReceipt(ReceiptFactory factory, String actorName, T message, String type, boolean forceDelivery) throws IOException {
         requireNameNotNull(actorName);
 
         if (!forceDelivery && !isActorAvailable(actorName)) {

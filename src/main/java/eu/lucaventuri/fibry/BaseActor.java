@@ -9,6 +9,7 @@ import eu.lucaventuri.fibry.receipts.ImmutableReceipt;
 import eu.lucaventuri.fibry.receipts.ReceiptFactory;
 import eu.lucaventuri.functional.Either3;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
@@ -69,7 +70,7 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
      * It can be applied to any actor, and produces a receipt, but the progress can only be 0 or 1.0, without notes.
      * It could be useful to track if something got stuck, and to retrofit existing actors
      */
-    public CompletableReceipt<R> sendMessageExternalReceipt(ReceiptFactory factory, T message) {
+    public CompletableReceipt<R> sendMessageExternalReceipt(ReceiptFactory factory, T message) throws IOException {
         if (isExiting())
             return (CompletableReceipt<R>) getCompletableFutureWhenExiting(factory.<T, R>newCompletableReceipt());
 

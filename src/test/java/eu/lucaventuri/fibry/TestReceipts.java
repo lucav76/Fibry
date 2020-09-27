@@ -5,6 +5,7 @@ import eu.lucaventuri.fibry.receipts.ImmutableReceipt;
 import eu.lucaventuri.fibry.receipts.ReceiptFactory;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
@@ -28,17 +29,23 @@ public class TestReceipts {
     }
 
     @Test
-    public void testProgress() throws ExecutionException, InterruptedException {
+    public void testProgress() throws ExecutionException, InterruptedException, IOException {
         var latchLogic = new CountDownLatch(1);
         var latchWaitCaller = new CountDownLatch(1);
-        Function<ImmutableReceipt<String>, String> logic = rec -> {
-            factory.save(rec.withProgressPercent(0.5f));
+        var message = "xyx";
+
+        Function<ImmutableReceipt, String> logic = rec -> {
+            try {
+                factory.save(rec.withProgressPercent(0.5f));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
             latchLogic.countDown();
             Exceptions.silence(() -> latchWaitCaller.await());
-            return rec.getMessage().toUpperCase();
+            return message.toUpperCase();
         };
-        final Actor<ImmutableReceipt<String>, String, Void> actor = ActorSystem.anonymous().newActorWithReturn(logic);
-        var rec = actor.sendMessageInternalReceipt(factory.newReceipt("xyz"));
+        final Actor<ImmutableReceipt, String, Void> actor = ActorSystem.anonymous().newActorWithReturn(logic);
+        var rec = actor.sendMessageInternalReceipt(factory.newReceipt());
 
         latchLogic.await();
         rec = factory.refresh(rec);

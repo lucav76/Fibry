@@ -1,32 +1,33 @@
 package eu.lucaventuri.fibry.receipts;
 
+import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public interface ReceiptFactory {
-    default <T, F> ImmutableReceipt<T> newReceipt(T message) {
-        return newReceipt(message, new ImmutableProgress());
+    default ImmutableReceipt newReceipt() {
+        return newReceipt(new ImmutableProgress());
     }
 
-    <T, F> ImmutableReceipt<T> newReceipt(T message, ImmutableProgress progress);
+    ImmutableReceipt newReceipt(ImmutableProgress progress);
 
-    default <T, F> CompletableReceipt<T, F> newCompletableReceipt(T message) {
-        return new CompletableReceipt<>(newReceipt(message, new ImmutableProgress()));
+    default CompletableReceipt newCompletableReceipt() {
+        return new CompletableReceipt(newReceipt(new ImmutableProgress()));
     }
 
-    default <T, F> CompletableReceipt<T, F> newCompletableReceipt(String type, T message, ImmutableProgress progress) {
-        return new CompletableReceipt<>(newReceipt(message, progress));
+    default CompletableReceipt newCompletableReceipt(String type, ImmutableProgress progress) {
+        return new CompletableReceipt(newReceipt(progress));
     }
 
-    <T> ImmutableReceipt<T> get(String id);
+    ImmutableReceipt get(String id) throws IOException;
 
-    <T> void save(ImmutableReceipt<T> receipt);
+    void save(ImmutableReceipt receipt) throws IOException;
 
-    default <T> ImmutableReceipt<T> refresh(ImmutableReceipt<T> receipt) {
+    default ImmutableReceipt refresh(ImmutableReceipt receipt) throws IOException {
         return get(receipt.getReceiptId());
     }
 
-    default <T, F> CompletableReceipt<T, F> refresh(CompletableReceipt<T, F> receipt) {
+    default <T, F> CompletableReceipt<F> refresh(CompletableReceipt<F> receipt) throws IOException {
         receipt.setReceipt(refresh(receipt.getReceipt()));
 
         return receipt;
@@ -38,8 +39,8 @@ public interface ReceiptFactory {
             private final AtomicInteger progressiveId = new AtomicInteger();
 
             @Override
-            public <T, F> ImmutableReceipt<T> newReceipt(T message, ImmutableProgress progress) {
-                var receipt = new ImmutableReceipt<T>("" + progressiveId.incrementAndGet(), message, progress);
+            public ImmutableReceipt newReceipt(ImmutableProgress progress) {
+                var receipt = new ImmutableReceipt("" + progressiveId.incrementAndGet(), progress);
 
                 save(receipt);
 
@@ -47,12 +48,12 @@ public interface ReceiptFactory {
             }
 
             @Override
-            public <T> ImmutableReceipt<T> get(String id) {
-                return (ImmutableReceipt<T>) map.get(id);
+            public ImmutableReceipt get(String id) {
+                return map.get(id);
             }
 
             @Override
-            public <T> void save(ImmutableReceipt<T> receipt) {
+            public void save(ImmutableReceipt receipt) {
                 map.put(receipt.getReceiptId(), receipt);
             }
         };

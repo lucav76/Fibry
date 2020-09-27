@@ -87,15 +87,15 @@ public final class ActorUtils {
         return mwr.answer;
     }
 
-    static <T, R, S> CompletableReceipt<T, R> sendMessageReceipt(ReceiptFactory factory, MiniQueue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, T message) {
-        return sendMessageReceipt(factory.newReceipt(message), queue, message);
+    static <T, R, S> CompletableReceipt<R> sendMessageReceipt(ReceiptFactory factory, MiniQueue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, T message) {
+        return sendMessageReceipt(factory.newReceipt(), queue, message);
     }
 
-    static <T, R, S> CompletableReceipt<T, R> sendMessageReceipt(ImmutableReceipt<T> receipt, MiniQueue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, T message) {
-        return sendMessageReceipt(new CompletableReceipt<T, R>(receipt), queue, message);
+    static <T, R, S> CompletableReceipt<R> sendMessageReceipt(ImmutableReceipt receipt, MiniQueue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, T message) {
+        return sendMessageReceipt(new CompletableReceipt<R>(receipt), queue, message);
     }
 
-    static <T, R, S> CompletableReceipt<T, R> sendMessageReceipt(CompletableReceipt<T, R> receipt, MiniQueue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, T message) {
+    static <T, R, S> CompletableReceipt<R> sendMessageReceipt(CompletableReceipt<R> receipt, MiniQueue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, T message) {
         MessageWithAnswer<T, R> mwr = new MessageWithAnswer<>(message, receipt);
         queue.add(Either3.other(mwr));
 

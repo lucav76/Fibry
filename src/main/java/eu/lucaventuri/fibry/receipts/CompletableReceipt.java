@@ -2,14 +2,14 @@ package eu.lucaventuri.fibry.receipts;
 
 import java.util.concurrent.CompletableFuture;
 
-public class CompletableReceipt<T, F> extends CompletableFuture<F> {
-    private volatile ImmutableReceipt<T> receipt;
+public class CompletableReceipt<F> extends CompletableFuture<F> {
+    private volatile ImmutableReceipt receipt;
 
-    public CompletableReceipt(ImmutableReceipt<T> receipt) {
+    public CompletableReceipt(ImmutableReceipt receipt) {
         this.receipt = receipt;
     }
 
-    public ImmutableReceipt<T> getReceipt() {
+    public ImmutableReceipt getReceipt() {
         return receipt;
     }
 
@@ -20,7 +20,7 @@ public class CompletableReceipt<T, F> extends CompletableFuture<F> {
         return receipt.progress;
     }
 
-    public void setReceipt(ImmutableReceipt<T> receipt) {
+    public void setReceipt(ImmutableReceipt receipt) {
         this.receipt = receipt;
     }
 }

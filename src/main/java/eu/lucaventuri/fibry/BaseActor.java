@@ -69,9 +69,9 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
      * It can be applied to any actor, and produces a receipt, but the progress can only be 0 or 1.0, without notes.
      * It could be useful to track if something got stuck, and to retrofit existing actors
      */
-    public CompletableReceipt<T, R> sendMessageExternalReceipt(ReceiptFactory factory, T message) {
+    public CompletableReceipt<R> sendMessageExternalReceipt(ReceiptFactory factory, T message) {
         if (isExiting())
-            return (CompletableReceipt<T, R>) getCompletableFutureWhenExiting(factory.<T, R>newCompletableReceipt(message));
+            return (CompletableReceipt<R>) getCompletableFutureWhenExiting(factory.<T, R>newCompletableReceipt());
 
         return ActorUtils.sendMessageReceipt(factory, queue, message);
     }
@@ -79,12 +79,12 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
     /**
      * It requires the actor to accept messages of type Receipt, but in this case the receipt can show progress and include notes
      */
-    public CompletableReceipt<?, R> sendMessageInternalReceipt(T message) {
+    public CompletableReceipt<R> sendMessageInternalReceipt(T message) {
         assert message instanceof ImmutableReceipt;
         var receipt = (ImmutableReceipt) message;
 
         if (isExiting())
-            return (CompletableReceipt<T, R>) getCompletableFutureWhenExiting(new CompletableReceipt<>(receipt));
+            return (CompletableReceipt<R>) getCompletableFutureWhenExiting(new CompletableReceipt<>(receipt));
 
         return ActorUtils.sendMessageReceipt(receipt, queue, message);
     }

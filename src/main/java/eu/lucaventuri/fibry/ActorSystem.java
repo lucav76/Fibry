@@ -518,11 +518,11 @@ public class ActorSystem {
         return ActorUtils.sendMessageReturn(getOrCreateActorQueue(actorName, defaultQueueCapacity), message);
     }
 
-    public static <T, R> CompletableReceipt<T, R> sendMessageReceipt(ReceiptFactory factory, String actorName, T message, String type, boolean forceDelivery) {
+    public static <T, R> CompletableReceipt<R> sendMessageReceipt(ReceiptFactory factory, String actorName, T message, String type, boolean forceDelivery) {
         requireNameNotNull(actorName);
 
         if (!forceDelivery && !isActorAvailable(actorName)) {
-            CompletableReceipt<T, R> r = new CompletableReceipt<>(factory.newReceipt(message));
+            CompletableReceipt<R> r = new CompletableReceipt<>(factory.newReceipt());
             r.completeExceptionally(new RuntimeException("Actor " + actorName + " not existing and force delivery not enabled; receipt not created"));
 
             return r;

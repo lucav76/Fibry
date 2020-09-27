@@ -39,7 +39,7 @@ public interface ReceiptFactory {
 
             @Override
             public <T, F> ImmutableReceipt<T> newReceipt(T message, ImmutableProgress progress) {
-                var receipt = new ImmutableReceipt<T>("" + progressiveId, message, progress);
+                var receipt = new ImmutableReceipt<T>("" + progressiveId.incrementAndGet(), message, progress);
 
                 save(receipt);
 

@@ -124,7 +124,7 @@ Please take into consideration that while Receiving actors are the most powerful
 
 Let's see now how to create an actor:
 ```Java
-Actor<Integer, Integer, Void> actor = ActorSystem.anonymous().newActorWithReturn(n -> n*n);
+var actor = ActorSystem.anonymous().newActorWithReturn(n -> n*n);
 ```
 
 Using actors

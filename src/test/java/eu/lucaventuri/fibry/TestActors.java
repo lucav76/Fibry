@@ -1,12 +1,15 @@
 package eu.lucaventuri.fibry;
 
+import eu.lucaventuri.common.Exitable;
 import eu.lucaventuri.common.SystemUtils;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
-import java.net.*;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -18,9 +21,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
-import static eu.lucaventuri.common.SystemUtils.*;
+import static eu.lucaventuri.common.SystemUtils.sleep;
 import static org.junit.Assert.*;
 
 
@@ -780,6 +782,28 @@ public class TestActors {
 
         latch.await();
         socket.close();
+    }
+
+    @Test
+    public void testInterruption() throws InterruptedException {
+        CountDownLatch latch = new CountDownLatch(1);
+
+        class LongTask extends Exitable implements Consumer<String> {
+            @Override
+            public void accept(String s) {
+                latch.countDown();
+
+                while (!isExiting()) {
+                    SystemUtils.sleep(1);
+                }
+            }
+        }
+
+        var actor = ActorSystem.anonymous().newActor(new LongTask());
+
+        actor.sendMessage("Test");
+        latch.await();
+        actor.askExitAndWait();
     }
 }
 

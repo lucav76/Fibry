@@ -190,7 +190,7 @@ Just remember to call **CreationStrategy.start()** to start it.
 Shutting down the actors
 ===
 Shutting down the actors is a bit complicated, depending on which goal you want to achieve.
-One way is to call **askExit()**, which will ask the actor to terminate as soon as possible, which by default means after finishing the current message; long running actors should check for their **isExiting()** method. This will, however, lose the messages on the queue (and the actor will clear the queue). 
+One way is to call **askExit()**, which will ask the actor to terminate as soon as possible, which by default means after finishing the current message; long running actors should check for their **isExiting()** method or implement the **CanExit** interface. This will, however, lose the messages on the queue (and the actor will clear the queue). 
 Another way is to call **sendPoisonPill()**, which will queue a message able to shut down the actor: the messages after the poison pill will be lost, the ones before it will be processed.
 The actors are Closeable(), so they can be put in a try-with-resources block. Please keep in mind that the default behavior is to call **askExit()**, so when the code leaves the try-with-resources block the actor might still be alive and working. This behavior can be customised using a different ClosingStrategy. For example, **SEND_POISON_PILL_AND_WAIT** will block in the try catch until all the messages in the queue (before the poison pill) are processed.
 The ClosingStrategy can be set using the **strategy()** call in ActorSystem, which can also set creation strategy.

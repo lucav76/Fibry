@@ -214,11 +214,6 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
         return super.setExitSendsPoisonPill(send);
     }
 
-    @Override
-    public void askExit() {
-        super.askExit();
-    }
-
     /**
      * Queue a request to exit, that will be processed after all the messages currently in the queue
      *

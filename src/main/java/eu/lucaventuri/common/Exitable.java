@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * <p>
  * This class implements Closeable, however the correct behaviour to apply might be task dependent, therefore it is possible to set a CloseStrategy to customize the close() method.
  */
-public class Exitable implements Closeable {
+public class Exitable implements Closeable, CanExit {
     private final AtomicBoolean exiting = new AtomicBoolean(false);
     private final CountDownLatch finished = new CountDownLatch(1);
     protected volatile CloseStrategy closeStrategy = CloseStrategy.ASK_EXIT;
@@ -47,6 +47,7 @@ public class Exitable implements Closeable {
     }
 
     /** Asks to exit as soon as possible; optionally this call can also send a poison pill, which can be useful on some circumstances */
+    @Override
     public void askExit() {
         if (sendPoisonPillWhenExiting)
             sendPoisonPill();

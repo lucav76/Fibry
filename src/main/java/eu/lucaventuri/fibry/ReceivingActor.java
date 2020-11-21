@@ -1,5 +1,6 @@
 package eu.lucaventuri.fibry;
 
+import eu.lucaventuri.common.CanExit;
 import eu.lucaventuri.functional.Either3;
 
 import java.util.concurrent.TimeUnit;
@@ -112,5 +113,13 @@ public class ReceivingActor<T, R, S> extends BaseActor<T, R, S> {
             ActorUtils.sendMessage(queue, message);
 
         return this;
+    }
+
+    @Override
+    public void askExit() {
+        if (actorLogic instanceof CanExit)
+            ((CanExit)actorLogic).askExit();
+
+        super.askExit();
     }
 }

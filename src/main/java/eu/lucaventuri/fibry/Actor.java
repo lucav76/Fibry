@@ -1,5 +1,6 @@
 package eu.lucaventuri.fibry;
 
+import eu.lucaventuri.common.CanExit;
 import eu.lucaventuri.functional.Either3;
 
 import java.util.Objects;
@@ -146,4 +147,11 @@ public class Actor<T, R, S> extends BaseActor<T, R, S> {
         };
     }
 
+    @Override
+    public void askExit() {
+        if (actorLogic instanceof CanExit)
+            ((CanExit)actorLogic).askExit();
+
+        super.askExit();
+    }
 }

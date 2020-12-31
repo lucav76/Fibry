@@ -785,7 +785,7 @@ public class Stereotypes {
         }
 
         /**
-         * Process messages in batchex. Note: itemMerger and batchProcessor are working together
+         * Process messages in batches. Note: itemMerger and batchProcessor are working together
          *
          * @param itemMerger Object that can process a single message and collect it in a batch; it returns the number of elements in the batch (which could be different than the number of messages processed if they can be dropped or aggregated)
          * @param batchProcessor Object that can process the group of messages collected by the itemMerger

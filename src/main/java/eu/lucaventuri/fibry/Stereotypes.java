@@ -739,6 +739,11 @@ public class Stereotypes {
             }, () -> {
                 if (!map.isEmpty())
                     batchProcessor.accept(map);
+
+                // Signals (to every message) that the batch has been processed
+                for(Mergeable m: map.values())
+                    m.signalMessageProcessed();
+
                 map.clear();
             }, batchMaxSize, batchMs, precisionMs, skipTimeWithoutMessages);
         }
@@ -776,10 +781,13 @@ public class Stereotypes {
                 if (mergedMessage != null) {
                     map.remove(mergedMessage.getKey());
                     batchProcessor.accept(mergedMessage);
+                    mergedMessage.signalMessageProcessed();
                 }
             }, () -> {
-                for (Map.Entry<String, T> entry : map.entrySet())
+                for (Map.Entry<String, T> entry : map.entrySet()) {
                     batchProcessor.accept(entry.getValue());
+                    entry.getValue().signalMessageProcessed();
+                }
                 map.clear();
             }, batchMaxSize, batchMs, precisionMs, skipTimeWithoutMessages);
         }

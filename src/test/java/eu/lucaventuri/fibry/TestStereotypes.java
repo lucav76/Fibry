@@ -31,7 +31,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-class M implements MergeableParallelBatches {
+class M extends BatchMergeable implements MergeableParallelBatches {
     private final String key;
     private final String value;
     private final int numMerged;
@@ -56,7 +56,12 @@ class M implements MergeableParallelBatches {
         if (!key.equals(m.getKey()))
             throw new IllegalArgumentException("Cannot merge two different keys: " + key + " vs " + m.getKey());
 
-        return new M(key, value + ((M) m).value, numMerged + 1);
+        Mergeable newM = new M(key, value + ((M) m).value, numMerged + 1);
+
+        newM.mergeSignalWith(this);
+        newM.mergeSignalWith(m);
+
+        return newM;
     }
 
     @Override
@@ -512,6 +517,32 @@ public class TestStereotypes {
         assertEquals("b: 2", mapJoined.get("b").toString());
         assertEquals("c: 3", mapJoined.get("c").toString());
         assertEquals("d: 4.5", mapJoined.get("d").toString());
+    }
+
+    @Test
+    public void testMergeableBatchesDelivery() throws ExecutionException, InterruptedException {
+        Map<String, Mergeable> mapJoined = new ConcurrentHashMap<>();
+        BaseActor<Mergeable, Void, Void> actor = Stereotypes.def().batchProcessMerge(map -> map.forEach(mapJoined::put), 30, 50, 1, true);
+
+        actor.sendMessage(new M("a", "1"));
+        actor.sendMessage(new M("b", "2"));
+        actor.sendMessage(new M("c", "3"));
+        actor.sendMessage(new M("a", "4"));
+        actor.sendMessage(new M("d", "4.5"));
+        M m = new M("a", "5");
+        actor.sendMessageReturn(m).get();
+
+        assertEquals(0, mapJoined.size());
+
+        m.awaitBatchProcessing();
+        assertEquals(4, mapJoined.size());
+        assertEquals("a: 145", mapJoined.get("a").toString());
+        assertEquals("b: 2", mapJoined.get("b").toString());
+        assertEquals("c: 3", mapJoined.get("c").toString());
+        assertEquals("d: 4.5", mapJoined.get("d").toString());
+
+        actor.sendPoisonPill();
+        actor.waitForExit();
     }
 
     private void checkSize(List<String> listJoined) {

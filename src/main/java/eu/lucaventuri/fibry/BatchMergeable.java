@@ -4,8 +4,7 @@ import eu.lucaventuri.common.Mergeable;
 
 import java.util.List;
 import java.util.Vector;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 /** Mergeable meant to work for batches */
 public abstract class BatchMergeable implements Mergeable {
@@ -28,13 +27,48 @@ public abstract class BatchMergeable implements Mergeable {
             latch.countDown();
     }
 
+    private CountDownLatch getOriginalLatch() {
+        return latches.get(0);
+    }
+
     @Override
     public void awaitBatchProcessing() throws InterruptedException {
-        latches.get(0).await();
+        getOriginalLatch().await();
     }
 
     @Override
     public boolean awaitBatchProcessing(long timeout, TimeUnit unit) throws InterruptedException {
-        return latches.get(0).await(timeout, unit);
+        return getOriginalLatch().await(timeout, unit);
+    }
+
+    public Future<Void> asFuture() {
+        return new Future<Void>() {
+            @Override
+            public boolean cancel(boolean mayInterruptIfRunning) {
+                return false;
+            }
+
+            @Override
+            public boolean isCancelled() {
+                return false;
+            }
+
+            @Override
+            public boolean isDone() {
+                return getOriginalLatch().getCount() == 0;
+            }
+
+            @Override
+            public Void get() throws InterruptedException {
+                awaitBatchProcessing();
+                return null;
+            }
+
+            @Override
+            public Void get(long timeout, TimeUnit unit) throws InterruptedException {
+                awaitBatchProcessing(timeout, unit);
+                return null;
+            }
+        };
     }
 }

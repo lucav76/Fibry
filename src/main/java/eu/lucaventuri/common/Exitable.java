@@ -12,10 +12,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * This class implements Closeable, however the correct behaviour to apply might be task dependent, therefore it is possible to set a CloseStrategy to customize the close() method.
  */
 public class Exitable implements Closeable, CanExit {
-    private final AtomicBoolean exiting = new AtomicBoolean(false);
-    private final CountDownLatch finished = new CountDownLatch(1);
-    protected volatile CloseStrategy closeStrategy = CloseStrategy.ASK_EXIT;
-    protected volatile boolean sendPoisonPillWhenExiting = false;
+    private final AtomicBoolean exiting;
+    private final CountDownLatch finished;
+    protected volatile CloseStrategy closeStrategy;
+    protected volatile boolean sendPoisonPillWhenExiting;
 
     /** Possible strategies to use when close() is called */
     public enum CloseStrategy {
@@ -34,6 +34,22 @@ public class Exitable implements Closeable, CanExit {
 
             return this;
         }
+    }
+
+    public Exitable() {
+        exiting = new AtomicBoolean(false);
+        finished = new CountDownLatch(1);
+        closeStrategy = CloseStrategy.ASK_EXIT;
+        sendPoisonPillWhenExiting = false;
+    }
+
+    /** Use with absolute care, as this makes the two exitables working like one, but potentially with different
+     * strategies. This is intended for "light transactional actors" */
+    public Exitable(Exitable exitable) {
+        exiting = exitable.exiting;
+        finished = exitable.finished;
+        closeStrategy = exitable.closeStrategy;
+        sendPoisonPillWhenExiting = exitable.sendPoisonPillWhenExiting;
     }
 
     /** @return true if there has been a request to exit */

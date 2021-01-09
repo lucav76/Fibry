@@ -12,6 +12,7 @@ import eu.lucaventuri.functional.Either3;
 
 import java.io.IOException;
 import java.util.Enumeration;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -218,6 +219,17 @@ public class ActorSystem {
             return (Actor<T, Void, S>) strategy.<T, Void, S>start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, initializer, finalizer, closeStrategy, pollTimeoutMs));
         }
 
+        /** Creates an actor supporting light transactions; please check LightTransactionalActor for more details */
+        public <T> LightTransactionalActor<T, S> newLightTransactionalActor(Consumer<T> actorLogic) {
+            Consumer<List<T>> listLogic = list -> {
+                for(var message: list)
+                    actorLogic.accept(message);
+            };
+            Actor<List<T>, Void, S> backingActor = newActor(listLogic);
+
+            return new LightTransactionalActor<T, S>(backingActor);
+        }
+
         /**
          * Creates a new actor that has access to its "this" pointer
          */
@@ -227,6 +239,19 @@ public class ActorSystem {
 
                 return (Actor<T, Void, S>) strategy.<T, Void, S>start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, initializer, finalizer, closeStrategy, pollTimeoutMs));
             });
+        }
+
+        /** Creates an actor supporting light transactions; please check LightTransactionalActor for more details */
+        public <T> LightTransactionalActor<T, S> newLightTransactionalActor(BiConsumer<T, PartialActor<List<T>, S>> actorBiLogic) {
+            Actor<List<T>, Void, S> backingActor = ActorUtils.initRef(ref -> {
+                Consumer<List<T>> listLogic = list -> {
+                    for(var message: list)
+                        actorBiLogic.accept(message, ref.get());
+                };
+                return (Actor<List<T>, Void, S>) strategy.<List<T>, Void, S>start(new Actor<>(listLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, initializer, finalizer, closeStrategy, pollTimeoutMs));
+            });
+
+            return new LightTransactionalActor<T, S>(backingActor);
         }
 
         /**

@@ -20,6 +20,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import static eu.lucaventuri.common.SystemUtils.sleep;
@@ -804,6 +806,51 @@ public class TestActors {
         actor.sendMessage("Test");
         latch.await();
         actor.askExitAndWait();
+    }
+
+    enum Operations {INC, DEC, VERIFY}
+
+    ;
+
+    @Test
+    public void testLightTransactions() throws ExecutionException, InterruptedException {
+        BiConsumer<Operations, PartialActor<List<Operations>, AtomicInteger>> logic = (oper, actor) -> {
+            if (oper == Operations.INC) {
+                actor.getState().incrementAndGet();
+            } else if (oper == Operations.DEC) {
+                actor.getState().decrementAndGet();
+            } else {
+                assertEquals(0, actor.getState().get());
+            }
+        };
+
+        var actor = ActorSystem.anonymous().initialState(new AtomicInteger()).newLightTransactionalActor(logic);
+
+        AtomicReference<CompletableFuture<Void>> ref = new AtomicReference<>();
+        AtomicReference<CompletableFuture<Void>> ref2 = new AtomicReference<>();
+
+        Stereotypes.auto().runOnce(() -> {
+            for (int i = 0; i < 10_000; i++) {
+                actor.sendMessage(Operations.VERIFY);
+            }
+
+            ref.set(actor.sendMessageReturn(Operations.VERIFY));
+        });
+
+        Stereotypes.auto().runOnce(() -> {
+            for (int i = 0; i < 10_000; i++) {
+                actor.sendMessages(Operations.INC, Operations.DEC);
+            }
+
+            ref2.set(actor.sendMessageReturn(Operations.VERIFY));
+        });
+
+        while(ref.get()==null)
+            SystemUtils.sleep(1);
+        while(ref2.get()==null)
+            SystemUtils.sleep(1);
+
+        ref.get().get();
     }
 }
 

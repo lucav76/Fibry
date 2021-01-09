@@ -33,6 +33,7 @@ Simplicity first, flexibility second
 - It implements some simple mechanisms to help to process messages in **batches**
 - It implements a mechanism to **track progress** of long-running tasks, which can be extended to support the progress of messages processed by another server
 - It provides a way to create simple **Finite State Machines**, either with Actors or with Consumers (recommended)
+- It provides limited support for light transactions, intended as messages that are guaranteed to be executed without other messages between them 
 
 Some numbers
 ===
@@ -58,7 +59,7 @@ You can find Fibry on Maven Central.
 
 To include it using Gradle:
 ```gradle
-compile group: 'eu.lucaventuri', name: 'fibry', version: '2.3.7'
+compile group: 'eu.lucaventuri', name: 'fibry', version: '2.3.8'
 ```
 
 To include it using Maven:
@@ -66,7 +67,7 @@ To include it using Maven:
 <dependency>
     <groupId>eu.lucaventuri</groupId>
     <artifactId>fibry</artifactId>
-    <version>2.3.7</version>
+    <version>2.3.8</version>
 </dependency>
 ```
 
@@ -304,6 +305,13 @@ ps.publish("test", "HelloWorld!");
 
 Pub/Sub can help decoupling components, reducing latency (as tasks can be processed by actors asynchronously) and transparently adding/removing logging and monitoring, even at runtime.
 Applications using WebSockets or Queues might also benefit from Pub/Sub, as their domain is event based. 
+
+Light transactions
+===
+The ActorSystem class has a couple of versions of the method **newLightTransactionalActor()**, which can be used to generate actors, with some limitations, that can provide light transactions.
+These actors have an implementation of **sendMessages()** (plus a couple of new methods, **sendMessageTransaction()** and **sendMessageTransactionReturn()**) that creates light transactions.
+The only guarantee that a light transaction provides is that messages in the transaction are processed one after the other, without any other messages allowed to be executed between them.
+At the moment, these messages need to be sent at the same time, with a single method call.
 
 Utilities
 ===

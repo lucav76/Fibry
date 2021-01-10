@@ -33,7 +33,7 @@ Simplicity first, flexibility second
 - It implements some simple mechanisms to help to process messages in **batches**
 - It implements a mechanism to **track progress** of long-running tasks, which can be extended to support the progress of messages processed by another server
 - It provides a way to create simple **Finite State Machines**, either with Actors or with Consumers (recommended)
-- It provides limited support for light transactions, intended as messages that are guaranteed to be executed without other messages between them 
+- It provides support for three types of transactions, from lightweight to full, rollbackable, transactions 
 
 Some numbers
 ===
@@ -59,7 +59,7 @@ You can find Fibry on Maven Central.
 
 To include it using Gradle:
 ```gradle
-compile group: 'eu.lucaventuri', name: 'fibry', version: '2.3.8'
+compile group: 'eu.lucaventuri', name: 'fibry', version: '2.4.0'
 ```
 
 To include it using Maven:
@@ -67,7 +67,7 @@ To include it using Maven:
 <dependency>
     <groupId>eu.lucaventuri</groupId>
     <artifactId>fibry</artifactId>
-    <version>2.3.8</version>
+    <version>2.4.0</version>
 </dependency>
 ```
 
@@ -306,11 +306,20 @@ ps.publish("test", "HelloWorld!");
 Pub/Sub can help decoupling components, reducing latency (as tasks can be processed by actors asynchronously) and transparently adding/removing logging and monitoring, even at runtime.
 Applications using WebSockets or Queues might also benefit from Pub/Sub, as their domain is event based. 
 
-Light transactions
+Transactions
 ===
-The ActorSystem class has a couple of versions of the method **newLightTransactionalActor()**, which can be used to generate actors, with some limitations, that can provide light transactions.
-These actors have an implementation of **sendMessages()** (plus a couple of new methods, **sendMessageTransaction()** and **sendMessageTransactionReturn()**) that creates light transactions.
-The only guarantee that a light transaction provides is that messages in the transaction are processed one after the other, without any other messages allowed to be executed between them.
+Fibry supports three types of transactions:
+- Light transactional actors, created using **ActorSystem.newLightTransactionalActor()**; these actors have an implementation of **sendMessages()** (plus a couple of new methods, **sendMessageTransaction()** and **sendMessageTransactionReturn()**) that creates light transactions.
+  The only guarantee that a light transaction provides is that messages in the transaction are processed one after the other, without any other messages allowed to be executed between them; the messages need to all be provided at the same time.
+- FUll transactions: many actors have a **transaction()** method that initiate a full transaction, that can be rollbacked;.
+- FUll transactions without rollback: many actors have a **transactionWithoutRollback()** method that initiate a full transaction, however, in case of an error, no rollback is provided. The only reason to use this method instead of transaction() is if it is too complex to close the state or if rollback has no sense.
+
+Light transactions are very lightweight, and they can be used without any particular precaution.
+On the other hand, full transaction needs to be used with caution, because they block the actor, which cannot receive any message until the transaction is completed; in addition,
+transactions are not initiated immediately, as we need their message to reach the actor and be processed. As it would be impossible to execute methods of the actor while blocking it,
+a convenient synchronous actor can be used inside the transaction.
+Please check the unit tests for examples on how to use these transactions.
+
 At the moment, these messages need to be sent at the same time, with a single method call.
 
 Utilities

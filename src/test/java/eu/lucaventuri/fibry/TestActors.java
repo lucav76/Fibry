@@ -1,5 +1,6 @@
 package eu.lucaventuri.fibry;
 
+import eu.lucaventuri.common.Exceptions;
 import eu.lucaventuri.common.Exitable;
 import eu.lucaventuri.common.SystemUtils;
 import org.junit.Assert;
@@ -22,6 +23,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 
 import static eu.lucaventuri.common.SystemUtils.sleep;
@@ -808,34 +810,16 @@ public class TestActors {
         actor.askExitAndWait();
     }
 
-    enum Operations {INC, DEC, VERIFY}
-
-    ;
+    enum Operations {INC, DEC, VERIFY, GET}
 
     @Test
     public void testLightTransactions() throws ExecutionException, InterruptedException {
-        BiConsumer<Operations, PartialActor<List<Operations>, AtomicInteger>> logic = (oper, actor) -> {
-            if (oper == Operations.INC) {
-                actor.getState().incrementAndGet();
-            } else if (oper == Operations.DEC) {
-                actor.getState().decrementAndGet();
-            } else {
-                assertEquals(0, actor.getState().get());
-            }
-        };
-
+        BiConsumer<Operations, PartialActor<List<Operations>, AtomicInteger>> logic = getTestLogicWithState();
         var actor = ActorSystem.anonymous().initialState(new AtomicInteger()).newLightTransactionalActor(logic);
-
         AtomicReference<CompletableFuture<Void>> ref = new AtomicReference<>();
         AtomicReference<CompletableFuture<Void>> ref2 = new AtomicReference<>();
 
-        Stereotypes.auto().runOnce(() -> {
-            for (int i = 0; i < 10_000; i++) {
-                actor.sendMessage(Operations.VERIFY);
-            }
-
-            ref.set(actor.sendMessageReturn(Operations.VERIFY));
-        });
+        runTestLogicWithStateVerification(actor, ref);
 
         Stereotypes.auto().runOnce(() -> {
             for (int i = 0; i < 10_000; i++) {
@@ -845,12 +829,121 @@ public class TestActors {
             ref2.set(actor.sendMessageReturn(Operations.VERIFY));
         });
 
-        while(ref.get()==null)
+        waitResults(ref, ref2);
+    }
+
+    @Test
+    public void testFullTransactions() throws ExecutionException, InterruptedException {
+        BiFunction<Operations, PartialActor<Operations, AtomicInteger>, Integer> logic = getTestLogicWithStateReturn();
+        var actor = ActorSystem.anonymous().initialState(new AtomicInteger()).newActorWithReturn(logic);
+        AtomicReference<CompletableFuture<Integer>> ref = new AtomicReference<>();
+        AtomicReference<CompletableFuture<Integer>> ref2 = new AtomicReference<>();
+
+        runTestLogicWithStateVerification(actor, ref);
+
+        Stereotypes.auto().runOnce(() -> {
+            for (int i = 0; i < 100; i++) {
+                actor.transactionWithoutRollback(transactionalActor -> {
+                    transactionalActor.sendMessage(Operations.INC);
+
+                    SystemUtils.sleep(1);
+                    transactionalActor.sendMessage(Operations.DEC);
+                });
+            }
+
+            ref2.set(actor.sendMessageReturn(Operations.VERIFY));
+        });
+
+        waitResults(ref, ref2);
+    }
+
+    @Test
+    public void testFullTransactionsRollabackable() throws ExecutionException, InterruptedException {
+        BiFunction<Operations, PartialActor<Operations, AtomicInteger>, Integer> logic = getTestLogicWithStateReturn();
+        var actor = ActorSystem.anonymous().initialState(new AtomicInteger()).newActorWithReturn(logic);
+        AtomicReference<CompletableFuture<Integer>> ref = new AtomicReference<>();
+        AtomicReference<CompletableFuture<Integer>> ref2 = new AtomicReference<>();
+
+        runTestLogicWithStateVerification(actor, ref);
+
+        Stereotypes.auto().runOnce(() -> {
+            for (int i = 0; i < 100; i++) {
+                final boolean rollback = (i % 10) == 0;
+
+                actor.transaction((transactionalActor, transaction) -> {
+                    Exceptions.rethrowRuntime(() -> assertEquals(0, transactionalActor.sendMessageReturn(Operations.VERIFY).get().intValue()));
+                    transactionalActor.sendMessage(Operations.INC);
+
+                    SystemUtils.sleep(1);
+                    transactionalActor.sendMessage(Operations.DEC);
+
+                    if (rollback) {
+                        Exceptions.rethrowRuntime(() -> System.out.println(transactionalActor.sendMessageReturn(Operations.INC).get()));
+
+                        transaction.rollback();
+                    }
+                }, state -> new AtomicInteger(state.get()));
+            }
+
+            ref2.set(actor.sendMessageReturn(Operations.VERIFY));
+        });
+
+        waitResults(ref, ref2);
+    }
+
+    private static <T> void waitResults(AtomicReference<CompletableFuture<T>> ref, AtomicReference<CompletableFuture<T>> ref2) throws InterruptedException, ExecutionException {
+        while (ref.get() == null)
             SystemUtils.sleep(1);
-        while(ref2.get()==null)
+        while (ref2.get() == null)
             SystemUtils.sleep(1);
 
         ref.get().get();
+    }
+
+    private void runTestLogicWithStateVerification(LightTransactionalActor<Operations, AtomicInteger> actor, AtomicReference<CompletableFuture<Void>> ref) {
+        Stereotypes.auto().runOnce(() -> {
+            for (int i = 0; i < 10_000; i++)
+                actor.sendMessage(Operations.VERIFY);
+
+            ref.set(actor.sendMessageReturn(Operations.VERIFY));
+        });
+    }
+
+    private void runTestLogicWithStateVerification(BaseActor<Operations, Integer, AtomicInteger> actor, AtomicReference<CompletableFuture<Integer>> ref) {
+        Stereotypes.auto().runOnce(() -> {
+            for (int i = 0; i < 10_000; i++)
+                actor.sendMessage(Operations.VERIFY);
+
+            ref.set(actor.sendMessageReturn(Operations.VERIFY));
+        });
+    }
+
+    private <T, T2> BiConsumer<T, PartialActor<T2, AtomicInteger>> getTestLogicWithState() {
+        BiConsumer<T, PartialActor<T2, AtomicInteger>> logic = (oper, actor) -> {
+            if (oper == Operations.INC) {
+                actor.getState().incrementAndGet();
+            } else if (oper == Operations.DEC) {
+                actor.getState().decrementAndGet();
+            } else {
+                assertEquals(0, actor.getState().get());
+            }
+        };
+        return logic;
+    }
+
+    private <T, T2> BiFunction<T, PartialActor<T2, AtomicInteger>, Integer> getTestLogicWithStateReturn() {
+        BiFunction<T, PartialActor<T2, AtomicInteger>, Integer> logic = (oper, actor) -> {
+            if (oper == Operations.INC) {
+                actor.getState().incrementAndGet();
+            } else if (oper == Operations.DEC) {
+                actor.getState().decrementAndGet();
+            } else if (oper == Operations.VERIFY) {
+                assertEquals(0, actor.getState().get());
+            }
+
+            return actor.getState().get();
+        };
+        return logic;
     }
 }
 

@@ -33,13 +33,13 @@ Simplicity first, flexibility second
 - It implements some simple mechanisms to help to process messages in **batches**
 - It implements a mechanism to **track progress** of long-running tasks, which can be extended to support the progress of messages processed by another server
 - It provides a way to create simple **Finite State Machines**, either with Actors or with Consumers (recommended)
-- It provides support for three types of transactions, from lightweight to full, rollbackable, transactions 
+- It provides support for three types of **transactions**, from lightweight to full, rollbackable, transactions 
 
 Some numbers
 ===
 So, fibers are better than threads. Got it. How much better?
 Very much. Depending on your problem, you can consider them 10X-100X better than threads.
-Please remember that Fibry is not optimized for performance, though performance have been taken into high consideration.
+While Fibry has not been optimized for extreme performance (e.g. it is based on a JDK queue), performance has been taken into high consideration, with the result that generally you don't pay the price of features that you don't need, which explains why there are so many types of actors with different capabilities.
 Also, Loom is not completed yet, so its performance can change.
 I took some informal benchmarks using a C5.2xlarge VM instance, without tuning of the OS or of Loom:
 
@@ -49,7 +49,7 @@ I took some informal benchmarks using a C5.2xlarge VM instance, without tuning o
 - Threads created per second: 15K
 - Fibers created per second: 600K (**40x better**)
 - Sync messages per second, between 2 threads (requires thread switching): 50K
-- Sync messages per second, between 2 threads (requires fiber switching): 150K (**3x better**)
+- Sync messages per second, between 2 fibers (requires fiber switching): 150K (**3x better**)
 
 As an indication, Fibry can send around 7-8M of messages per second from a single core, under low thread contention.
 

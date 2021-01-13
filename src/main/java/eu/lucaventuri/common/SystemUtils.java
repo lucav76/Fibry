@@ -2,10 +2,10 @@ package eu.lucaventuri.common;
 
 import java.io.*;
 import java.lang.invoke.MethodHandles;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Random;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.util.*;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -281,5 +281,35 @@ public final class SystemUtils {
                 throw new EOFException("Stream terminated after " + cur + " bytes!");
             cur += read;
         }
+    }
+
+    /**
+     * @param multiCastRequired True if the interface needs to support multicast
+     * @param siteLocalOnly true if only siteLocal IP addresses are required
+     * @return all the local IP addresses of the computer
+     * @throws SocketException
+     */
+    public static List<InetAddress> retrieveIPAddresses(boolean siteLocalOnly, boolean multiCastRequired)
+            throws SocketException {
+        List<InetAddress> acceptableAddresses = new ArrayList<InetAddress>();
+
+        Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+
+        while (interfaces.hasMoreElements()) {
+            NetworkInterface networkInterface = interfaces.nextElement();
+            Enumeration<InetAddress> addresses = networkInterface.getInetAddresses();
+
+            if (multiCastRequired && !networkInterface.supportsMulticast())
+                continue;
+
+            while (addresses.hasMoreElements()) {
+                InetAddress address = addresses.nextElement();
+
+                if (!siteLocalOnly || address.isSiteLocalAddress())
+                    acceptableAddresses.add(address);
+            }
+        }
+
+        return acceptableAddresses;
     }
 }

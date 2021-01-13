@@ -27,6 +27,7 @@ Simplicity first, flexibility second
 - Many types of actor implement the **Executor** interface, so you can "send code" to be executed in the thread/fiber of almost any actors, and use them on service that are not actor-aware
 - Most actors can be converted to **Reactive Flow Subscribers** (TCK tested), calling *asReactiveSubscriber()*
 - Fibry can create generators (Iterable) in a simple and effective way
+- Remote actors can be discovered using UDP Multicast  
 - It implements a very simple **Map/Reduce mechanism**, limited to the local computer.
 - It implements a very simple **Pub/Sub** mechanism, limited to the local computer.
 - It implements a simple **TCP port forwarding**, both as a Stereotype and as a small cli application: TcpForwarding
@@ -227,14 +228,20 @@ While limited, this means that Fibry can run as a distributed actor system acros
 For now, you are still responsible to create an endpoint to receive the messages and send them to the appropriate actors.
 It can also be used to deal with queues in a transparent way, though at the moment you have to implement the logic by yourself.
 
+Discovering remote actors
+===
+Remote actors can be made discoverable using a registry created with the **ActorRegistry.usingMulticast()** method, then actors that need to be exposed can call the **registerActor()** to register and **deregisterActor()** to deregister.
+The caller is responsible to provide information sufficient to eventually reach the actors, if that's the goal, and the format of this information is up to the caller.
+For example, it could allow you to discover remote actors in the same network using UDP Multicast, then providing a way to reach them via UDP, via TCP or via a RCP proxy, based on teh use case.
+You can check the unit tests or the **UdpMulticastRegistryExample** for how to use this feature.
  
- Generators
- ===
- Some languages like Python have the possibility to *yield* a value, meaning that the function returns an iterator / generator.
- Java does not have such a feature, but now Fibry implements several mechanisms for that, offering you a choice between simplicity and speed.
- Clearly this is a bit less elegant and more complex than having a yield keyword, but in at least it can be customized based on your needs.
- 
- This is a basic example, but you can find more examples in the unit test. I plan to write an article about this feature, but not anytime soon.
+Generators
+===
+Some languages like Python have the possibility to *yield* a value, meaning that the function returns an iterator / generator.
+Java does not have such a feature, but now Fibry implements several mechanisms for that, offering you a choice between simplicity and speed.
+Clearly this is a bit less elegant and more complex than having a yield keyword, but in at least it can be customized based on your needs.
+
+This is a basic example, but you can find more examples in the unit test. I plan to write an article about this feature, but not anytime soon.
  
  ```Java
 Iterable<Integer> gen = Generator.fromProducer(yielder -> {

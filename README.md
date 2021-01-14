@@ -2,13 +2,15 @@ Fibry
 ===
 
 Fibry is an experimental Actor System built to be simple and flexible. Hopefully, it will also be fun to use.
-Fibry is the **first Java Actor System using fibers (now called **Virtual Threads**) from [Project Loom](https://openjdk.java.net/projects/loom/)**, however it also works with threads.
+Fibry is the **first Java Actor System using fibers (now called **Virtual Threads**) from [Project Loom](https://openjdk.java.net/projects/loom/)**, however it also works with threads using any OpenJDK.
 
 Project Loom is an OpenJDK project that is expected to bring fibers (green threads) and continuations (co-routines) to Java.
 Fibry 1.X works with any version of Java starting from Java 8, while Fibry 2.X is targeting **Java 11**, but in both cases, you will need to use Loom if you want to leverage the power of fibers.
 Fibry 1.X is supported, and changes are available in the **jdk8** branch.
 Fibry aims to replicate some of the features of the Erlang Actor System in Java.
 Fibry allows you to send code to be executed in the thread/fiber of an actor, a mechanism similar to the one used in Chromium.
+
+The current line of development is meant to make Fibry useful on the creation of video games supporting *online multi-players* functionalities.
 
 Simplicity first, flexibility second
 ===
@@ -27,7 +29,7 @@ Simplicity first, flexibility second
 - Many types of actor implement the **Executor** interface, so you can "send code" to be executed in the thread/fiber of almost any actors, and use them on service that are not actor-aware
 - Most actors can be converted to **Reactive Flow Subscribers** (TCK tested), calling *asReactiveSubscriber()*
 - Fibry can create generators (Iterable) in a simple and effective way
-- Remote actors can be discovered using UDP Multicast  
+- Remote actors can be **discovered** using UDP Multicast  
 - It implements a very simple **Map/Reduce mechanism**, limited to the local computer.
 - It implements a very simple **Pub/Sub** mechanism, limited to the local computer.
 - It implements a simple **TCP port forwarding**, both as a Stereotype and as a small cli application: TcpForwarding
@@ -213,11 +215,12 @@ In practice, if you plan to have millions of named actors you could either:
 
 A Distributed Actor System
 ===
-Fibry 2.X is a Distributed Actor System, meaning that it can use multiple machines to run your actors. This feature is quite limited at the moment.
+Fibry 2.X is a Distributed Actor System, meaning that it can use multiple machines to run your actors. This feature limited at the moment.
 Fibry provides a simple, generic, support to contact (named) actors running on other machines. It is based on two principles:
 - RemoteActorChannel: an interface to send messages to named actors running on remote machines; these actors can return a value.
 - RemoteActorChannelSendOnly: an interface to send messages to named actors running on remote machines; these actors cannot return any value (e.g. queues).
 - ChannelSerializer / ChannelDeserializer / ChannelSerDeser: interfaces used for serialization and deserialization of messages
+In addition, Fibry provides a generic mechanism for **actors discovery**, though the only implementation provided is based on UDP multicast, and it is therefore only usable for machines in the same network. 
 
 To make it more useful, Fibry provides an implementation:
 - HttpChannel: implements a channel using HTTP (and you can add your flavour of authentication)
@@ -226,6 +229,7 @@ To make it more useful, Fibry provides an implementation:
 
 While limited, this means that Fibry can run as a distributed actor system across HTTP clusters, and in particular it could be used as a very simple **RPC** mechanism to send messages **across MicroServices**.
 For now, you are still responsible to create an endpoint to receive the messages and send them to the appropriate actors.
+If you are using **Spring Boot**, the **Fibry-Spring** project could help.
 It can also be used to deal with queues in a transparent way, though at the moment you have to implement the logic by yourself.
 
 Discovering remote actors

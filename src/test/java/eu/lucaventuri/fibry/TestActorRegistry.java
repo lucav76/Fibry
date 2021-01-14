@@ -15,11 +15,11 @@ public class TestActorRegistry extends TestCase {
         InetAddress address = InetAddress.getByName("224.0.0.0");
         int multicastPort = 10001;
         var actor = ActorSystem.anonymous().newActor(obj -> { });
-        var reg1 = ActorRegistry.usingMulticast(address, multicastPort, 5000, 0, 5000, 0);
+        var reg1 = ActorRegistry.usingMulticast(address, multicastPort, 5000, 0, 5000, 0, null);
 
         new Thread(() -> {
             try {
-                var reg2 = ActorRegistry.usingMulticast(address, multicastPort, 5000, 0, 5000, 0);
+                var reg2 = ActorRegistry.usingMulticast(address, multicastPort, 5000, 0, 5000, 0, null);
 
                 while (reg2.getHowManyRemoteActors() == 0)
                     SystemUtils.sleep(1);

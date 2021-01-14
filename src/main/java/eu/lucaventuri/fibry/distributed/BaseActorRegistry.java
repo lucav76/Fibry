@@ -11,6 +11,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -44,18 +45,6 @@ public abstract class BaseActorRegistry implements ActorRegistry, AutoCloseable 
         REGISTER, DEREGISTER, JOINING
     }
 
-    public static class ActorAction {
-        public final RegistryAction action;
-        public final String id;
-        public final String info;
-
-        public ActorAction(RegistryAction action, String id, String info) {
-            this.action = action;
-            this.id = id;
-            this.info = info;
-        }
-    }
-
     private final ConcurrentHashMap<BaseActor, IdAndSupplier> localRegistry = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, TimeAndInfo> remoteRegistry = new ConcurrentHashMap<>();
     private final SinkActorSingleTask<Void> scheduledSendInfo;
@@ -63,12 +52,14 @@ public abstract class BaseActorRegistry implements ActorRegistry, AutoCloseable 
     private final int msGraceSendRefresh;
     private final int msGgraceCleanRemoteActors;
     private final AtomicLong lastSent = new AtomicLong();
+    private final Predicate<ActorAction> validator;
 
-    protected BaseActorRegistry(int msRefresh, int msGraceSendRefresh, int msCleanRemoteActors, int msGgraceCleanRemoteActors) {
+    protected BaseActorRegistry(int msRefresh, int msGraceSendRefresh, int msCleanRemoteActors, int msGgraceCleanRemoteActors, Predicate<ActorAction> validator) {
         scheduledSendInfo = Stereotypes.auto().schedule(this::sendAllActorsInfo, msRefresh);
         scheduledClean = Stereotypes.auto().schedule(this::cleanRemoteActors, msCleanRemoteActors);
         this.msGraceSendRefresh = msGraceSendRefresh;
         this.msGgraceCleanRemoteActors = msGgraceCleanRemoteActors;
+        this.validator = validator;
     }
 
     private void cleanRemoteActors() {
@@ -87,8 +78,11 @@ public abstract class BaseActorRegistry implements ActorRegistry, AutoCloseable 
     /** Transmit or broadcast the information related to the actors */
     protected abstract void sendActorsInfo(Collection<ActorAction> info);
 
-    protected void onActorsInfo(Collection<ActorAction> info) {
-        for (var action : info) {
+    protected void onActorsInfo(Collection<ActorAction> actions) {
+        for (var action : actions) {
+            if (validator!=null && !validator.test(action))
+                continue;
+
             if (action.action == RegistryAction.JOINING)
                 sendAllActorsInfo();
             else if (action.action == RegistryAction.REGISTER)

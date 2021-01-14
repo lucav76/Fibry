@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.net.*;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.Predicate;
 
 /** Registry using UDP multicast */
 public class MulticastActorRegistry extends BaseActorRegistry {
@@ -17,8 +18,8 @@ public class MulticastActorRegistry extends BaseActorRegistry {
     private final int localPort;
     private final InetAddress localAddress;
 
-    public MulticastActorRegistry(InetAddress multicastGroup, int multicastPort, int msRefresh, int msGraceSendRefresh, int msCleanRemoteActors, int msGgraceCleanRemoteActors) throws IOException {
-        super(msRefresh, msGraceSendRefresh, msCleanRemoteActors, msGgraceCleanRemoteActors);
+    public MulticastActorRegistry(InetAddress multicastGroup, int multicastPort, int msRefresh, int msGraceSendRefresh, int msCleanRemoteActors, int msGgraceCleanRemoteActors, Predicate<ActorAction> validator) throws IOException {
+        super(msRefresh, msGraceSendRefresh, msCleanRemoteActors, msGgraceCleanRemoteActors, validator);
 
         this.multicastGroup = multicastGroup;
         this.multicastPort = multicastPort;
@@ -44,7 +45,7 @@ public class MulticastActorRegistry extends BaseActorRegistry {
         }
 
         String info = (new String(packet.getData(), 0, packet.getLength()));
-        onActorsInfo(List.of(stringToAction(info)));
+        onActorsInfo(List.of(ActorRegistry.ActorAction.fromStringProtocol(info)));
     }
 
 
@@ -52,7 +53,7 @@ public class MulticastActorRegistry extends BaseActorRegistry {
     protected void sendActorsInfo(Collection<ActorAction> actions) {
         for (var action : actions) {
             Exceptions.logShort(() -> {
-                var buf = actionToString(action).getBytes();
+                var buf = ActorRegistry.ActorAction.toStringProtocol(action).getBytes();
                 var packet = new DatagramPacket(buf, buf.length, multicastGroup, multicastPort);
 
                 clientSocket.send(packet);
@@ -60,39 +61,9 @@ public class MulticastActorRegistry extends BaseActorRegistry {
         }
     }
 
-    private String actionToString(ActorAction action) {
-        if (action.action==RegistryAction.JOINING)
-            return "J";
-        String actionCode = action.action == RegistryAction.REGISTER ? "R|" : "D|";
 
-        return actionCode + action.id + "|" + action.info;
-    }
 
-    private ActorAction stringToAction(String info) {
-        char code = info.charAt(0);
 
-        if (code=='J') {
-            if (info.length()>1)
-                throw new IllegalArgumentException("Wrong format [1]");
-
-            return new ActorAction(RegistryAction.JOINING, null, null);
-        }
-
-        if (code != 'R' && code != 'D')
-            throw new IllegalArgumentException("Wrong action code: " + code);
-        if (info.charAt(1) != '|')
-            throw new IllegalArgumentException("Wrong format [2]");
-
-        int endInfo = info.indexOf('|', 2);
-
-        if (endInfo < 0)
-            throw new IllegalArgumentException("Wrong format [3]");
-
-        RegistryAction action = code == 'R' ? RegistryAction.REGISTER : RegistryAction.DEREGISTER;
-        String id = info.substring(2, endInfo);
-
-        return new ActorAction(action, id, info.substring(endInfo + 1));
-    }
 
     @Override
     public void close() throws Exception {

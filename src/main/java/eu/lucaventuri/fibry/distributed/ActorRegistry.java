@@ -5,6 +5,7 @@ import eu.lucaventuri.fibry.BaseActor;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.util.function.BiConsumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 /**
@@ -35,12 +36,58 @@ public interface ActorRegistry {
 
     <T, R, S> boolean deregisterActor(BaseActor<T, R, S> actor);
 
-    static ActorRegistry usingMulticast(InetAddress address, int multicastPort, int msRefresh, int msGraceSendRefresh, int msCleanRemoteActors, int msGgraceCleanRemoteActors) throws IOException {
-        return new MulticastActorRegistry(address, multicastPort, msRefresh, msGraceSendRefresh, msCleanRemoteActors, msGgraceCleanRemoteActors);
+    static ActorRegistry usingMulticast(InetAddress address, int multicastPort, int msRefresh, int msGraceSendRefresh, int msCleanRemoteActors, int msGgraceCleanRemoteActors, Predicate<ActorAction> validator) throws IOException {
+        return new MulticastActorRegistry(address, multicastPort, msRefresh, msGraceSendRefresh, msCleanRemoteActors, msGgraceCleanRemoteActors, validator);
     }
 
     /** Visit all the remote actors, id and info */
     void visitRemoteActors(BiConsumer<String, String> worker);
 
     int getHowManyRemoteActors();
+
+    public static class ActorAction {
+        public final BaseActorRegistry.RegistryAction action;
+        public final String id;
+        public final String info;
+
+        public ActorAction(BaseActorRegistry.RegistryAction action, String id, String info) {
+            this.action = action;
+            this.id = id;
+            this.info = info;
+        }
+
+        public static String toStringProtocol(ActorAction action) {
+            if (action.action== BaseActorRegistry.RegistryAction.JOINING)
+                return "J";
+            String actionCode = action.action == BaseActorRegistry.RegistryAction.REGISTER ? "R|" : "D|";
+
+            return actionCode + action.id + "|" + action.info;
+        }
+
+        public static ActorAction fromStringProtocol(String info) {
+            char code = info.charAt(0);
+
+            if (code=='J') {
+                if (info.length()>1)
+                    throw new IllegalArgumentException("Wrong format [1]");
+
+                return new ActorAction(BaseActorRegistry.RegistryAction.JOINING, null, null);
+            }
+
+            if (code != 'R' && code != 'D')
+                throw new IllegalArgumentException("Wrong action code: " + code);
+            if (info.charAt(1) != '|')
+                throw new IllegalArgumentException("Wrong format [2]");
+
+            int endInfo = info.indexOf('|', 2);
+
+            if (endInfo < 0)
+                throw new IllegalArgumentException("Wrong format [3]");
+
+            BaseActorRegistry.RegistryAction action = code == 'R' ? BaseActorRegistry.RegistryAction.REGISTER : BaseActorRegistry.RegistryAction.DEREGISTER;
+            String id = info.substring(2, endInfo);
+
+            return new ActorAction(action, id, info.substring(endInfo + 1));
+        }
+    }
 }

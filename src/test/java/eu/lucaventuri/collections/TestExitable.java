@@ -17,15 +17,18 @@ import static org.junit.Assert.*;
 
 class Exit extends Exitable {
     Exit() {
-        Stereotypes.auto().runOnce( () -> {
-            while(!isExiting()) {
-                SystemUtils.sleep(1);;
+        Stereotypes.auto().runOnce(() -> {
+            while (!isExiting()) {
+                SystemUtils.sleep(1);
+                ;
             }
 
-            notifyFinished();;
+            notifyFinished();
+            ;
         });
     }
 }
+
 public class TestExitable {
     @Test
     public void testExitable() {
@@ -38,7 +41,7 @@ public class TestExitable {
 
     @Test
     public void testMultiExitable() {
-        MultiExitable me=new MultiExitable();
+        MultiExitable me = new MultiExitable();
         Exit e0 = new Exit();
         Exit e1 = new Exit();
         Exit e2 = new Exit();
@@ -47,10 +50,14 @@ public class TestExitable {
         assertFalse(e0.isExiting());
         assertFalse(e0.isFinished());
 
-        me.add(e0);;
-        me.add(e1);;
-        me.add(e2);;
-        me.add(e3);;
+        me.add(e0);
+        ;
+        me.add(e1);
+        ;
+        me.add(e2);
+        ;
+        me.add(e3);
+        ;
 
         assertFalse(me.isFinished());
         assertFalse(me.isExiting());
@@ -100,8 +107,7 @@ public class TestExitable {
             latchJob.countDown();
             SystemUtils.sleep(100);
             num.incrementAndGet();
-        }))
-        {
+        })) {
             actor.sendMessage("Go! - Exiting: ");
             latchJob.await();
         }
@@ -117,13 +123,29 @@ public class TestExitable {
         try (Actor<String, Void, Void> actor = ActorSystem.anonymous().strategy(Exitable.CloseStrategy.SEND_POISON_PILL_AND_WAIT).newActor((message, thisActor) -> {
             SystemUtils.sleep(100);
             num.incrementAndGet();
-        }))
-        {
+        })) {
             actor.sendMessage("Go!");
             actor.sendMessage("Go2!");
         }
 
         // The try catch will block until the actor is actually dead, because of the CloseStrategy selected
         assertEquals(num.get(), 2);
+    }
+
+    @Test
+    public void testMultiExitable2() {
+        AtomicInteger num = new AtomicInteger();
+        var actor1 = ActorSystem.anonymous().newActor(num::addAndGet);
+
+        try (MultiExitable exit = new MultiExitable(true, actor1)) {
+            actor1.sendMessage(3);
+            actor1.sendMessage(2);
+            exit.add(ActorSystem.anonymous().newActor((Integer n) -> {
+                SystemUtils.sleep(5);
+                num.addAndGet(n);
+            })).sendMessage(10);
+        }
+
+        assertEquals(15, num.get());
     }
 }

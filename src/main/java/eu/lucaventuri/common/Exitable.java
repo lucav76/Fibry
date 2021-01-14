@@ -43,6 +43,13 @@ public class Exitable implements Closeable, CanExit {
         sendPoisonPillWhenExiting = false;
     }
 
+    public Exitable(CloseStrategy strategy) {
+        exiting = new AtomicBoolean(false);
+        finished = new CountDownLatch(1);
+        closeStrategy = strategy;
+        sendPoisonPillWhenExiting = false;
+    }
+
     /** Use with absolute care, as this makes the two exitables working like one, but potentially with different
      * strategies. This is intended for "light transactional actors" */
     public Exitable(Exitable exitable) {

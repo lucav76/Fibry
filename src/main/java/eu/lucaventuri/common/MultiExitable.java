@@ -9,13 +9,43 @@ import java.util.Vector;
 public class MultiExitable extends Exitable {
     private final List<Exitable> list = new Vector<>();
 
-    public void add(Exitable element) {
+    public MultiExitable() {
+    }
+
+    public MultiExitable(boolean waitOnClose) {
+        super(waitOnClose ? CloseStrategy.SEND_POISON_PILL_AND_WAIT : CloseStrategy.ASK_EXIT);
+    }
+
+    public MultiExitable(CloseStrategy closeStrategy) {
+        super(closeStrategy);
+    }
+
+    public MultiExitable(Exitable... exitables) {
+        for (Exitable exit : exitables)
+            add(exit);
+    }
+
+    public MultiExitable(CloseStrategy closeStrategy, Exitable... exitables) {
+        super(closeStrategy);
+
+        for (Exitable exit : exitables)
+            add(exit);
+    }
+
+    public MultiExitable(boolean waitOnClose, Exitable... exitables) {
+        this(waitOnClose ? CloseStrategy.SEND_POISON_PILL_AND_WAIT : CloseStrategy.ASK_EXIT, exitables);
+    }
+
+
+    public <T extends Exitable> T add(T element) {
         if (isExiting()) {
             element.sendPoisonPill();
             element.askExit();
         }
 
-        list.add(element); // the element is not added if the group is exiting
+        list.add(element);
+
+        return element;
     }
 
     public void remove(Exitable element) {

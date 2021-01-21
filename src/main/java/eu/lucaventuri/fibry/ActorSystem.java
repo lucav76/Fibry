@@ -31,7 +31,7 @@ public class ActorSystem {
     private static volatile int defaultPollTimeoutMs = Integer.MAX_VALUE;
     private static final MiniFibryQueue DROPPING_QUEUE = MiniFibryQueue.dropping();
     static volatile CreationStrategy defaultStrategy = CreationStrategy.AUTO;
-    private static final NamedActorCreator defaultAnonymous = new NamedActorCreator(null, defaultQueueCapacity, false);
+    private static final NamedActorCreator defaultAnonymous = new NamedActorCreator(null, defaultQueueCapacity, false, false);
 
     public static class ActorPoolCreator<S> {
         private final CreationStrategy strategy;
@@ -326,14 +326,14 @@ public class ActorSystem {
     public static class NamedStrategyActorCreator extends NamedStateActorCreator<Void> {
         final boolean queueProtection;
 
-        private NamedStrategyActorCreator(String name, CreationStrategy strategy, CloseStrategy closeStrategy, int queueCapacity, boolean queueProtection) {
-            super(name, strategy, null, false, null, null, closeStrategy, queueCapacity, queueProtection);
+        private NamedStrategyActorCreator(String name, CreationStrategy strategy, CloseStrategy closeStrategy, int queueCapacity, boolean queueProtection, boolean allowReuse) {
+            super(name, strategy, null, allowReuse, null, null, closeStrategy, queueCapacity, queueProtection);
 
             this.queueProtection = queueProtection;
         }
 
         public <S> NamedStateActorCreator<S> initialState(S state) {
-            return new NamedStateActorCreator<>(name, strategy, state, false, null, null, closeStrategy, queueCapacity, queueProtection);
+            return new NamedStateActorCreator<>(name, strategy, state, allowReuse, null, null, closeStrategy, queueCapacity, queueProtection);
         }
 
         /**
@@ -342,7 +342,7 @@ public class ActorSystem {
          * @return an object part of the fluent interface
          */
         public <S> NamedStateActorCreator<S> initialState(S state, Consumer<S> initializer, Consumer<S> finalizer) {
-            return new NamedStateActorCreator<>(name, strategy, state, false, initializer, finalizer, closeStrategy, queueCapacity, queueProtection);
+            return new NamedStateActorCreator<>(name, strategy, state, allowReuse, initializer, finalizer, closeStrategy, queueCapacity, queueProtection);
         }
 
         public <S> ActorPoolCreator<S> poolParams(PoolParameters params, Supplier<S> stateSupplier) {
@@ -446,37 +446,45 @@ public class ActorSystem {
 
     // Name as supplied, strategy: auto and initialState: null
     public static class NamedActorCreator extends NamedStrategyActorCreator {
-        private NamedActorCreator(String name, int queueCapacity, boolean queueProtection) {
-            super(name, defaultStrategy, null, queueCapacity, queueProtection);
+        private NamedActorCreator(String name, int queueCapacity, boolean queueProtection, boolean allowReuse) {
+            super(name, defaultStrategy, null, queueCapacity, queueProtection, allowReuse);
         }
 
         public NamedStrategyActorCreator strategy(CreationStrategy strategy) {
-            return new NamedStrategyActorCreator(name, strategy, null, queueCapacity, queueProtection);
+            return new NamedStrategyActorCreator(name, strategy, null, queueCapacity, queueProtection, allowReuse);
         }
 
         public NamedStrategyActorCreator strategy(CreationStrategy strategy, CloseStrategy closeStrategy) {
-            return new NamedStrategyActorCreator(name, strategy, closeStrategy, queueCapacity, queueProtection);
+            return new NamedStrategyActorCreator(name, strategy, closeStrategy, queueCapacity, queueProtection, allowReuse);
         }
 
         public NamedStrategyActorCreator strategy(CloseStrategy closeStrategy) {
-            return new NamedStrategyActorCreator(name, CreationStrategy.AUTO, closeStrategy, queueCapacity, queueProtection);
+            return new NamedStrategyActorCreator(name, CreationStrategy.AUTO, closeStrategy, queueCapacity, queueProtection, allowReuse);
         }
     }
 
     public static NamedActorCreator named(String name) {
-        return new NamedActorCreator(name, defaultQueueCapacity, false);
+        return new NamedActorCreator(name, defaultQueueCapacity, false, false);
+    }
+
+    public static NamedActorCreator namedReusable(String name) {
+        return new NamedActorCreator(name, defaultQueueCapacity, false, true);
     }
 
     public static NamedActorCreator named(String name, boolean queueProtection) {
-        return new NamedActorCreator(name, defaultQueueCapacity, queueProtection);
+        return new NamedActorCreator(name, defaultQueueCapacity, queueProtection, false);
     }
 
     public static NamedActorCreator named(String name, int queueCapacity) {
-        return new NamedActorCreator(name, queueCapacity, false);
+        return new NamedActorCreator(name, queueCapacity, false, false);
+    }
+
+    public static NamedActorCreator namedReusable(String name, int queueCapacity) {
+        return new NamedActorCreator(name, queueCapacity, false, true);
     }
 
     public static NamedActorCreator named(String name, int queueCapacity, boolean queueProtection) {
-        return new NamedActorCreator(name, queueCapacity, queueProtection);
+        return new NamedActorCreator(name, queueCapacity, queueProtection, false);
     }
 
     public static NamedActorCreator anonymous() {
@@ -485,7 +493,7 @@ public class ActorSystem {
     }
 
     public static NamedActorCreator anonymous(int queueCapacity) {
-        return new NamedActorCreator(null, queueCapacity, false);
+        return new NamedActorCreator(null, queueCapacity, false, false);
     }
 
     protected static String registerActorName(String actorName, boolean allowReuse) {

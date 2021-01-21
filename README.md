@@ -10,7 +10,7 @@ Fibry 1.X is supported, and changes are available in the **jdk8** branch.
 Fibry aims to replicate some of the features of the Erlang Actor System in Java.
 Fibry allows you to send code to be executed in the thread/fiber of an actor, a mechanism similar to the one used in Chromium.
 
-The current line of development is meant to make Fibry useful on the creation of video games supporting *online multi-players* functionalities.
+The current line of development is meant to make Fibry useful on the creation of IoT products and video games supporting *online multi-players* functionalities.
 
 Simplicity first, flexibility second
 ===

@@ -16,7 +16,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
- * Base ckass simplifying the creation of a registry.
+ * Base class simplifying the creation of a registry, for actors discovery.
  * The implementation should:
  * - implement sendActorsInfo() to broadcast the local actors to the remote machines
  * - call onActorsInfo() when new information are received from the remote machines

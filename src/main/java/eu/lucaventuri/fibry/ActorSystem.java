@@ -4,6 +4,7 @@ import eu.lucaventuri.common.ConcurrentHashSet;
 import eu.lucaventuri.common.Exceptions;
 import eu.lucaventuri.common.Exitable.CloseStrategy;
 import eu.lucaventuri.common.MultiExitable;
+import eu.lucaventuri.concurrent.Lockable;
 import eu.lucaventuri.fibry.distributed.*;
 import eu.lucaventuri.fibry.receipts.CompletableReceipt;
 import eu.lucaventuri.fibry.receipts.ReceiptFactory;
@@ -16,6 +17,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.*;
 
@@ -77,7 +79,8 @@ public class ActorSystem {
             return new PoolActorLeader<>(getOrCreateActorQueue(registerActorName(name, false), defaultQueueCapacity), null, groupExit, getQueueFinalizer(name, leaderFinalizer, true), leaderFinalizer);
         }
 
-        private <T, R> void createNewWorkerAndAddToPool(PoolActorLeader<T, R, S> groupLeader, Either<Consumer<T>, Function<T, R>> actorLogic) {
+
+        <T, R> void createNewWorkerAndAddToPool(PoolActorLeader<T, R, S> groupLeader, Either<Consumer<T>, Function<T, R>> actorLogic) {
             NamedStateActorCreator<S> creator = new NamedStateActorCreator<>(name, strategy, stateSupplier == null ? null : stateSupplier.get(), true, initializer, finalizer, null, defaultQueueCapacity, true, 50);
             actorLogic.ifEither(logic -> groupLeader.getGroupExit().add(creator.newActor(logic).setDrainMessagesOnExit(false).setExitSendsPoisonPill(false)),
                     logic -> groupLeader.getGroupExit().add(creator.newActorWithReturn(logic).setDrainMessagesOnExit(false).setExitSendsPoisonPill(false)));
@@ -89,6 +92,8 @@ public class ActorSystem {
         }
 
         private <T, R> PoolActorLeader<T, R, S> createPool(Either<Consumer<T>, Function<T, R>> actorLogic, Consumer<S> leaderFinalizer) {
+            // The leader is not associated to a thread, so it does not receive messages, it is only used
+            // to coordinate the workers
             PoolActorLeader<T, R, S> leader = createFixedPool(actorLogic, leaderFinalizer);
 
             if (poolParams.minSize != poolParams.maxSize)
@@ -98,6 +103,8 @@ public class ActorSystem {
         }
 
         private <T, R> PoolActorLeader<T, R, S> createPool(BiConsumer<T, PartialActor<T, S>> actorBiLogic, Consumer<S> leaderFinalizer) {
+            // The leader is not associated to a thread, so it does not receive messages, it is only used
+            // to coordinate the workers
             PoolActorLeader<T, R, S> leader = createFixedPool(actorBiLogic, leaderFinalizer);
 
             if (poolParams.minSize != poolParams.maxSize)
@@ -150,6 +157,25 @@ public class ActorSystem {
 
         public <T> PoolActorLeader<T, Void, S> newPool(Consumer<T> actorLogic) {
             return createPool(Either.left(actorLogic), null);
+        }
+
+        public <T> WeightedActor<T, S> newWeightedPool(Consumer<T> actorLogic) {
+            return newWeightedPool(actorLogic, poolParams.maxSize);
+        }
+
+        public <T> WeightedActor<T, S> newWeightedPool(Consumer<T> actorLogic, int numPermits) {
+            // It must be fair, to avoid startvation and deadlocks
+            var lockable = Lockable.fromSemaphore(numPermits, true);
+
+            Consumer<WeightedMessage<T>>weightedLogic = msg -> {
+                try(var unlock = lockable.acquire(msg.weight)) {
+                    actorLogic.accept(msg.message);
+                } catch (Exception e) {
+                    System.err.println("Weighted actor: " +  e);
+                }
+            };
+
+            return WeightedActor.from(createPool(Either.left(weightedLogic), null));
         }
 
         public <T, R> PoolActorLeader<T, R, S> newPoolWithReturn(Function<T, R> actorLogic, Consumer<S> leaderFinalizer) {
@@ -496,7 +522,7 @@ public class ActorSystem {
         return new NamedActorCreator(null, queueCapacity, false, false);
     }
 
-    protected static String registerActorName(String actorName, boolean allowReuse) {
+    static String registerActorName(String actorName, boolean allowReuse) {
         if (actorName == null)
             return null;
 

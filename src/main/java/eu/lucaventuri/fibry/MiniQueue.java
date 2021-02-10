@@ -3,6 +3,8 @@ package eu.lucaventuri.fibry;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 
+import eu.lucaventuri.collections.PriorityMiniQueue;
+
 public interface MiniQueue<T> {
     boolean add (T message);
     default boolean offer (T message) {
@@ -24,6 +26,12 @@ public interface MiniQueue<T> {
 
         return new MiniQueuedBlockingQueue<>();
     }
+
+    /** Useful to reduce the starvation on weighted work stealing pools */
+    static <T> PriorityMiniQueue<T> priority() {
+        return new PriorityMiniQueue<>();
+    }
+
 
     /** MiniQueue dropping all the messages */
     static <T> MiniQueue<T> dropping() {

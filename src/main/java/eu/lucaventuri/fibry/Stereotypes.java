@@ -6,6 +6,7 @@ import com.sun.net.httpserver.HttpServer;
 import eu.lucaventuri.common.*;
 import eu.lucaventuri.fibry.ActorSystem.NamedStateActorCreator;
 import eu.lucaventuri.fibry.ActorSystem.NamedStrategyActorCreator;
+import eu.lucaventuri.functional.Either;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -21,6 +22,7 @@ import java.util.function.*;
 
 import static eu.lucaventuri.fibry.CreationStrategy.*;
 
+/** Utility class used for batch processing */
 class SingleTracker<T> {
     long lastBatchSentTime = 0;
     int lastNumMessages = 0;
@@ -50,9 +52,9 @@ class SingleTracker<T> {
     void setLastNumMessages(int numMessages) {
         this.lastNumMessages = numMessages;
     }
-
 }
 
+/** Utility class used for batch processing */
 class MultiTracker<T extends MergeableParallelBatches> {
     Map<String, SingleTracker<T>> mapTrackers = new ConcurrentHashMap<>();
 
@@ -917,6 +919,10 @@ public class Stereotypes {
             });
 
             return strategy.start(actor);
+        }
+
+        public <T> void weightedWorkStealingPool(int numWorkers, Consumer<T> logic) {
+
         }
 
         private NamedStrategyActorCreator anonymous() {

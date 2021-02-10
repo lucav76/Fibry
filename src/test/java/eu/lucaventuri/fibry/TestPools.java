@@ -38,7 +38,6 @@ public class TestPools {
         });
 
         assertEquals(3, leader.getGroupExit().size());
-        assertEquals(0, actors.size());
 
         leader.sendMessageReturn("A");
         leader.sendMessageReturn("B");
@@ -177,7 +176,7 @@ public class TestPools {
         PoolActorLeader<Object, Void, Double> leader = ActorSystem.anonymous().poolParams(PoolParameters.fixedSize(3), Math::random).newPool((m, actor) ->
         {
             numbersSeen.add(actor.getState());
-            SystemUtils.sleep(0);
+            SystemUtils.sleep(1);
             messages.incrementAndGet();
         }, null);
 
@@ -190,4 +189,27 @@ public class TestPools {
         assertEquals(3, numbersSeen.size()); // It could be less, maybe if one thread has not been scheduled yet
         assertEquals(100, messages.get());
     }
+
+    @Test
+    public void testCount() {
+        AtomicInteger numMessage = new AtomicInteger();
+        Set<Object> actors = ConcurrentHashSet.build();
+
+        PoolActorLeader<Object, Void, Double> leader = ActorSystem.anonymous().poolParams(PoolParameters.fixedSize(3), Math::random).newPool((m, actor) ->
+        {
+            actors.add(Thread.currentThread());
+            SystemUtils.sleep(20);
+            numMessage.incrementAndGet();
+        }, null);
+
+        for (int i = 0; i < 25; i++)
+            leader.sendMessage("abc");
+
+        leader.sendPoisonPill();
+        leader.waitForExit();
+
+        assertEquals(25, numMessage.get());
+        assertEquals(3, actors.size());
+    }
+
 }

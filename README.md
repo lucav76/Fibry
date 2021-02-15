@@ -20,7 +20,7 @@ Simplicity first, flexibility second
 - You can use both **fibers** (if you run on Loom) and **threads**
 - There is a series of Stereotypes to handle common scenarios
 - Your actors don't need to extend any particular class, they can just implement **Consumer** or **Function**
-- You actors have anyway the option to extend **CustomActor** and **CustomActorWithResult**, if this suits you best 
+- Your actors have anyway the option to extend **CustomActor** and **CustomActorWithResult**, if this suits you best 
 - If you choose to simply implements **Consumer** and **Function**, your actors can also be used "transparently" in code that knows nothing about Fibry
 - It is simple to retrieve the result of a message
 - It is possible to send messages to named actors even before they are created, potentially simplifying your logic; the messages can be discarded or processed when the actor will be available 
@@ -29,7 +29,8 @@ Simplicity first, flexibility second
 - Many types of actor implement the **Executor** interface, so you can "send code" to be executed in the thread/fiber of almost any actors, and use them on service that are not actor-aware
 - Most actors can be converted to **Reactive Flow Subscribers** (TCK tested), calling *asReactiveSubscriber()*
 - Fibry can create generators (Iterable) in a simple and effective way
-- Remote actors can be **discovered** using UDP Multicast  
+- Remote actors can be **discovered** using UDP Multicast
+- It implements several types of actor pools, for work-stealing tasks, with the possibility to assign a weight to each job 
 - It implements a very simple **Map/Reduce mechanism**, limited to the local computer.
 - It implements a very simple **Pub/Sub** mechanism, limited to the local computer.
 - It implements a simple **TCP port forwarding**, both as a Stereotype and as a small cli application: TcpForwarding
@@ -267,8 +268,9 @@ Please note that every generator is back by a thread / fiber, and while it can p
 
 Actor Pools
 ===
-Fibry supports the concept of actor pool, a scalable pool of actors than can quickly scale based on the number of messages in the queue.
+Fibry supports the concept of actor pool, an scalable pool of actors than can quickly scale based on the number of messages in the queue.
 The pools can be created using the class ActorSystem. However, please be careful because some operations might behave differently than with other actors. In particular, thread confinement will no longer work as before, because your code can run on multiple actors. However, as long as you access the state of the actor, you are guaranteed that the state is thread confined.
+Fibry can create weighted, fixed-size, actor pools, where the weight can be used to dynamically reduce the number of tasks executed at the same time, for example to reduce memory consumption or I/O conflicts, if you can somehow detect how heavy is the task. 
 When creating a pool, you get access to the PoolActorLeader, which is a representative of the group but does not really process messages. If the pool is scalable, another actor is created to monitor the work queue. So creating a pool of N actors might actually create N=1 or N+2 actors.
 The leader can be used as a normal actor, and will take care to send the messages to the workers. 
 
@@ -281,6 +283,11 @@ var leader = ActorSystem.anonymous().<String>poolParams(PoolParameters.fixedSize
 And the following code creates a scalable pool from 3 to 10 actors:
 ```java
 var leader = ActorSystem.anonymous().<String>poolParams(PoolParameters.scaling(3, 10, 100, 0, 1, 500), null).<String>newPool(actorLogic);
+```
+
+The next code creates a weighted pool of 8 actors, that can be used on some OOM-prone scenarios:
+```java
+var leader = ActorSystem.anonymous().poolParams(PoolParameters.fixedSize(8), null).newWeightedPool(actorLogic);
 ```
 
 Map-Reduce

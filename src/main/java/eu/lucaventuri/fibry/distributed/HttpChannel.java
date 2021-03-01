@@ -95,13 +95,13 @@ public class HttpChannel<T, R> implements RemoteActorChannel<T, R> {
     }
 
     @Override
-    public void sendMessage(String remoteActorName, ChannelSerializer<T> ser, ChannelDeserializer<R> deser, T message) throws IOException {
+    public void sendMessage(String remoteActorName, ChannelSerializer<T> ser, T message) throws IOException {
         try {
             final String messageToSend = prepareMessageToSend(ser, message);
 
             var request = method.getRequest(url, encodeValue(remoteActorName), encodeValue(message.getClass().getName()), messageToSend, false);
 
-            sendRequest(deser, request);
+            sendRequest(null, request);
         } catch (InterruptedException e) {
             throw new IOException(e);
         }

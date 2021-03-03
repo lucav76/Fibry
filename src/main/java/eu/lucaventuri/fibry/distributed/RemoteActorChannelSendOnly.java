@@ -1,5 +1,6 @@
 package eu.lucaventuri.fibry.distributed;
 
+import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
 /**

@@ -424,7 +424,7 @@ public class ActorSystem {
         }
 
         public <T> MessageOnlyActor<T, Void, Void> newRemoteActor(String remoteActorName, RemoteActorChannel<T, Void> channel, ChannelSerializer<T> serializer) {
-            return newActor(message -> Exceptions.rethrowRuntime(() -> channel.sendMessage(remoteActorName, serializer, null, message)));
+            return newActor(message -> Exceptions.rethrowRuntime(() -> channel.sendMessage(remoteActorName, serializer, message)));
         }
 
         public <T, R> MessageOnlyActor<T, R, Void> newRemoteActorWithReturn(String remoteActorName, RemoteActorChannel<T, R> channel, ChannelSerDeser<T, R> serDeser) {
@@ -449,11 +449,7 @@ public class ActorSystem {
                     try {
                         return localActor.sendMessageReturn(message).get();
                     } catch (Exception e) {
-                        var future = new CompletableFuture<R>();
-
-                        future.completeExceptionally(e);
-
-                        return future;
+                        return CompletableFuture.failedFuture(e);
                     }
                 }
 

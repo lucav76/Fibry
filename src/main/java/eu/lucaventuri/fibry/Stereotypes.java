@@ -11,6 +11,7 @@ import eu.lucaventuri.functional.Either;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.*;
+import java.nio.channels.ServerSocketChannel;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -487,7 +488,7 @@ public class Stereotypes {
          * <p>
          * The contract with the workers is that:
          * - Only one message will ever be sent, and the message is the connection
-         * - They workers take ownership of the connection, however the acceptor will try to close it anyway. So the worker don't need to close it.
+         * - The workers take ownership of the connection, however the acceptor will try to close it anyway. So the worker don't need to close it.
          * - After the connection, a poison pill will be sent, so the actor will die after processing one connection
          *
          * @param port TCP port
@@ -499,9 +500,15 @@ public class Stereotypes {
          */
         public <S> SinkActorSingleTask<Void> tcpAcceptor(int port, Consumer<Socket> workersLogic, boolean autoCloseSocket, int timeoutConnectionAcceptanceMs) throws IOException {
             Function<SinkActorSingleTask<Void>, Actor<Socket, Void, S>> workersCreator = (acceptorActor) -> anonymous().initialState((S) null).newActor((Socket socket) -> {
-                workersLogic.accept(socket);
-                if (autoCloseSocket)
-                    SystemUtils.close(socket);
+                assert socket!=null;
+
+                try {
+                    workersLogic.accept(socket);
+                }
+                finally {
+                    if (autoCloseSocket)
+                        SystemUtils.close(socket);
+                }
             });
 
             return tcpAcceptorCore(port, workersCreator, timeoutConnectionAcceptanceMs);
@@ -669,7 +676,7 @@ public class Stereotypes {
 
         private Optional<ServerSocket> createServerSocketWithTimeout(int port, CountDownLatch latchSocketCreation, AtomicReference<IOException> exception, int timeoutAccept) {
             try {
-                ServerSocket serverSocket = new ServerSocket(port);
+                ServerSocket serverSocket = ServerSocketChannel.open().bind(new InetSocketAddress(port)).socket(); //new ServerSocket(port);
                 serverSocket.setSoTimeout(timeoutAccept);
 
                 return Optional.of(serverSocket);

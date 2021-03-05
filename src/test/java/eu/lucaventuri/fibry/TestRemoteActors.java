@@ -199,7 +199,7 @@ public class TestRemoteActors {
         int port = 20001;
         var ser = new JacksonSerDeser<String, String>(String.class);
 
-        TcpChannel.startTcpReceiverProxy(port, "abc", ser, ser, false);
+        TcpReceiver.startTcpReceiverProxy(port, "abc", ser, ser, false);
 
         ActorSystem.named("tcpActor1").newActor(str -> {
             Assert.assertEquals(str, "test1");
@@ -207,7 +207,7 @@ public class TestRemoteActors {
             latch.countDown();
         });
 
-        var ch = new TcpChannel<String, Void>(new InetSocketAddress(port), "abc", null, null, true);
+        var ch = new TcpChannel<String, Void>(new InetSocketAddress(port), "abc", null, null, true, "chNoReturn");
         var actor = ActorSystem.anonymous().<String>newRemoteActor("tcpActor1", ch, ser);
 
         actor.sendMessage("test1");
@@ -220,7 +220,7 @@ public class TestRemoteActors {
         int port = 20002;
         var ser = new JacksonSerDeser<String, String>(String.class);
 
-        TcpChannel.startTcpReceiverProxy(port, "abc", ser, ser, false);
+        TcpReceiver.startTcpReceiverProxy(port, "abc", ser, ser, false);
 
         ActorSystem.named("tcpActor2").newActorWithReturn(str -> {
             Assert.assertEquals(str, "test2");
@@ -230,7 +230,7 @@ public class TestRemoteActors {
             return str.toString().toUpperCase();
         });
 
-        var ch = new TcpChannel<String, String>(new InetSocketAddress(port), "abc", ser, ser, true);
+        var ch = new TcpChannel<String, String>(new InetSocketAddress(port), "abc", ser, ser, true, "chAnswer");
         var actor = ActorSystem.anonymous().<String, String>newRemoteActorWithReturn("tcpActor2", ch, ser);
 
         var ret = actor.sendMessageReturn("test2");
@@ -245,7 +245,7 @@ public class TestRemoteActors {
         int port = 20003;
         var ser = new JacksonSerDeser<Integer, Integer>(Integer.class);
 
-        TcpChannel.startTcpReceiverProxy(port, "abc", ser, ser, false);
+        TcpReceiver.startTcpReceiverProxy(port, "abc", ser, ser, false);
 
         ActorSystem.named("tcpActor3").newActorWithReturn((Integer n) -> {
             Assert.assertEquals(n, Integer.valueOf(11));
@@ -255,7 +255,7 @@ public class TestRemoteActors {
             return n/0;
         });
 
-        var ch = new TcpChannel<Integer, Integer>(new InetSocketAddress(port), "abc", ser, ser, true);
+        var ch = new TcpChannel<Integer, Integer>(new InetSocketAddress(port), "abc", ser, ser, true, "chException");
         var actor = ActorSystem.anonymous().<Integer, Integer>newRemoteActorWithReturn("tcpActor3", ch, ser);
 
         var ret = actor.sendMessageReturn(11);
@@ -276,7 +276,7 @@ public class TestRemoteActors {
         var serMix = new JacksonSerDeser<String, Integer>(Integer.class);
         var serMix2 = new JacksonSerDeser<Integer, String>(String.class);
 
-        TcpChannel.startTcpReceiverProxy(port, "abc", serMix2, serMix2, false);
+        TcpReceiver.startTcpReceiverProxy(port, "abc", serMix2, serMix2, false);
 
         ActorSystem.named("tcpActor4").newActorWithReturn(str -> {
             Assert.assertEquals(str, "test2");
@@ -286,7 +286,7 @@ public class TestRemoteActors {
             return str.toString().length();
         });
 
-        var ch = new TcpChannel<String, Integer>(new InetSocketAddress(port), "abc", serMix, serMix, true);
+        var ch = new TcpChannel<String, Integer>(new InetSocketAddress(port), "abc", serMix, serMix, true, "chAnswerMix");
         var actor = ActorSystem.anonymous().<String, Integer>newRemoteActorWithReturn("tcpActor4", ch, serMix);
 
         var ret = actor.sendMessageReturn("test2");
@@ -294,5 +294,46 @@ public class TestRemoteActors {
         latch.await();
 
         Assert.assertEquals(Integer.valueOf(5), ret.get());
+    }
+
+    public void testTcpConnectionDrop() throws IOException, InterruptedException, ExecutionException {
+        CountDownLatch latchReceived = new CountDownLatch(1);
+        CountDownLatch latchConnectionDropped = new CountDownLatch(1);
+        int port = 20005;
+        var serMix = new JacksonSerDeser<String, Integer>(Integer.class);
+        var serMix2 = new JacksonSerDeser<Integer, String>(String.class);
+        var actorName = "tcpActor5";
+
+        // Server
+        TcpReceiver.startTcpReceiverProxy(port, "abc", serMix2, serMix2, false);
+
+        ActorSystem.named(actorName).newActorWithReturn(str -> {
+            Assert.assertEquals(str, "test2");
+
+            latchReceived.countDown();
+            try {
+                latchConnectionDropped.await();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            return str.toString().length();
+        });
+
+        // client
+        var ch = new TcpChannel<String, Integer>(new InetSocketAddress(port), "abc", serMix, serMix, true, "chDrop");
+        var actor = ActorSystem.anonymous().<String, Integer>newRemoteActorWithReturn(actorName, ch, serMix);
+
+        var ret = actor.sendMessageReturn("test2");
+
+        latchReceived.await();
+        ch.drop();
+        ch.ensureConnection();
+        latchConnectionDropped.countDown();
+
+        var value = ret.get();
+
+        System.out.println("Received value: " + value);
+        Assert.assertEquals(Integer.valueOf(5), value);
     }
 }

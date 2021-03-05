@@ -1,9 +1,6 @@
 package eu.lucaventuri.fibry.distributed;
 
-import eu.lucaventuri.common.ConsumerEx;
-import eu.lucaventuri.common.EasyCrypto;
-import eu.lucaventuri.common.NetworkUtils;
-import eu.lucaventuri.common.SystemUtils;
+import eu.lucaventuri.common.*;
 import eu.lucaventuri.fibry.*;
 
 import java.io.IOException;
@@ -15,7 +12,8 @@ import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 
 public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
-    private final static int[] retries = {0, 100, 500, 1000, 5000, 30000};
+    final static int[] retries = {0, 100, 500, 1000, 5000, 30000};
+    private final static boolean keepReconnecting = true;
     private final InetSocketAddress address;
     private final ConsumerEx<SocketChannel, IOException> channelAuthorizer;
     private final TcpActorSender actor;
@@ -24,9 +22,9 @@ public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
     private final ChannelDeserializer<R> deser;
     private final MessageRegistry<R> msgReg = new MessageRegistry<>(50_000);
 
-
     private class TcpActorSender extends CustomActorWithResult<MessageHolder<R>, CompletableFuture<R>, Void> {
-        private SocketChannel channel = null;
+        private volatile SocketChannel channel = null;
+        private volatile boolean reconnect = true;
 
         protected TcpActorSender() {
             super(new FibryQueue<>(), null, null, Integer.MAX_VALUE);
@@ -37,31 +35,54 @@ public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
 
         @Override
         protected CompletableFuture<R> onMessage(MessageHolder<R> message) {
-            for (int i = 0; i < retries.length; i++) {
+            for (int i = 0; keepReconnecting ? true : i < retries.length; i++) {
                 try {
-                    return message.writeMessage(getChannel(), msgReg);
-                } catch (IOException e) {
-                    channel = null;
-                    SystemUtils.sleep(retries[i]);
+                    var ch = getChannel();
+
+                    if (ch != null)
+                        return message.writeMessage(ch, msgReg);
+                } catch (Throwable t) { /* Silence */
                 }
+
+                channel = null;
+                // Spread reconnections from multiple actors, in case of network issue
+                int retryTime = i < retries.length ? retries[i] : retries[retries.length - 1];
+
+                SystemUtils.sleep((int) (retryTime / 2 + Math.random() * retryTime / 2));
             }
 
             return null;
         }
 
-        SocketChannel getChannel() throws IOException {
+        synchronized SocketChannel getChannel() throws IOException {
             if (channel != null)
                 return channel;
+
+            if (!reconnect)
+                return null;
 
             channel = SocketChannel.open(address);
             channelAuthorizer.accept(channel);
 
             // FIXME: there should be a way to delete the old actors
             Stereotypes.def().runOnce(() -> {
-                receiveFromAuthorizedChannel(ser, deser, false, null, channel, msgReg);
+                TcpReceiver.receiveFromAuthorizedChannel(ser, deser, false, null, channel, msgReg, null);
             });
 
             return channel;
+        }
+
+        synchronized void drop() {
+            var ch = channel;
+
+            channel = null;
+
+            if (ch != null)
+                SystemUtils.close(ch.socket());
+        }
+
+        void setReconnect(boolean reconnect) {
+            this.reconnect = reconnect;
         }
     }
 
@@ -81,11 +102,23 @@ public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
     }
 
     /** Constructor with default authorizer */
-    public TcpChannel(InetSocketAddress address, String sharedKey, ChannelSerializer<T> ser, ChannelDeserializer<R> deser, boolean sendTargetActorName) {
-        this(address, getChallengeSenderAuthorizer(sharedKey), ser, deser, sendTargetActorName);
+    public TcpChannel(InetSocketAddress address, String sharedKey, ChannelSerializer<T> ser, ChannelDeserializer<R> deser, boolean sendTargetActorName, String channelName) {
+        this(address, getChallengeSenderAuthorizer(sharedKey, channelName), ser, deser, sendTargetActorName);
     }
 
-    private static ConsumerEx<SocketChannel, IOException> getChallengeSenderAuthorizer(String sharedKey) {
+    public void drop() {
+        actor.drop();
+    }
+
+    public void setReconnect(boolean reconnect) {
+        actor.setReconnect(reconnect);
+    }
+
+    public void ensureConnection() throws IOException {
+        actor.getChannel();
+    }
+
+    private static ConsumerEx<SocketChannel, IOException> getChallengeSenderAuthorizer(String sharedKey, String channelName) {
         return ch -> {
             assert ch.isBlocking();
 
@@ -96,10 +129,11 @@ public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
 
             NetworkUtils.writeInt16(ch, (short) answer.length);
             ch.write(buf);
+            ch.write(NetworkUtils.asBufferWithLength32(channelName));
         };
     }
 
-    private static ConsumerEx<SocketChannel, IOException> getChallengeReceiverAuthorizer(String sharedKey) {
+    static FunctionEx<SocketChannel, String, IOException> getChallengeReceiverAuthorizer(String sharedKey) {
         return ch -> {
             Random rnd = new Random();
             var challenge = rnd.nextInt();
@@ -110,8 +144,12 @@ public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
             var answer = NetworkUtils.readFully(ch, answerLen);
 
             if (!Arrays.equals(expected, answer.array())) {
+                ch.socket().close();
                 throw new IOException("Invalid handshake answer!");
             }
+            var channelNameLen = NetworkUtils.readInt32(ch);
+
+            return NetworkUtils.readFullyAsString(ch, channelNameLen);
         };
     }
 
@@ -145,99 +183,4 @@ public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
             throw new IllegalArgumentException("Remote actor name cannot contain the character '|'");
     }
 
-    public static <T, R> void startTcpReceiverProxy(int port, String sharedKey, ChannelSerializer<T> ser, ChannelDeserializer<R> deser, boolean deliverBeforeActorCreation) throws IOException {
-        startTcpReceiver(port, getChallengeReceiverAuthorizer(sharedKey), ser, deser, deliverBeforeActorCreation, null);
-    }
-
-    public static <T, R> void startTcpReceiverSingleActor(int port, String sharedKey, ChannelSerializer<T> ser, ChannelDeserializer<R> deser, boolean deliverBeforeActorCreation, String receivingActor) throws IOException {
-        startTcpReceiver(port, getChallengeReceiverAuthorizer(sharedKey), ser, deser, deliverBeforeActorCreation, receivingActor);
-    }
-
-    private static <T, R> void startTcpReceiver(int port, ConsumerEx<SocketChannel, IOException> authorizer, ChannelSerializer<T> ser, ChannelDeserializer<R> deser, boolean deliverBeforeActorCreation, String targetActorName) throws IOException {
-        MessageRegistry<R> msgReg = new MessageRegistry<>(50_000);
-
-        Stereotypes.def().tcpAcceptor(port, socket -> {
-            var ch = socket.getChannel();
-            assert ch != null;
-
-            try {
-                authorizer.accept(ch);
-            } catch (IOException e) {
-                System.err.println(e);
-                return;
-            }
-
-            receiveFromAuthorizedChannel(ser, deser, deliverBeforeActorCreation, targetActorName, ch, msgReg);
-        }, true);
-    }
-
-    private static <T, R> void receiveFromAuthorizedChannel(ChannelSerializer<T> ser, ChannelDeserializer<R> deser, boolean deliverBeforeActorCreation, String targetActorName, SocketChannel ch, MessageRegistry<R> msgReg) {
-        while (true) {
-            if (!receiveSingleMessage(ch, ser, deser, deliverBeforeActorCreation, targetActorName, msgReg))
-                return;
-        }
-    }
-
-    private static <T, R> boolean receiveSingleMessage(SocketChannel ch, ChannelSerializer<T> ser, ChannelDeserializer<R> deser, boolean deliverBeforeActorCreation, String targetActorName, MessageRegistry<R> msgReg) {
-        try {
-            byte type = NetworkUtils.readInt8(ch);
-            MessageHolder.MessageType msgType = MessageHolder.MessageType.fromSignature(type);
-            if (msgType == MessageHolder.MessageType.WITH_RETURN || msgType == MessageHolder.MessageType.VOID) {
-                boolean messageWithReturn = msgType == MessageHolder.MessageType.WITH_RETURN;
-                long messageId = messageWithReturn ? NetworkUtils.readInt64(ch) : -1;
-                int len = NetworkUtils.readInt32(ch);
-                String str = NetworkUtils.readFullyAsString(ch, len);
-                final String actorName;
-                final R message;
-
-                if (targetActorName != null) {
-                    actorName = targetActorName;
-                    message = deser.deserializeString(str);
-                } else {
-                    int idx = str.indexOf('|');
-
-                    if (idx < 0) {
-                        System.err.println("Invalid message header");
-
-                        return false;
-                    }
-
-                    actorName = str.substring(0, idx);
-                    message = deser.deserializeString(str.substring(idx + 1));
-                }
-
-                if (messageWithReturn) {
-                    // FIXME: we need a way to identify the sending channel (e.g. JWT) and send the answer back also if the channel breaks.
-                    ActorSystem.<R, T>sendMessageReturn(actorName, message, deliverBeforeActorCreation).whenComplete((value, exception) -> {
-                        MessageHolder<R> answer = exception != null ? MessageHolder.newException(messageId, exception) : MessageHolder.newAnswer(messageId, ser.serializeToString(value));
-
-                        try {
-                            answer.writeMessage(ch, msgReg);
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    });
-                } else {
-                    ActorSystem.sendMessage(actorName, message, deliverBeforeActorCreation);
-                }
-            } else {
-                // FIXME: manae answer and exception
-                var answerId = NetworkUtils.readInt64(ch);
-                int len = NetworkUtils.readInt32(ch);
-                String str = NetworkUtils.readFullyAsString(ch, len);
-
-                if (msgType == MessageHolder.MessageType.ANSWER)
-                    msgReg.completeFuture(answerId, deser.deserializeString(str));
-                else
-                    msgReg.completeExceptionally(answerId, new IOException(str));
-
-                return true;
-            }
-        } catch (IOException e) {
-            System.err.println("Error while reading a message: " + e);
-
-            return false;
-        }
-        return true;
-    }
 }

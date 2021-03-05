@@ -119,7 +119,7 @@ public class TcpReceiver {
                 if (msgType == MessageHolder.MessageType.ANSWER)
                     msgReg.completeFuture(answerId, deser.deserializeString(str));
                 else
-                    msgReg.completeExceptionally(answerId, new IOException(str));
+                    msgReg.completeExceptionally(answerId, extractException(str));
 
                 return true;
             }
@@ -129,5 +129,21 @@ public class TcpReceiver {
             return false;
         }
         return true;
+    }
+
+    private static Throwable extractException(String str) {
+        int idx = str.indexOf(":");
+
+        if (idx > 0) {
+            String className = str.substring(0, idx);
+            try {
+                Class clazz = Class.forName(className);
+                var constructor = clazz.getConstructor(String.class);
+
+                return (Throwable) constructor.newInstance(str.substring(idx + 1));
+            } catch (Throwable e) {
+            }
+        }
+        return new IOException(str);
     }
 }

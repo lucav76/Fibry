@@ -267,6 +267,7 @@ public class TestRemoteActors {
             Assert.fail();
         } catch(Throwable t) {
             System.err.println("Expected exception: " + t);
+            System.err.println("Cause exception: " + t.getCause());
         }
     }
 

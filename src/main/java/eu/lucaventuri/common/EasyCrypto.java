@@ -10,7 +10,6 @@ public final class EasyCrypto {
     /**
      * @param bytes Bytes to encode
      * @return a hash computed with SHA3-512
-     * @throws NoSuchAlgorithmException
      */
     public static byte[] hash512(byte[] bytes) {
         MessageDigest digest = null;
@@ -28,7 +27,6 @@ public final class EasyCrypto {
     /**
      * @param content Content to encode
      * @return a hash computed with SHA3-512
-     * @throws NoSuchAlgorithmException
      */
     public static byte[] hash512(String content) {
         return hash512(content.getBytes());

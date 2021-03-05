@@ -28,7 +28,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 class M extends BatchMergeable implements MergeableParallelBatches {
@@ -74,7 +73,6 @@ class M extends BatchMergeable implements MergeableParallelBatches {
         return numMerged;
     }
 }
-
 
 public class TestStereotypes {
 

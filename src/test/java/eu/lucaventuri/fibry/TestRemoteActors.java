@@ -337,4 +337,33 @@ public class TestRemoteActors {
         System.out.println("Received value: " + value);
         Assert.assertEquals(Integer.valueOf(5), value);
     }
+
+    public void testTcpAliases() throws IOException, InterruptedException, ExecutionException {
+        CountDownLatch latch = new CountDownLatch(1);
+        int port = 20006;
+        var serMix = new JacksonSerDeser<String, Integer>(Integer.class);
+        var serMix2 = new JacksonSerDeser<Integer, String>(String.class);
+        var actorName = "tcpActor6";
+
+        TcpReceiver.startTcpReceiverProxy(port, "abc", serMix2, serMix2, false);
+
+        ActorSystem.named(actorName).newActorWithReturn(str -> {
+            Assert.assertEquals(str, "test2");
+
+            latch.countDown();
+
+            return str.toString().length();
+        });
+
+        ActorSystem.setAliasResolver(name -> name.replace("alias-", ""));
+
+        var ch = new TcpChannel<String, Integer>(new InetSocketAddress(port), "abc", serMix, serMix, true, "chAnswerMix");
+        var actor = ActorSystem.anonymous().<String, Integer>newRemoteActorWithReturn("alias-" + actorName, ch, serMix);
+
+        var ret = actor.sendMessageReturn("test2");
+
+        latch.await();
+
+        Assert.assertEquals(Integer.valueOf(5), ret.get());
+    }
 }

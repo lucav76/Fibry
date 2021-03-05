@@ -17,8 +17,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.*;
 
 /**
@@ -34,6 +34,7 @@ public class ActorSystem {
     private static final MiniFibryQueue DROPPING_QUEUE = MiniFibryQueue.dropping();
     static volatile CreationStrategy defaultStrategy = CreationStrategy.AUTO;
     private static final NamedActorCreator defaultAnonymous = new NamedActorCreator(null, defaultQueueCapacity, false, false);
+    private static AtomicReference<Function<String, String>> aliasResolver = new AtomicReference<>();
 
     public static class ActorPoolCreator<S> {
         private final CreationStrategy strategy;
@@ -167,11 +168,11 @@ public class ActorSystem {
             // It must be fair, to avoid startvation and deadlocks
             var lockable = Lockable.fromSemaphore(numPermits, true);
 
-            Consumer<WeightedMessage<T>>weightedLogic = msg -> {
-                try(var unlock = lockable.acquire(msg.weight)) {
+            Consumer<WeightedMessage<T>> weightedLogic = msg -> {
+                try (var unlock = lockable.acquire(msg.weight)) {
                     actorLogic.accept(msg.message);
                 } catch (Exception e) {
-                    System.err.println("Weighted actor: " +  e);
+                    System.err.println("Weighted actor: " + e);
                 }
             };
 
@@ -248,7 +249,7 @@ public class ActorSystem {
         /** Creates an actor supporting light transactions; please check LightTransactionalActor for more details */
         public <T> LightTransactionalActor<T, S> newLightTransactionalActor(Consumer<T> actorLogic) {
             Consumer<List<T>> listLogic = list -> {
-                for(var message: list)
+                for (var message : list)
                     actorLogic.accept(message);
             };
             Actor<List<T>, Void, S> backingActor = newActor(listLogic);
@@ -271,7 +272,7 @@ public class ActorSystem {
         public <T> LightTransactionalActor<T, S> newLightTransactionalActor(BiConsumer<T, PartialActor<List<T>, S>> actorBiLogic) {
             Actor<List<T>, Void, S> backingActor = ActorUtils.initRef(ref -> {
                 Consumer<List<T>> listLogic = list -> {
-                    for(var message: list)
+                    for (var message : list)
                         actorBiLogic.accept(message, ref.get());
                 };
                 return (Actor<List<T>, Void, S>) strategy.<List<T>, Void, S>start(new Actor<>(listLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, initializer, finalizer, closeStrategy, pollTimeoutMs));
@@ -555,8 +556,19 @@ public class ActorSystem {
     public static <T> void sendMessage(String actorName, T message, boolean forceDelivery) {
         requireNameNotNull(actorName);
 
-        if (!forceDelivery && !isActorAvailable(actorName))
-            return;
+        if (!isActorAvailable(actorName)) {
+            var resolver = aliasResolver.get();
+            var effectiveActorName = resolver == null ? null : resolver.apply(actorName);
+
+            if (effectiveActorName != null) {
+                ActorUtils.sendMessage(getOrCreateActorQueue(effectiveActorName, defaultQueueCapacity), message);
+
+                return;
+            }
+
+            if (!forceDelivery)
+                return;
+        }
 
         ActorUtils.sendMessage(getOrCreateActorQueue(actorName, defaultQueueCapacity), message);
     }
@@ -564,11 +576,19 @@ public class ActorSystem {
     public static <T, R> CompletableFuture<R> sendMessageReturn(String actorName, T message, boolean forceDelivery) {
         requireNameNotNull(actorName);
 
-        if (!forceDelivery && !isActorAvailable(actorName)) {
-            CompletableFuture<R> r = new CompletableFuture<>();
-            r.completeExceptionally(new RuntimeException("Actor " + actorName + " not existing and force delivery not enabled"));
+        if (!isActorAvailable(actorName)) {
+            var resolver = aliasResolver.get();
+            var effectiveActorName = resolver == null ? null : resolver.apply(actorName);
 
-            return r;
+            if (effectiveActorName != null)
+                return ActorUtils.sendMessageReturn(getOrCreateActorQueue(effectiveActorName, defaultQueueCapacity), message);
+
+            if (!forceDelivery) {
+                CompletableFuture<R> r = new CompletableFuture<>();
+                r.completeExceptionally(new RuntimeException("Actor " + actorName + " not existing and force delivery not enabled"));
+
+                return r;
+            }
         }
 
         return ActorUtils.sendMessageReturn(getOrCreateActorQueue(actorName, defaultQueueCapacity), message);
@@ -656,5 +676,13 @@ public class ActorSystem {
 
     public static void setDefaultPollTimeoutMs(int defaultPollTimeoutMs) {
         ActorSystem.defaultPollTimeoutMs = defaultPollTimeoutMs;
+    }
+
+    /** This can be used for aliases, but also to redirect the message to another node;
+     * for example, in a cluster used for a chat, the resolver could ask Redis which node has the
+     * required actor, then redirect to that node
+     * */
+    public static void setAliasResolver(Function<String, String> resolver) {
+        aliasResolver.set(resolver);
     }
 }

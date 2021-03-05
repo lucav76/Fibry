@@ -25,7 +25,7 @@ public class TcpReceiver {
     private static <T, R> void startTcpReceiver(int port, FunctionEx<SocketChannel, String, IOException> authorizer, ChannelSerializer<T> ser, ChannelDeserializer<R> deser, boolean deliverBeforeActorCreation, String targetActorName) throws IOException {
         MessageRegistry<R> msgReg = new MessageRegistry<>(50_000);
 
-        Stereotypes.def().tcpAcceptor(port, socket -> {
+        Stereotypes.def().tcpAcceptorFromChannel(port, socket -> {
             var ch = socket.getChannel();
             assert ch != null;
             final String channelName;
@@ -41,7 +41,7 @@ public class TcpReceiver {
             }
 
             receiveFromAuthorizedChannel(ser, deser, deliverBeforeActorCreation, targetActorName, ch, msgReg, channelName);
-        }, true);
+        }, true, 3_000);
     }
 
     static <T, R> void receiveFromAuthorizedChannel(ChannelSerializer<T> ser, ChannelDeserializer<R> deser, boolean deliverBeforeActorCreation, String targetActorName, SocketChannel ch, MessageRegistry<R> msgReg, String channelName) {

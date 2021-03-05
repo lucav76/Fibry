@@ -6,7 +6,6 @@ import com.sun.net.httpserver.HttpServer;
 import eu.lucaventuri.common.*;
 import eu.lucaventuri.fibry.ActorSystem.NamedStateActorCreator;
 import eu.lucaventuri.fibry.ActorSystem.NamedStrategyActorCreator;
-import eu.lucaventuri.functional.Either;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -499,19 +498,7 @@ public class Stereotypes {
          * @throws IOException this is only thrown if it happens at the beginning, when the ServerSocket is created. Other exceptions will be sent to the console, and the socket will be created again. If the exception is thrown, the actor will also be killed, else it will keep going and retry
          */
         public <S> SinkActorSingleTask<Void> tcpAcceptor(int port, Consumer<Socket> workersLogic, boolean autoCloseSocket, int timeoutConnectionAcceptanceMs) throws IOException {
-            Function<SinkActorSingleTask<Void>, Actor<Socket, Void, S>> workersCreator = (acceptorActor) -> anonymous().initialState((S) null).newActor((Socket socket) -> {
-                assert socket!=null;
-
-                try {
-                    workersLogic.accept(socket);
-                }
-                finally {
-                    if (autoCloseSocket)
-                        SystemUtils.close(socket);
-                }
-            });
-
-            return tcpAcceptorCore(port, workersCreator, timeoutConnectionAcceptanceMs);
+            return tcpAcceptorCore(port, getTcpAcceptorWorkerCreator(workersLogic, autoCloseSocket), timeoutConnectionAcceptanceMs, false);
         }
 
         /**
@@ -559,7 +546,26 @@ public class Stereotypes {
                     SystemUtils.close(socket);
             });
 
-            return tcpAcceptorCore(port, workersCreator, timeoutConnectionAcceptanceMs);
+            return tcpAcceptorCore(port, workersCreator, timeoutConnectionAcceptanceMs, false);
+        }
+
+        /** Version of tcpAcceptorFromChannel() using socket channels, which is required by TcpChannel */
+        public <S> SinkActorSingleTask<Void> tcpAcceptorFromChannel(int port, Consumer<Socket> workersLogic, boolean autoCloseSocket, int timeoutConnectionAcceptanceMs) throws IOException {
+            return tcpAcceptorCore(port, getTcpAcceptorWorkerCreator(workersLogic, autoCloseSocket), timeoutConnectionAcceptanceMs, true);
+        }
+
+        private <S> Function<SinkActorSingleTask<Void>, Actor<Socket, Void, S>> getTcpAcceptorWorkerCreator(Consumer<Socket> workersLogic, boolean autoCloseSocket) {
+             return (acceptorActor) -> anonymous().initialState((S) null).newActor((Socket socket) -> {
+                assert socket!=null;
+
+                try {
+                    workersLogic.accept(socket);
+                }
+                finally {
+                    if (autoCloseSocket)
+                        SystemUtils.close(socket);
+                }
+            });
         }
 
         /**
@@ -583,7 +589,7 @@ public class Stereotypes {
             return tcpAcceptor(port, workersBiLogic, stateSupplier, autoCloseSocket, 1000);
         }
 
-        private <S> SinkActorSingleTask<Void> tcpAcceptorCore(int port, Function<SinkActorSingleTask<Void>, Actor<Socket, Void, S>> workersCreator, int timeoutAcceptance) throws IOException {
+        private <S> SinkActorSingleTask<Void> tcpAcceptorCore(int port, Function<SinkActorSingleTask<Void>, Actor<Socket, Void, S>> workersCreator, int timeoutAcceptance, boolean fromSocketChannel) throws IOException {
             final CountDownLatch latchSocketCreation = new CountDownLatch(1);
             final AtomicReference<IOException> exception = new AtomicReference<>();
 
@@ -591,7 +597,7 @@ public class Stereotypes {
                 while (!thisActor.isExiting()) {
                     if (debug.get())
                         System.out.println("Accepting TCP connections on port " + port);
-                    Optional<ServerSocket> serverSocket = createServerSocketWithTimeout(port, latchSocketCreation, exception, timeoutAcceptance);
+                    Optional<ServerSocket> serverSocket = createServerSocketWithTimeout(port, latchSocketCreation, exception, timeoutAcceptance, fromSocketChannel);
 
                     if (serverSocket.isPresent()) {
                         acceptTcpConnections(workersCreator, thisActor, serverSocket.get());
@@ -674,9 +680,9 @@ public class Stereotypes {
             }, () -> SystemUtils.close(serverSocket));
         }
 
-        private Optional<ServerSocket> createServerSocketWithTimeout(int port, CountDownLatch latchSocketCreation, AtomicReference<IOException> exception, int timeoutAccept) {
+        private Optional<ServerSocket> createServerSocketWithTimeout(int port, CountDownLatch latchSocketCreation, AtomicReference<IOException> exception, int timeoutAccept, boolean fromSocketChannel) {
             try {
-                ServerSocket serverSocket = ServerSocketChannel.open().bind(new InetSocketAddress(port)).socket(); //new ServerSocket(port);
+                ServerSocket serverSocket = fromSocketChannel ? ServerSocketChannel.open().bind(new InetSocketAddress(port)).socket() : new ServerSocket(port);
                 serverSocket.setSoTimeout(timeoutAccept);
 
                 return Optional.of(serverSocket);

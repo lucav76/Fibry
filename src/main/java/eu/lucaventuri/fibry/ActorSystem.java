@@ -711,4 +711,8 @@ public class ActorSystem {
     public static void removeProxy(String proxyName) {
         proxies.remove(proxyName);
     }
+
+    public static boolean registerActorQueue(String name, FibryQueue queue) {
+        return namedQueues.putIfAbsent(name, queue)==null;
+    }
 }

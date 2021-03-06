@@ -7,7 +7,6 @@ import eu.lucaventuri.fibry.ActorSystem;
 import eu.lucaventuri.fibry.Stereotypes;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -41,7 +40,7 @@ public class TcpReceiver {
                 return;
             }
 
-            // FIXME: should support returning values
+            // TODO: verify that it supports returning values  (it should)
             createSendingChannel(msgReg, channelName);
 
             receiveFromAuthorizedChannel(ser, deser, deliverBeforeActorCreation, targetActorName, ch, msgReg, channelName);
@@ -49,20 +48,20 @@ public class TcpReceiver {
     }
 
     private static <R> void createSendingChannel(MessageRegistry<R> msgReg, String channelName) {
-        if (!ActorSystem.isActorAvailable(channelName))
-            ActorSystem.named(channelName).newActor((MessageHolder<R> holder) -> {
-                // FIXME: adds retry
-                var channel = openChannels.get(channelName);
+        if (!ActorSystem.isActorAvailable(channelName)) {
+            var sendingActor = new TcpActorSender<>(worker -> {
+                try {
+                    var ch = openChannels.get(channelName);
 
-                if (channel!=null) {
-                    try {
-                        //channel.write(buf);
-                        holder.writeMessage(channel, msgReg);
-                    } catch (IOException e) {
-                        System.err.println(e);
-                    }
+                    if (ch != null)
+                        return worker.apply(ch);
+                } catch (IOException e) {
+                    openChannels.remove(channelName);
                 }
-            });
+                return null;
+            }, msgReg);
+            sendingActor.registerAsNamedActor(channelName);
+        }
     }
 
     static <T, R> void receiveFromAuthorizedChannel(ChannelSerializer<T> ser, ChannelDeserializer<R> deser, boolean deliverBeforeActorCreation, String targetActorName, SocketChannel ch, MessageRegistry<R> msgReg, String channelName) {
@@ -103,31 +102,7 @@ public class TcpReceiver {
                 if (messageWithReturn) {
                     ActorSystem.<R, T>sendMessageReturn(actorName, message, deliverBeforeActorCreation).whenComplete((value, exception) -> {
                         MessageHolder<R> answer = exception != null ? MessageHolder.newException(messageId, exception) : MessageHolder.newAnswer(messageId, ser.serializeToString(value));
-                        boolean keepReconnecting = true;
-                        var effectiveSocketChannel = ch;
-
-                        for (int i = 0; keepReconnecting ? true : i < TcpChannel.retries.length; i++) {
-                            if (effectiveSocketChannel != null) {
-                                try {
-                                    //answer.writeMessage(effectiveSocketChannel, msgReg);
-                                    ActorSystem.sendMessage(channelName, answer,false);
-
-                                    return;
-                                } catch (Throwable t) {
-                                    /* Silence */
-                                }
-
-                                if (channelName != null) {
-                                    openChannels.remove(channelName, effectiveSocketChannel);
-                                }
-                            }
-
-                            // Spread reconnections from multiple actors, in case of network issue
-                            int retryTime = i < TcpChannel.retries.length ? TcpChannel.retries[i] : TcpChannel.retries[TcpChannel.retries.length - 1];
-
-                            SystemUtils.sleep((int) (retryTime / 2 + Math.random() * retryTime / 2));
-                            effectiveSocketChannel = openChannels.get(channelName);
-                        }
+                        ActorSystem.sendMessage(channelName, answer, false); // retries managed by the actor
                     });
                 } else {
                     ActorSystem.sendMessage(actorName, message, deliverBeforeActorCreation);

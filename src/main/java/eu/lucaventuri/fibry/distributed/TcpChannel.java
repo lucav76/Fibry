@@ -12,8 +12,6 @@ import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 
 public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
-    final static int[] retries = {0, 100, 500, 1000, 5000, 30000};
-    private final static boolean keepReconnecting = true;
     private final InetSocketAddress address;
     private final ConsumerEx<SocketChannel, IOException> channelAuthorizer;
     private final TcpActorSender<R> actor;
@@ -37,18 +35,11 @@ public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
     public TcpChannel(InetSocketAddress address, ConsumerEx<SocketChannel, IOException> channelAuthorizer, ChannelSerializer<T> ser, ChannelDeserializer<R> deser, boolean sendTargetActorName) {
         this.address = address;
         actor = new TcpActorSender<>(worker -> {
-            for (int i = 0; keepReconnecting ? true : i < retries.length; i++) {
                 try {
                     return worker.apply(getChannel());
                 } catch (IOException e) {
                     channel = null;
                 }
-                // Spread reconnections from multiple actors, in case of network issue
-                int retryTime = i < retries.length ? retries[i] : retries[retries.length - 1];
-
-                SystemUtils.sleep((int) (retryTime / 2 + Math.random() * retryTime / 2));
-            }
-
             return null;
         }, msgReg);
         this.channelAuthorizer = channelAuthorizer;

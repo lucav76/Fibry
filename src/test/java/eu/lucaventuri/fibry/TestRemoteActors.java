@@ -345,9 +345,12 @@ public class TestRemoteActors {
         var serMix2 = new JacksonSerDeser<Integer, String>(String.class);
         var actorName = "tcpActor6";
 
+        System.out.println(1);
         TcpReceiver.startTcpReceiverProxy(port, "abc", serMix2, serMix2, false);
 
+        System.out.println(2);
         ActorSystem.named(actorName).newActorWithReturn(str -> {
+            System.out.println(6);
             Assert.assertEquals(str, "test2");
 
             latch.countDown();
@@ -355,15 +358,18 @@ public class TestRemoteActors {
             return str.toString().length();
         });
 
+        System.out.println(3);
         ActorSystem.setAliasResolver(name -> name.replace("alias-", ""));
 
         var ch = new TcpChannel<String, Integer>(new InetSocketAddress(port), "abc", serMix, serMix, true, "chAnswerMix");
         var actor = ActorSystem.anonymous().<String, Integer>newRemoteActorWithReturn("alias-" + actorName, ch, serMix);
 
+        System.out.println(4);
         var ret = actor.sendMessageReturn("test2");
 
         latch.await();
 
+        System.out.println(5);
         Assert.assertEquals(Integer.valueOf(5), ret.get());
     }
 }

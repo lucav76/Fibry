@@ -14,7 +14,7 @@ import java.util.concurrent.TimeoutException;
 /* Please run TcpExample, which will run this class as well */
 public class Bob {
     public static void main(String[] args) throws IOException {
-        int proxy1Port = 9802;
+        int proxy1Port = 9801;
         //var ser = new JacksonSerDeser<String, String>(String.class);
         var ser = StringSerDeser.INSTANCE;
 

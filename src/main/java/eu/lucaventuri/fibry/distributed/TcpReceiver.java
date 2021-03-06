@@ -9,6 +9,8 @@ import java.io.IOException;
 import java.nio.channels.SocketChannel;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 public class TcpReceiver {
     public static Map<String, SocketChannel> openChannels = new ConcurrentHashMap<>();
@@ -42,7 +44,7 @@ public class TcpReceiver {
             // TODO: verify that it supports returning values  (it should)
             createSendingChannel(msgReg, channelName);
 
-            receiveFromAuthorizedChannel(ser, deser, deliverBeforeActorCreation, targetActorName, ch, msgReg, channelName);
+            receiveFromAuthorizedChannel(ser, deser, deliverBeforeActorCreation, targetActorName, ch, msgReg, channelName, null);
         }, true, 3_000);
     }
 
@@ -63,14 +65,14 @@ public class TcpReceiver {
         }
     }
 
-    static <T, R> void receiveFromAuthorizedChannel(ChannelSerializer<T> ser, ChannelDeserializer<R> deser, boolean deliverBeforeActorCreation, String targetActorName, SocketChannel ch, MessageRegistry<R> msgReg, String channelName) {
+    static <T, R> void receiveFromAuthorizedChannel(ChannelSerializer<T> ser, ChannelDeserializer<R> deser, boolean deliverBeforeActorCreation, String targetActorName, SocketChannel ch, MessageRegistry<R> msgReg, String channelName, TcpActorSender<R> senderActor) {
         while (true) {
-            if (!receiveSingleMessage(ch, ser, deser, deliverBeforeActorCreation, targetActorName, msgReg, channelName))
+            if (!receiveSingleMessage(ch, ser, deser, deliverBeforeActorCreation, targetActorName, msgReg, channelName, senderActor))
                 return;
         }
     }
 
-    private static <T, R> boolean receiveSingleMessage(SocketChannel ch, ChannelSerializer<T> ser, ChannelDeserializer<R> deser, boolean deliverBeforeActorCreation, String targetActorName, MessageRegistry<R> msgReg, String channelName) {
+    private static <T, R> boolean receiveSingleMessage(SocketChannel ch, ChannelSerializer<T> ser, ChannelDeserializer<R> deser, boolean deliverBeforeActorCreation, String targetActorName, MessageRegistry<R> msgReg, String senderActorName, TcpActorSender<R> senderActor) {
         try {
             byte type = NetworkUtils.readInt8(ch);
             MessageHolder.MessageType msgType = MessageHolder.MessageType.fromSignature(type);
@@ -100,34 +102,52 @@ public class TcpReceiver {
                     messageString = str.substring(idx + 1);
                 }
 
+                System.out.println("Received message of type " + msgType + " on channel " + senderActorName + " - target: " + actorName);
+
                 message = deser.deserializeString(messageString);
 
                 final Object messageToSend;
 
-                if (openChannels.get(actorName)!=null) // Send to proxy, as MessageHolder
+                if (openChannels.get(actorName) != null) // Send to proxy, as MessageHolder
                     messageToSend = messageWithReturn ? MessageHolder.newWithReturn(actorName + "|" + messageString) : MessageHolder.newVoid(actorName + "|" + messageString);
                 else
                     messageToSend = message;
 
                 if (messageWithReturn) {
                     ActorSystem.<Object, T>sendMessageReturn(actorName, messageToSend, deliverBeforeActorCreation).whenComplete((value, exception) -> {
-                        MessageHolder<R> answer = exception != null ? MessageHolder.newException(messageId, exception) : MessageHolder.newAnswer(messageId, ser.serializeToString(value));
-                        ActorSystem.sendMessage(channelName, answer, false); // retries managed by the actor
+                        assert (senderActor == null && senderActorName != null) || (senderActor != null && senderActorName == null);
+
+                        System.out.println("Completed message: " + messageToSend + " - sender actor name: " + senderActorName + " - " + senderActor);
+                        System.out.println("Creating answer for " + value);
+
+                        try {
+                            T valueToSend = value instanceof Future ? (T) ((Future<?>) value).get() : value;
+
+                            MessageHolder<R> answer = exception != null ? MessageHolder.newException(messageId, exception) : MessageHolder.newAnswer(messageId, ser.serializeToString(valueToSend));
+                            System.out.println("Answer: ");
+                            System.out.println(answer);
+
+                            if (senderActor != null)
+                                senderActor.onMessage(answer);
+                            else
+                                ActorSystem.sendMessage(senderActorName, answer, false); // retries managed by the actor
+                        } catch (InterruptedException | ExecutionException e) {
+                            System.err.println(e);
+                        }
                     });
                 } else {
                     ActorSystem.sendMessage(actorName, messageToSend, deliverBeforeActorCreation);
                 }
             } else {
-                // FIXME: manaage answer and exception
+                // FIXME: manage answer and exception
                 var answerId = NetworkUtils.readInt64(ch);
                 int len = NetworkUtils.readInt32(ch);
                 String str = NetworkUtils.readFullyAsString(ch, len);
 
                 if (msgType == MessageHolder.MessageType.ANSWER) {
-                    System.out.println("Received answer: " + deser.deserializeString(str));
+                    System.out.println("Received answer: " + deser.deserializeString(str) + " - Answer id " + answerId + " - Future exists: " + msgReg.hasFutureOf(answerId));
                     msgReg.completeFuture(answerId, deser.deserializeString(str));
-                }
-                else
+                } else
                     msgReg.completeExceptionally(answerId, extractException(str));
 
                 return true;

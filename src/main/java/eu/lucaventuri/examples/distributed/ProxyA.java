@@ -39,7 +39,7 @@ public class ProxyA {
         ActorSystem.addProxy("proxyB->proxyA", ch);
 
         System.out.println("*** Proxy A listening on port " + port);
-        SystemUtils.sleep(5000);
-        System.out.println("Answer from proxyB: " + proxyB.sendMessageReturn("Ping Proxy B from ProxyA").get());
+        //SystemUtils.sleep(5000);
+        //System.out.println("Answer from proxyB: " + proxyB.sendMessageReturn("Ping Proxy B from ProxyA").get());
     }
 }

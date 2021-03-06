@@ -33,10 +33,14 @@ public class MessageRegistry<T> {
         return new IdAndFuture<>(id, future);
     }
 
+    public boolean hasFutureOf(long messageId) {
+        return mapResults.get(messageId) != null;
+    }
+
     public void completeFuture(long messageId, T value) {
         var future = mapResults.get(messageId);
 
-        if (future!=null) {
+        if (future != null) {
             future.complete(value);
         }
     }
@@ -44,7 +48,7 @@ public class MessageRegistry<T> {
     public void completeExceptionally(long messageId, Throwable e) {
         var future = mapResults.get(messageId);
 
-        if (future!=null) {
+        if (future != null) {
             future.completeExceptionally(e);
         }
     }

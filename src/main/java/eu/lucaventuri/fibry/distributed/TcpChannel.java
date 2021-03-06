@@ -21,6 +21,7 @@ public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
     private final MessageRegistry<R> msgReg = new MessageRegistry<>(50_000);
     private volatile SocketChannel channel = null;
     private volatile boolean reconnect = true;
+    private final String channelName;
 
 
     /**
@@ -29,7 +30,7 @@ public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
      * @param address Target host
      * @param channelAuthorizer Initializer of the channel
      */
-    public TcpChannel(InetSocketAddress address, ConsumerEx<SocketChannel, IOException> channelAuthorizer, ChannelSerializer<T> ser, ChannelDeserializer<R> deser, boolean sendTargetActorName) {
+    public TcpChannel(InetSocketAddress address, ConsumerEx<SocketChannel, IOException> channelAuthorizer, ChannelSerializer<T> ser, ChannelDeserializer<R> deser, boolean sendTargetActorName, String channelName) {
         this.address = address;
         actor = new TcpActorSender<>(worker -> {
                 try {
@@ -43,11 +44,12 @@ public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
         this.sendTargetActorName = sendTargetActorName;
         this.ser = ser;
         this.deser = deser;
+        this.channelName = channelName;
     }
 
     /** Constructor with default authorizer */
     public TcpChannel(InetSocketAddress address, String sharedKey, ChannelSerializer<T> ser, ChannelDeserializer<R> deser, boolean sendTargetActorName, String channelName) {
-        this(address, getChallengeSenderAuthorizer(sharedKey, channelName), ser, deser, sendTargetActorName);
+        this(address, getChallengeSenderAuthorizer(sharedKey, channelName), ser, deser, sendTargetActorName, channelName);
     }
 
     synchronized SocketChannel getChannel() throws IOException {
@@ -62,7 +64,7 @@ public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
 
         // FIXME: there should be a way to delete the old actors
         Stereotypes.def().runOnce(() -> {
-            TcpReceiver.receiveFromAuthorizedChannel(ser, deser, false, null, channel, msgReg, null);
+            TcpReceiver.receiveFromAuthorizedChannel(ser, deser, false, null, channel, msgReg, null, actor);
         });
 
         return channel;

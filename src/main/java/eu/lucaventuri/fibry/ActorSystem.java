@@ -14,6 +14,7 @@ import eu.lucaventuri.functional.Either3;
 import java.io.IOException;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -35,6 +36,7 @@ public class ActorSystem {
     static volatile CreationStrategy defaultStrategy = CreationStrategy.AUTO;
     private static final NamedActorCreator defaultAnonymous = new NamedActorCreator(null, defaultQueueCapacity, false, false);
     private static AtomicReference<Function<String, String>> aliasResolver = new AtomicReference<>();
+    private static Map<String, RemoteActorChannel> proxies = new ConcurrentHashMap<>();
 
     public static class ActorPoolCreator<S> {
         private final CreationStrategy strategy;
@@ -558,10 +560,19 @@ public class ActorSystem {
 
         if (!isActorAvailable(actorName)) {
             var resolver = aliasResolver.get();
-            var effectiveActorName = resolver == null ? null : resolver.apply(actorName);
+            var aliasActorName = resolver == null ? null : resolver.apply(actorName);
 
-            if (effectiveActorName != null) {
-                ActorUtils.sendMessage(getOrCreateActorQueue(effectiveActorName, defaultQueueCapacity), message);
+            if (aliasActorName != null) {
+                var proxyChannel = proxies.get(aliasActorName);
+
+                if (proxyChannel != null) {
+                    try {
+                        proxyChannel.sendMessage(actorName, proxyChannel.getDefaultChannelSerializer(), message);
+                    } catch (IOException e) {
+                        System.err.println(e);
+                    }
+                } else
+                    ActorUtils.sendMessage(getOrCreateActorQueue(aliasActorName, defaultQueueCapacity), message);
 
                 return;
             }
@@ -578,10 +589,16 @@ public class ActorSystem {
 
         if (!isActorAvailable(actorName)) {
             var resolver = aliasResolver.get();
-            var effectiveActorName = resolver == null ? null : resolver.apply(actorName);
+            var aliasActorName = resolver == null ? null : resolver.apply(actorName);
 
-            if (effectiveActorName != null)
-                return ActorUtils.sendMessageReturn(getOrCreateActorQueue(effectiveActorName, defaultQueueCapacity), message);
+            if (aliasActorName != null) {
+                var proxyChannel = proxies.get(aliasActorName);
+
+                if (proxyChannel != null) {
+                    return proxyChannel.sendMessageReturn(actorName, proxyChannel.getDefaultChannelSerializer(), proxyChannel.getDefaultChannelDeserializer(), message);
+                } else
+                    return ActorUtils.sendMessageReturn(getOrCreateActorQueue(aliasActorName, defaultQueueCapacity), message);
+            }
 
             if (!forceDelivery) {
                 CompletableFuture<R> r = new CompletableFuture<>();
@@ -678,11 +695,20 @@ public class ActorSystem {
         ActorSystem.defaultPollTimeoutMs = defaultPollTimeoutMs;
     }
 
-    /** This can be used for aliases, but also to redirect the message to another node;
+    /**
+     * This can be used for aliases, but also to redirect the message to another node;
      * for example, in a cluster used for a chat, the resolver could ask Redis which node has the
      * required actor, then redirect to that node
-     * */
+     */
     public static void setAliasResolver(Function<String, String> resolver) {
         aliasResolver.set(resolver);
+    }
+
+    public static void addProxy(String proxyName, RemoteActorChannel remoteChannel) {
+        proxies.put(proxyName, remoteChannel);
+    }
+
+    public static void removeProxy(String proxyName) {
+        proxies.remove(proxyName);
     }
 }

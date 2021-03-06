@@ -1,7 +1,7 @@
 package eu.lucaventuri.fibry.distributed;
 
 import eu.lucaventuri.common.*;
-import eu.lucaventuri.fibry.*;
+import eu.lucaventuri.fibry.Stereotypes;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -16,74 +16,16 @@ public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
     private final static boolean keepReconnecting = true;
     private final InetSocketAddress address;
     private final ConsumerEx<SocketChannel, IOException> channelAuthorizer;
-    private final TcpActorSender actor;
+    private final TcpActorSender<R> actor;
     private final boolean sendTargetActorName;
     private final ChannelSerializer<T> ser;
     private final ChannelDeserializer<R> deser;
     private final MessageRegistry<R> msgReg = new MessageRegistry<>(50_000);
+    private volatile SocketChannel channel = null;
+    private volatile boolean reconnect = true;
 
-    private class TcpActorSender extends CustomActorWithResult<MessageHolder<R>, CompletableFuture<R>, Void> {
-        private volatile SocketChannel channel = null;
-        private volatile boolean reconnect = true;
-
-        protected TcpActorSender() {
-            super(new FibryQueue<>(), null, null, Integer.MAX_VALUE);
-
-            closeStrategy = CloseStrategy.SEND_POISON_PILL;
-            CreationStrategy.AUTO.start(this);
-        }
-
-        @Override
-        protected CompletableFuture<R> onMessage(MessageHolder<R> message) {
-            for (int i = 0; keepReconnecting ? true : i < retries.length; i++) {
-                try {
-                    var ch = getChannel();
-
-                    if (ch != null)
-                        return message.writeMessage(ch, msgReg);
-                } catch (Throwable t) { /* Silence */
-                }
-
-                channel = null;
-                // Spread reconnections from multiple actors, in case of network issue
-                int retryTime = i < retries.length ? retries[i] : retries[retries.length - 1];
-
-                SystemUtils.sleep((int) (retryTime / 2 + Math.random() * retryTime / 2));
-            }
-
-            return null;
-        }
-
-        synchronized SocketChannel getChannel() throws IOException {
-            if (channel != null)
-                return channel;
-
-            if (!reconnect)
-                return null;
-
-            channel = SocketChannel.open(address);
-            channelAuthorizer.accept(channel);
-
-            // FIXME: there should be a way to delete the old actors
-            Stereotypes.def().runOnce(() -> {
-                TcpReceiver.receiveFromAuthorizedChannel(ser, deser, false, null, channel, msgReg, null);
-            });
-
-            return channel;
-        }
-
-        synchronized void drop() {
-            var ch = channel;
-
-            channel = null;
-
-            if (ch != null)
-                SystemUtils.close(ch.socket());
-        }
-
-        void setReconnect(boolean reconnect) {
-            this.reconnect = reconnect;
-        }
+    interface ChannelProvider<R> {
+        CompletableFuture<R> useChannelRetries(FunctionEx<SocketChannel, CompletableFuture<R>, IOException> worker);
     }
 
     /**
@@ -94,7 +36,21 @@ public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
      */
     public TcpChannel(InetSocketAddress address, ConsumerEx<SocketChannel, IOException> channelAuthorizer, ChannelSerializer<T> ser, ChannelDeserializer<R> deser, boolean sendTargetActorName) {
         this.address = address;
-        actor = new TcpActorSender();
+        actor = new TcpActorSender<>(worker -> {
+            for (int i = 0; keepReconnecting ? true : i < retries.length; i++) {
+                try {
+                    return worker.apply(getChannel());
+                } catch (IOException e) {
+                    channel = null;
+                }
+                // Spread reconnections from multiple actors, in case of network issue
+                int retryTime = i < retries.length ? retries[i] : retries[retries.length - 1];
+
+                SystemUtils.sleep((int) (retryTime / 2 + Math.random() * retryTime / 2));
+            }
+
+            return null;
+        }, msgReg);
         this.channelAuthorizer = channelAuthorizer;
         this.sendTargetActorName = sendTargetActorName;
         this.ser = ser;
@@ -106,16 +62,39 @@ public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
         this(address, getChallengeSenderAuthorizer(sharedKey, channelName), ser, deser, sendTargetActorName);
     }
 
+    synchronized SocketChannel getChannel() throws IOException {
+        if (channel != null)
+            return channel;
+
+        if (!reconnect)
+            return null;
+
+        channel = SocketChannel.open(address);
+        channelAuthorizer.accept(channel);
+
+        // FIXME: there should be a way to delete the old actors
+        Stereotypes.def().runOnce(() -> {
+            TcpReceiver.receiveFromAuthorizedChannel(ser, deser, false, null, channel, msgReg, null);
+        });
+
+        return channel;
+    }
+
     public void drop() {
-        actor.drop();
+        var ch = channel;
+
+        channel = null;
+
+        if (ch != null)
+            SystemUtils.close(ch.socket());
     }
 
     public void setReconnect(boolean reconnect) {
-        actor.setReconnect(reconnect);
+        this.reconnect = reconnect;
     }
 
     public void ensureConnection() throws IOException {
-        actor.getChannel();
+        getChannel();
     }
 
     private static ConsumerEx<SocketChannel, IOException> getChallengeSenderAuthorizer(String sharedKey, String channelName) {
@@ -183,4 +162,13 @@ public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
             throw new IllegalArgumentException("Remote actor name cannot contain the character '|'");
     }
 
+    @Override
+    public ChannelSerializer<T> getDefaultChannelSerializer() {
+        return ser;
+    }
+
+    @Override
+    public ChannelDeserializer<R> getDefaultChannelDeserializer() {
+        return deser;
+    }
 }

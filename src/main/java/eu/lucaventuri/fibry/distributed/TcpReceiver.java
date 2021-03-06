@@ -7,6 +7,7 @@ import eu.lucaventuri.fibry.ActorSystem;
 import eu.lucaventuri.fibry.Stereotypes;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -40,8 +41,28 @@ public class TcpReceiver {
                 return;
             }
 
+            // FIXME: should support returning values
+            createSendingChannel(msgReg, channelName);
+
             receiveFromAuthorizedChannel(ser, deser, deliverBeforeActorCreation, targetActorName, ch, msgReg, channelName);
         }, true, 3_000);
+    }
+
+    private static <R> void createSendingChannel(MessageRegistry<R> msgReg, String channelName) {
+        if (!ActorSystem.isActorAvailable(channelName))
+            ActorSystem.named(channelName).newActor((MessageHolder<R> holder) -> {
+                // FIXME: adds retry
+                var channel = openChannels.get(channelName);
+
+                if (channel!=null) {
+                    try {
+                        //channel.write(buf);
+                        holder.writeMessage(channel, msgReg);
+                    } catch (IOException e) {
+                        System.err.println(e);
+                    }
+                }
+            });
     }
 
     static <T, R> void receiveFromAuthorizedChannel(ChannelSerializer<T> ser, ChannelDeserializer<R> deser, boolean deliverBeforeActorCreation, String targetActorName, SocketChannel ch, MessageRegistry<R> msgReg, String channelName) {
@@ -83,12 +104,13 @@ public class TcpReceiver {
                     ActorSystem.<R, T>sendMessageReturn(actorName, message, deliverBeforeActorCreation).whenComplete((value, exception) -> {
                         MessageHolder<R> answer = exception != null ? MessageHolder.newException(messageId, exception) : MessageHolder.newAnswer(messageId, ser.serializeToString(value));
                         boolean keepReconnecting = true;
-                        var effectiveChannel = ch;
+                        var effectiveSocketChannel = ch;
 
                         for (int i = 0; keepReconnecting ? true : i < TcpChannel.retries.length; i++) {
-                            if (effectiveChannel != null) {
+                            if (effectiveSocketChannel != null) {
                                 try {
-                                    answer.writeMessage(effectiveChannel, msgReg);
+                                    //answer.writeMessage(effectiveSocketChannel, msgReg);
+                                    ActorSystem.sendMessage(channelName, answer,false);
 
                                     return;
                                 } catch (Throwable t) {
@@ -96,7 +118,7 @@ public class TcpReceiver {
                                 }
 
                                 if (channelName != null) {
-                                    openChannels.remove(channelName, effectiveChannel);
+                                    openChannels.remove(channelName, effectiveSocketChannel);
                                 }
                             }
 
@@ -104,14 +126,14 @@ public class TcpReceiver {
                             int retryTime = i < TcpChannel.retries.length ? TcpChannel.retries[i] : TcpChannel.retries[TcpChannel.retries.length - 1];
 
                             SystemUtils.sleep((int) (retryTime / 2 + Math.random() * retryTime / 2));
-                            effectiveChannel = openChannels.get(channelName);
+                            effectiveSocketChannel = openChannels.get(channelName);
                         }
                     });
                 } else {
                     ActorSystem.sendMessage(actorName, message, deliverBeforeActorCreation);
                 }
             } else {
-                // FIXME: manae answer and exception
+                // FIXME: manaage answer and exception
                 var answerId = NetworkUtils.readInt64(ch);
                 int len = NetworkUtils.readInt32(ch);
                 String str = NetworkUtils.readFullyAsString(ch, len);

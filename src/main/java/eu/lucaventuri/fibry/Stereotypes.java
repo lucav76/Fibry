@@ -550,6 +550,7 @@ public class Stereotypes {
         }
 
         /** Version of tcpAcceptorFromChannel() using socket channels, which is required by TcpChannel */
+        // FIXME: Verify if it is really necessary to split sockets and socket channels, or of it is just a bug
         public <S> SinkActorSingleTask<Void> tcpAcceptorFromChannel(int port, Consumer<Socket> workersLogic, boolean autoCloseSocket, int timeoutConnectionAcceptanceMs) throws IOException {
             return tcpAcceptorCore(port, getTcpAcceptorWorkerCreator(workersLogic, autoCloseSocket), timeoutConnectionAcceptanceMs, true);
         }

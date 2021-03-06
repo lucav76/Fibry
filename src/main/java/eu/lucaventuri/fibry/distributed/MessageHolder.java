@@ -54,6 +54,7 @@ class MessageHolder<R> {
             future = idAndFuture.future;
         } else if (type == MessageType.VOID) {
             ch.write(ByteBuffer.wrap(new byte[]{type.signature}));
+            // TODO: it does not wait for the messge to be processed. Id it fine?
             future = null;
         } else if (type == MessageType.ANSWER) {
             var buf = ByteBuffer.allocate(9);

@@ -2,7 +2,6 @@ package eu.lucaventuri.fibry.distributed;
 
 import eu.lucaventuri.common.FunctionEx;
 import eu.lucaventuri.common.NetworkUtils;
-import eu.lucaventuri.common.SystemUtils;
 import eu.lucaventuri.fibry.ActorSystem;
 import eu.lucaventuri.fibry.Stereotypes;
 
@@ -75,6 +74,7 @@ public class TcpReceiver {
         try {
             byte type = NetworkUtils.readInt8(ch);
             MessageHolder.MessageType msgType = MessageHolder.MessageType.fromSignature(type);
+
             if (msgType == MessageHolder.MessageType.WITH_RETURN || msgType == MessageHolder.MessageType.VOID) {
                 boolean messageWithReturn = msgType == MessageHolder.MessageType.WITH_RETURN;
                 long messageId = messageWithReturn ? NetworkUtils.readInt64(ch) : -1;
@@ -82,30 +82,40 @@ public class TcpReceiver {
                 String str = NetworkUtils.readFullyAsString(ch, len);
                 final String actorName;
                 final R message;
+                final String messageString;
 
                 if (targetActorName != null) {
                     actorName = targetActorName;
-                    message = deser.deserializeString(str);
+                    messageString = str;
                 } else {
                     int idx = str.indexOf('|');
 
                     if (idx < 0) {
-                        System.err.println("Invalid message header");
+                        System.err.println("Invalid message header: " + str);
 
                         return false;
                     }
 
                     actorName = str.substring(0, idx);
-                    message = deser.deserializeString(str.substring(idx + 1));
+                    messageString = str.substring(idx + 1);
                 }
 
+                message = deser.deserializeString(messageString);
+
+                final Object messageToSend;
+
+                if (openChannels.get(actorName)!=null) // Send to proxy, as MessageHolder
+                    messageToSend = messageWithReturn ? MessageHolder.newWithReturn(actorName + "|" + messageString) : MessageHolder.newVoid(actorName + "|" + messageString);
+                else
+                    messageToSend = message;
+
                 if (messageWithReturn) {
-                    ActorSystem.<R, T>sendMessageReturn(actorName, message, deliverBeforeActorCreation).whenComplete((value, exception) -> {
+                    ActorSystem.<Object, T>sendMessageReturn(actorName, messageToSend, deliverBeforeActorCreation).whenComplete((value, exception) -> {
                         MessageHolder<R> answer = exception != null ? MessageHolder.newException(messageId, exception) : MessageHolder.newAnswer(messageId, ser.serializeToString(value));
                         ActorSystem.sendMessage(channelName, answer, false); // retries managed by the actor
                     });
                 } else {
-                    ActorSystem.sendMessage(actorName, message, deliverBeforeActorCreation);
+                    ActorSystem.sendMessage(actorName, messageToSend, deliverBeforeActorCreation);
                 }
             } else {
                 // FIXME: manaage answer and exception
@@ -113,8 +123,10 @@ public class TcpReceiver {
                 int len = NetworkUtils.readInt32(ch);
                 String str = NetworkUtils.readFullyAsString(ch, len);
 
-                if (msgType == MessageHolder.MessageType.ANSWER)
+                if (msgType == MessageHolder.MessageType.ANSWER) {
+                    System.out.println("Received answer: " + deser.deserializeString(str));
                     msgReg.completeFuture(answerId, deser.deserializeString(str));
+                }
                 else
                     msgReg.completeExceptionally(answerId, extractException(str));
 

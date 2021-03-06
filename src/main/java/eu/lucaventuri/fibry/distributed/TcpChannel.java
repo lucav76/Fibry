@@ -22,9 +22,6 @@ public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
     private volatile SocketChannel channel = null;
     private volatile boolean reconnect = true;
 
-    interface ChannelProvider<R> {
-        CompletableFuture<R> useChannelRetries(FunctionEx<SocketChannel, CompletableFuture<R>, IOException> worker);
-    }
 
     /**
      * Channel based on TCP IP

@@ -11,9 +11,16 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.function.BiConsumer;
 
 public class TcpReceiver {
-    public static Map<String, SocketChannel> openChannels = new ConcurrentHashMap<>();
+    private static final Map<String, SocketChannel> openChannels = new ConcurrentHashMap<>();
+    private static volatile BiConsumer<String, ActorOperation> listener;
+
+    public enum ActorOperation {
+        JOIN,
+        LEFT
+    }
 
     public static <T, R> void startTcpReceiverProxy(int port, String sharedKey, ChannelSerializer<T> ser, ChannelDeserializer<R> deser, boolean deliverBeforeActorCreation) throws IOException {
         startTcpReceiver(port, TcpChannel.getChallengeReceiverAuthorizer(sharedKey), ser, deser, deliverBeforeActorCreation, null);
@@ -35,6 +42,8 @@ public class TcpReceiver {
                 channelName = authorizer.apply(ch);
 
                 openChannels.put(channelName, ch);
+                if (listener != null)
+                    listener.accept(channelName, ActorOperation.JOIN);
                 System.out.println("Accepted connection from " + channelName);
             } catch (IOException e) {
                 System.err.println(e);
@@ -58,6 +67,8 @@ public class TcpReceiver {
                         return worker.apply(ch);
                 } catch (IOException e) {
                     openChannels.remove(channelName);
+                    if (listener != null)
+                        listener.accept(channelName, ActorOperation.LEFT);
                 }
                 return null;
             }, msgReg);
@@ -79,7 +90,7 @@ public class TcpReceiver {
 
             if (msgType == MessageHolder.MessageType.WITH_RETURN || msgType == MessageHolder.MessageType.VOID) {
                 boolean messageWithReturn = msgType == MessageHolder.MessageType.WITH_RETURN;
-                long messageId = messageWithReturn ? NetworkUtils.readInt64(ch) : -1;
+                long originalMessageId = messageWithReturn ? NetworkUtils.readInt64(ch) : -1;
                 int len = NetworkUtils.readInt32(ch);
                 String str = NetworkUtils.readFullyAsString(ch, len);
                 final String actorName;
@@ -102,14 +113,14 @@ public class TcpReceiver {
                     messageString = str.substring(idx + 1);
                 }
 
-                System.out.println("Received message of type " + msgType + " on channel " + senderActorName + " - target: " + actorName);
+                System.out.println("Received msg " + msgType + " on " + senderActorName + " for " + actorName + ": " + messageString);
 
                 message = deser.deserializeString(messageString);
 
                 final Object messageToSend;
 
                 if (openChannels.get(actorName) != null) // Send to proxy, as MessageHolder
-                    messageToSend = messageWithReturn ? MessageHolder.newWithReturn(actorName + "|" + messageString) : MessageHolder.newVoid(actorName + "|" + messageString);
+                    messageToSend = messageWithReturn ? MessageHolder.newWithReturn(actorName + "|" + messageString, senderActor) : MessageHolder.newVoid(actorName + "|" + messageString, senderActor);
                 else
                     messageToSend = message;
 
@@ -117,17 +128,19 @@ public class TcpReceiver {
                     ActorSystem.<Object, T>sendMessageReturn(actorName, messageToSend, deliverBeforeActorCreation).whenComplete((value, exception) -> {
                         assert (senderActor == null && senderActorName != null) || (senderActor != null && senderActorName == null);
 
+                        TcpActorSender refActor = messageToSend instanceof MessageHolder ? ((MessageHolder)messageToSend).getSenderActor() : null;
                         System.out.println("Completed message: " + messageToSend + " - sender actor name: " + senderActorName + " - " + senderActor);
-                        System.out.println("Creating answer for " + value);
+                        System.out.println("Creating answer for " + value + " - ref: " + refActor);
 
                         try {
                             T valueToSend = value instanceof Future ? (T) ((Future<?>) value).get() : value;
 
-                            MessageHolder<R> answer = exception != null ? MessageHolder.newException(messageId, exception) : MessageHolder.newAnswer(messageId, ser.serializeToString(valueToSend));
-                            System.out.println("Answer: ");
-                            System.out.println(answer);
+                            MessageHolder<R> answer = exception != null ? MessageHolder.newException(originalMessageId, exception) : MessageHolder.newAnswer(originalMessageId, ser.serializeToString(valueToSend));
+                            System.out.println("Answer: " + answer);
 
-                            if (senderActor != null)
+                            if (refActor!=null)
+                                refActor.onMessage(answer);
+                            else if (senderActor != null)
                                 senderActor.onMessage(answer);
                             else
                                 ActorSystem.sendMessage(senderActorName, answer, false); // retries managed by the actor
@@ -145,7 +158,7 @@ public class TcpReceiver {
                 String str = NetworkUtils.readFullyAsString(ch, len);
 
                 if (msgType == MessageHolder.MessageType.ANSWER) {
-                    System.out.println("Received answer: " + deser.deserializeString(str) + " - Answer id " + answerId + " - Future exists: " + msgReg.hasFutureOf(answerId));
+                    System.out.println("Received answer: " + deser.deserializeString(str) + " - Answer id " + answerId + " - Future exists: " + msgReg.hasFutureOf(answerId) + " sender: " + msgReg.getSender(answerId));
                     msgReg.completeFuture(answerId, deser.deserializeString(str));
                 } else
                     msgReg.completeExceptionally(answerId, extractException(str));
@@ -174,5 +187,9 @@ public class TcpReceiver {
             }
         }
         return new IOException(str);
+    }
+
+    public static void setListener(BiConsumer<String, ActorOperation> newListener) {
+        listener = newListener;
     }
 }

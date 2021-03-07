@@ -12,6 +12,7 @@ class MessageHolder<R> {
     private final String message;
     private final MessageType type;
     private final long answerId;
+    private final TcpActorSender senderActor;
 
     enum MessageType {
         WITH_RETURN((byte) 'R'), VOID((byte) 'V'), ANSWER((byte) 'A'), EXCEPTION((byte) 'E');
@@ -32,19 +33,20 @@ class MessageHolder<R> {
         }
     }
 
-    private MessageHolder(String message, MessageType type, long answerId) {
+    private MessageHolder(String message, MessageType type, long answerId, TcpActorSender senderActor) {
         this.message = message;
         this.type = type;
         this.answerId = answerId;
+        this.senderActor = senderActor;
     }
 
     CompletableFuture<R> writeMessage(SocketChannel ch, MessageRegistry<R> msgReg) throws IOException {
         final CompletableFuture<R> future;
         if (type == MessageType.WITH_RETURN) {
             var buf = ByteBuffer.allocate(9);
-            var idAndFuture = msgReg.getNewFuture();
+            var idAndFuture = msgReg.getNewFuture(senderActor);
 
-            System.out.println("writeMessage(): " + message + " - " + idAndFuture.id);
+            System.out.println("writeMessage(): " + message + " - New " + idAndFuture.id);
 
             buf.order(ByteOrder.BIG_ENDIAN);
             buf.put(type.signature);
@@ -53,7 +55,7 @@ class MessageHolder<R> {
 
             ch.write(buf);
 
-            future = idAndFuture.future;
+            future = idAndFuture.data.future;
         } else if (type == MessageType.VOID) {
             ch.write(ByteBuffer.wrap(new byte[]{type.signature}));
             // TODO: it does not wait for the messge to be processed. Id it fine?
@@ -94,19 +96,23 @@ class MessageHolder<R> {
                 '}';
     }
 
-    static <R> MessageHolder<R> newWithReturn(String message) {
-        return new MessageHolder<R>(message, MessageType.WITH_RETURN, 0);
+    TcpActorSender getSenderActor() {
+        return senderActor;
     }
 
-    static <R> MessageHolder<R> newVoid(String message) {
-        return new MessageHolder<R>(message, MessageType.VOID, 0);
+    static <R> MessageHolder<R> newWithReturn(String message, TcpActorSender senderActor) {
+        return new MessageHolder<R>(message, MessageType.WITH_RETURN, 0, senderActor);
+    }
+
+    static <R> MessageHolder<R> newVoid(String message, TcpActorSender senderActor) {
+        return new MessageHolder<R>(message, MessageType.VOID, 0, senderActor);
     }
 
     static <R> MessageHolder<R> newAnswer(long messageId, String message) {
-        return new MessageHolder<R>(message, MessageType.ANSWER, messageId);
+        return new MessageHolder<R>(message, MessageType.ANSWER, messageId, null);
     }
 
     static <R> MessageHolder<R> newException(long messageId, Throwable ex) {
-        return new MessageHolder<R>(ex.toString(), MessageType.EXCEPTION, messageId);
+        return new MessageHolder<R>(ex.toString(), MessageType.EXCEPTION, messageId, null);
     }
 }

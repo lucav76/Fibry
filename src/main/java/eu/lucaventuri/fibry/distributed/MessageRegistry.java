@@ -6,50 +6,67 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 
 /** Registry aboe to associate message Id with CompletableFutures */
-public class MessageRegistry<T> {
-    private final AtomicLong nextMessageId = new AtomicLong();
-    private final ConstrainedMapLRU<Long, CompletableFuture<T>> mapResults;
+class MessageRegistry<T> {
+    private static final AtomicLong nextMessageId = new AtomicLong();
+    private final ConstrainedMapLRU<Long, FutureData<T>> mapResults;
 
-    public static class IdAndFuture<T> {
-        public final long id;
-        public final CompletableFuture<T> future;
+    //should the future send also the other data? How can I get them from whenComplete?
+    //semderactor and original id?
 
-        public IdAndFuture(long id, CompletableFuture<T> future) {
-            this.id = id;
+    static class FutureData<T> {
+        final CompletableFuture<T> future;
+        final TcpActorSender<T> refActor;
+
+        public FutureData(CompletableFuture<T> future, TcpActorSender<T> refActor) {
             this.future = future;
+            this.refActor = refActor;
         }
     }
 
-    public MessageRegistry(int maxMessages) {
-        mapResults = new ConstrainedMapLRU<Long, CompletableFuture<T>>(maxMessages, entry -> entry.getValue().cancel(true));
+    static class IdAndFuture<T> {
+        final long id;
+        final FutureData<T> data;
+
+        IdAndFuture(long id, CompletableFuture<T> future, TcpActorSender<T> refActor) {
+            this.id = id;
+            this.data = new FutureData<>(future, refActor);
+        }
     }
 
-    public IdAndFuture<T> getNewFuture() {
+    MessageRegistry(int maxMessages) {
+        mapResults = new ConstrainedMapLRU<>(maxMessages, entry -> entry.getValue().future.cancel(true));
+    }
+
+    IdAndFuture<T> getNewFuture(TcpActorSender<T> refActor) {
         long id = nextMessageId.incrementAndGet();
-        CompletableFuture<T> future = new CompletableFuture<>();
+        var idAndFuture = new IdAndFuture<>(id, new CompletableFuture<>(), refActor);
 
-        mapResults.put(id, future);
+        mapResults.put(id, idAndFuture.data);
 
-        return new IdAndFuture<>(id, future);
+        return idAndFuture;
     }
 
-    public boolean hasFutureOf(long messageId) {
+    boolean hasFutureOf(long messageId) {
         return mapResults.get(messageId) != null;
     }
 
-    public void completeFuture(long messageId, T value) {
-        var future = mapResults.get(messageId);
+    void completeFuture(long messageId, T value) {
+        var futureData = mapResults.get(messageId);
 
-        if (future != null) {
-            future.complete(value);
+        if (futureData != null) {
+            futureData.future.complete(value);
         }
     }
 
-    public void completeExceptionally(long messageId, Throwable e) {
-        var future = mapResults.get(messageId);
+    void completeExceptionally(long messageId, Throwable e) {
+        var futureData = mapResults.get(messageId);
 
-        if (future != null) {
-            future.completeExceptionally(e);
+        if (futureData != null) {
+            futureData.future.completeExceptionally(e);
         }
+    }
+
+    TcpActorSender<T> getSender(long messageId) {
+        return mapResults.get(messageId).refActor;
     }
 }

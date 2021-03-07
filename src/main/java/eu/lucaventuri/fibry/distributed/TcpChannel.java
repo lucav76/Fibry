@@ -14,7 +14,7 @@ import java.util.concurrent.CompletableFuture;
 public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
     private final InetSocketAddress address;
     private final ConsumerEx<SocketChannel, IOException> channelAuthorizer;
-    private final TcpActorSender<R> actor;
+    private final TcpActorSender<R> senderActor;
     private final boolean sendTargetActorName;
     private final ChannelSerializer<T> ser;
     private final ChannelDeserializer<R> deser;
@@ -32,7 +32,7 @@ public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
      */
     public TcpChannel(InetSocketAddress address, ConsumerEx<SocketChannel, IOException> channelAuthorizer, ChannelSerializer<T> ser, ChannelDeserializer<R> deser, boolean sendTargetActorName, String channelName) {
         this.address = address;
-        actor = new TcpActorSender<>(worker -> {
+        senderActor = new TcpActorSender<>(worker -> {
                 try {
                     return worker.apply(getChannel());
                 } catch (IOException e) {
@@ -64,7 +64,7 @@ public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
 
         // FIXME: there should be a way to delete the old actors
         Stereotypes.def().runOnce(() -> {
-            TcpReceiver.receiveFromAuthorizedChannel(ser, deser, false, null, channel, msgReg, null, actor);
+            TcpReceiver.receiveFromAuthorizedChannel(ser, deser, false, null, channel, msgReg, null, senderActor);
         });
 
         return channel;
@@ -130,7 +130,7 @@ public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
 
             var msgSerialized = ser.serializeToString(message);
 
-            return actor.sendMessageReturn(MessageHolder.newWithReturn(sendTargetActorName ? (remoteActorName + "|" + msgSerialized) : msgSerialized)).get();
+            return senderActor.sendMessageReturn(MessageHolder.newWithReturn(sendTargetActorName ? (remoteActorName + "|" + msgSerialized) : msgSerialized, senderActor)).get();
         } catch (Exception e) {
             return CompletableFuture.failedFuture(e);
         }
@@ -141,7 +141,7 @@ public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
         verifyRemoteActorName(remoteActorName);
 
         var msgSerialized = ser.serializeToString(message);
-        actor.sendMessage(MessageHolder.newVoid(sendTargetActorName ? (remoteActorName + "|" + msgSerialized) : msgSerialized));
+        senderActor.sendMessage(MessageHolder.newVoid(sendTargetActorName ? (remoteActorName + "|" + msgSerialized) : msgSerialized, senderActor));
     }
 
     private void verifyRemoteActorName(String remoteActorName) {

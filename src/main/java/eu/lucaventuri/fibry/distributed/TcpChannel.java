@@ -130,7 +130,7 @@ public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
 
             var msgSerialized = ser.serializeToString(message);
 
-            return senderActor.sendMessageReturn(MessageHolder.newWithReturn(sendTargetActorName ? (remoteActorName + "|" + msgSerialized) : msgSerialized, senderActor)).get();
+            return senderActor.sendMessageReturn(MessageHolder.newWithReturn(sendTargetActorName ? (remoteActorName + "|" + msgSerialized) : msgSerialized)).get();
         } catch (Exception e) {
             return CompletableFuture.failedFuture(e);
         }
@@ -141,7 +141,7 @@ public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
         verifyRemoteActorName(remoteActorName);
 
         var msgSerialized = ser.serializeToString(message);
-        senderActor.sendMessage(MessageHolder.newVoid(sendTargetActorName ? (remoteActorName + "|" + msgSerialized) : msgSerialized, senderActor));
+        senderActor.sendMessage(MessageHolder.newVoid(sendTargetActorName ? (remoteActorName + "|" + msgSerialized) : msgSerialized));
     }
 
     private void verifyRemoteActorName(String remoteActorName) {

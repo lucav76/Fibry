@@ -8,40 +8,27 @@ import java.util.concurrent.atomic.AtomicLong;
 /** Registry aboe to associate message Id with CompletableFutures */
 class MessageRegistry<T> {
     private static final AtomicLong nextMessageId = new AtomicLong();
-    private final ConstrainedMapLRU<Long, FutureData<T>> mapResults;
-
-    //should the future send also the other data? How can I get them from whenComplete?
-    //semderactor and original id?
-
-    static class FutureData<T> {
-        final CompletableFuture<T> future;
-        final TcpActorSender<T> refActor;
-
-        public FutureData(CompletableFuture<T> future, TcpActorSender<T> refActor) {
-            this.future = future;
-            this.refActor = refActor;
-        }
-    }
+    private final ConstrainedMapLRU<Long, CompletableFuture<T>> mapResults;
 
     static class IdAndFuture<T> {
         final long id;
-        final FutureData<T> data;
+        final CompletableFuture<T> future;
 
-        IdAndFuture(long id, CompletableFuture<T> future, TcpActorSender<T> refActor) {
+        IdAndFuture(long id, CompletableFuture<T> future) {
             this.id = id;
-            this.data = new FutureData<>(future, refActor);
+            this.future = future;
         }
     }
 
     MessageRegistry(int maxMessages) {
-        mapResults = new ConstrainedMapLRU<>(maxMessages, entry -> entry.getValue().future.cancel(true));
+        mapResults = new ConstrainedMapLRU<>(maxMessages, entry -> entry.getValue().cancel(true));
     }
 
-    IdAndFuture<T> getNewFuture(TcpActorSender<T> refActor) {
+    IdAndFuture<T> getNewFuture() {
         long id = nextMessageId.incrementAndGet();
-        var idAndFuture = new IdAndFuture<>(id, new CompletableFuture<>(), refActor);
+        var idAndFuture = new IdAndFuture<T>(id, new CompletableFuture<>());
 
-        mapResults.put(id, idAndFuture.data);
+        mapResults.put(id, idAndFuture.future);
 
         return idAndFuture;
     }
@@ -51,22 +38,18 @@ class MessageRegistry<T> {
     }
 
     void completeFuture(long messageId, T value) {
-        var futureData = mapResults.get(messageId);
+        var future = mapResults.get(messageId);
 
-        if (futureData != null) {
-            futureData.future.complete(value);
+        if (future != null) {
+            future.complete(value);
         }
     }
 
     void completeExceptionally(long messageId, Throwable e) {
-        var futureData = mapResults.get(messageId);
+        var future = mapResults.get(messageId);
 
-        if (futureData != null) {
-            futureData.future.completeExceptionally(e);
+        if (future != null) {
+            future.completeExceptionally(e);
         }
-    }
-
-    TcpActorSender<T> getSender(long messageId) {
-        return mapResults.get(messageId).refActor;
     }
 }

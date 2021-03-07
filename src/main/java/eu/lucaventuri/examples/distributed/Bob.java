@@ -18,8 +18,6 @@ public class Bob {
         //var ser = new JacksonSerDeser<String, String>(String.class);
         var ser = StringSerDeser.INSTANCE;
 
-        System.out.println("***** Bob UP");
-
         var ch = new TcpChannel<String, String>(new InetSocketAddress(proxy1Port), "secret", ser, ser, true, "bob");
         ActorSystem.named("bob").newActorWithReturn((String message) -> {
             System.out.println("Bob received message " + message);
@@ -27,7 +25,6 @@ public class Bob {
         });
 
         ch.ensureConnection();
-
-        System.out.println("***** Bob Connected");
+        System.out.println("***** Bob UP");
     }
 }

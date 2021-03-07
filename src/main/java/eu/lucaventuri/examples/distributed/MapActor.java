@@ -24,33 +24,26 @@ public class MapActor {
         ActorSystem.named("!mapActor!").newActorWithReturn((String cmd) -> {
             String[] parts = cmd.split("\\|");
 
-            System.out.println("Full Command: " + cmd + " - Parts: " + String.join(", ", parts));
-
             if (parts.length < 2)
                 return null;
             if (parts.length > 3)
                 return null;
-
-            System.out.println("Command: " + parts[0]);
 
             switch (parts[0]) {
                 case "GET":
                     if (parts.length != 2)
                         return null;
 
-                    System.out.println("Getting: " + parts[1] + ": " + map.get(parts[1]));
                     return map.get(parts[1]);
                 case "PUT":
                     if (parts.length != 3)
                         return null;
 
-                    System.out.println("Putting: " + parts[1] + ": " + parts[2]);
                     return map.put(parts[1], parts[2]);
                 case "REMOVE":
                     if (parts.length != 2)
                         return null;
 
-                    System.out.println("Removing: " + parts[1]);
                     return map.remove(parts[1]);
                 default:
                     return null;

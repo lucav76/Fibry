@@ -48,9 +48,6 @@ class TcpActorSender<R> extends CustomActorWithResult<MessageHolder<R>, Completa
             if (processed.get())
                 return ret;
 
-            System.out.println("ret null");
-
-            System.out.println("Retrying A - " + i + " - " + message.toString());
             // Spread reconnections from multiple actors, in case of network issue
             int retryTime = i < TcpActorSender.retries.length ? TcpActorSender.retries[i] : TcpActorSender.retries[TcpActorSender.retries.length - 1];
 

@@ -44,7 +44,6 @@ public class TcpReceiver {
                 openChannels.put(channelName, ch);
                 if (listener != null)
                     listener.accept(channelName, ActorOperation.JOIN);
-                System.out.println("Accepted connection from " + channelName);
             } catch (IOException e) {
                 System.err.println(e);
                 return;
@@ -113,8 +112,6 @@ public class TcpReceiver {
                     messageString = str.substring(idx + 1);
                 }
 
-                System.out.println("Received msg " + msgType + " on " + senderActorName + " for " + actorName + ": " + messageString);
-
                 message = deser.deserializeString(messageString);
 
                 final Object messageToSend;
@@ -128,14 +125,10 @@ public class TcpReceiver {
                     ActorSystem.<Object, T>sendMessageReturn(actorName, messageToSend, deliverBeforeActorCreation).whenComplete((value, exception) -> {
                         assert (senderActor == null && senderActorName != null) || (senderActor != null && senderActorName == null);
 
-                        System.out.println("Completed message: " + messageToSend + " - sender actor name: " + senderActorName + " - " + senderActor);
-                        System.out.println("Creating answer for " + value);
-
                         try {
                             T valueToSend = value instanceof Future ? (T) ((Future<?>) value).get() : value;
 
                             MessageHolder<R> answer = exception != null ? MessageHolder.newException(originalMessageId, exception) : MessageHolder.newAnswer(originalMessageId, ser.serializeToString(valueToSend));
-                            System.out.println("Answer: " + answer);
 
                             if (senderActor != null)
                                 senderActor.onMessage(answer);
@@ -155,7 +148,6 @@ public class TcpReceiver {
                 String str = NetworkUtils.readFullyAsString(ch, len);
 
                 if (msgType == MessageHolder.MessageType.ANSWER) {
-                    System.out.println("Received answer: " + deser.deserializeString(str) + " - Answer id " + answerId + " - Future exists: " + msgReg.hasFutureOf(answerId));
                     msgReg.completeFuture(answerId, deser.deserializeString(str));
                 } else
                     msgReg.completeExceptionally(answerId, extractException(str));
@@ -163,7 +155,7 @@ public class TcpReceiver {
                 return true;
             }
         } catch (IOException e) {
-            System.err.println("Error while reading a message: " + e);
+            //System.err.println("Error while reading a message: " + e);
 
             return false;
         }

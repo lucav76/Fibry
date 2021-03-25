@@ -205,9 +205,9 @@ For more information, please look at the Exitable class.
 
 Named Actors
 ===
-Named actors can allow clients to send messages even before they are created. This means the messages are queued.
+Named actors are actors with a name associated, so you can communicate with them without having a reference to them. Named actors can allow clients to send messages even before they are created, as the messages can be queued.
 Unfortunately, it means that if the actor is terminated and the queue is removed, clients could still recreate the queue and cause an OOM.
-To avoid this, when named actors are created "queue protection" can be activated. This will create a fake queue that does not accept new messages. Unfortunately, it still uses some small memory, for each actor.
+To avoid this, when named actors are created, "queue protection" can be activated. This will create a fake queue that does not accept new messages. Unfortunately, it still uses some small memory, for each actor.
 
 In practice, if you plan to have millions of named actors you could either:
 - call *ActorSystem.sendMessage()* with forceDelivery==false, and avoid queue protection, which would save memory but would not allow clients to send messages before the actor is created.
@@ -216,17 +216,20 @@ In practice, if you plan to have millions of named actors you could either:
 
 A Distributed Actor System
 ===
-Fibry 2.X is a Distributed Actor System, meaning that it can use multiple machines to run your actors. This feature limited at the moment.
-Fibry provides a simple, generic, support to contact (named) actors running on other machines. It is based on two principles:
-- RemoteActorChannel: an interface to send messages to named actors running on remote machines; these actors can return a value.
-- RemoteActorChannelSendOnly: an interface to send messages to named actors running on remote machines; these actors cannot return any value (e.g. queues).
-- ChannelSerializer / ChannelDeserializer / ChannelSerDeser: interfaces used for serialization and deserialization of messages
-In addition, Fibry provides a generic mechanism for **actors discovery**; the only implementation provided is based on UDP multicast, and it is therefore only usable for machines in the same network. 
+Fibry 2.X is a Distributed Actor System, meaning that it can use multiple machines to run your actors, and they are still able to communicate using the network. This feature is experimental at the moment.
+Fibry provides a simple, generic, support to contact (named) actors running on other machines. It is based on these principles: channels (the communication method) and serializers / deserializers (to transmit the message via network).
+It provides some interfaces:
+- **RemoteActorChannel**: an interface to send messages to named actors running on remote machines; these actors can return a value.
+- **RemoteActorChannelSendOnly**: an interface to send messages to named actors running on remote machines; these actors cannot return any value (e.g. queues).
+- **ChannelSerializer** / **ChannelDeserializer** / **ChannelSerDeser**: interfaces used for serialization and deserialization of messages
+- **ActorRegistry**, a generic mechanism for **actors discovery**, to discover actors running in another machine
 
-To make it useful, Fibry provides some implementations:
+
+Fibry provides also some implementations:
 - **HttpChannel**: implements a channel using HTTP (and you can add your flavour of authentication)
 - **JacksonSerDeser**: serialization and deserialization is done with Jackson (if present, as Fibry does not import it as a dependency)
 - **JavaSerializationSerDeser** and **ObjectSerializerUsingToString**, mainly for testing purposes.
+- **MulticastActorRegistry** or **ActorRegistry.usingMulticast()**: a UDP multicast actors discovery mechanism, only usable for machines in the same network. 
 - **TcpChannel**: experimental implementation of a channel using TCP; it is intended to simplify very much the creation of a distributed chat system; it works but though it needs some improvements:
     - Each client named actor can represent a user, and open a permanent TCP channel with a server (e.g. through a load balancer)
     - Server side, multiple servers could listen for connections, using **TcpReceiver.startTcpReceiverProxy()** and attach to other servers using **ActorSystem.addProxy()**
@@ -239,7 +242,7 @@ If you are using **Spring Boot**, the **Fibry-Spring** project could help.
 It can also be used to deal with queues in a transparent way, though at the moment you have to implement the logic by yourself.
 
 TcpChannel is more flexible, and allows more sophisticated distributed systems, though surely it needs improvements, and even if it has been designed to recover in case of a failed connection, some stabilization work is necessary.
-In principle, a server with some kernel tuning, a lot of RAM and Loom installed could serve 1M or more concurrent clients.
+In principle, a server with some kernel tuning, a lot of RAM and Loom installed could serve 1M or more concurrent clients. This is one of the main intended use cases of Fibry.
 
 Discovering remote actors
 ===

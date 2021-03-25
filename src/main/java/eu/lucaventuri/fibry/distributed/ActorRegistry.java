@@ -9,7 +9,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 /**
- * Registry able to signal the presence of actors, typically to a remote machine; the information are meant to be able to locate the actors,
+ * Registry able to signal the presence of actors (actors discovery), typically to a remote machine; the information are meant to be able to locate the actors,
  * are just text, so it is dependent on the caller to provide proper information; please notice that the actors might
  * need to be located with a different tehcnology, e.g. we could have a Multicast Registry with actors that need to be contacted via TCP using a proxy.
  * In general, it's better if an actor register itself only once in a given registry.

@@ -223,15 +223,23 @@ Fibry provides a simple, generic, support to contact (named) actors running on o
 - ChannelSerializer / ChannelDeserializer / ChannelSerDeser: interfaces used for serialization and deserialization of messages
 In addition, Fibry provides a generic mechanism for **actors discovery**, though the only implementation provided is based on UDP multicast, and it is therefore only usable for machines in the same network. 
 
-To make it more useful, Fibry provides an implementation:
+To make it more useful, Fibry provides some implementations:
 - HttpChannel: implements a channel using HTTP (and you can add your flavour of authentication)
 - JacksonSerDeser: serialization and deserialization is done with Jackson (if present, as Fibry does not import it as a dependency)
 - JavaSerializationSerDeser and ObjectSerializerUsingToString, mainly for testing purposes.
+- TcpChannel: experimental implementation of a channel using TCP; it is intended to simplify very much the creation of a distributed chat system; it works but though it needs some improvements:
+    - Each client named actor can represent a user, and open a permanent TCP channel with a server (e.g. through a load balancer)
+    - Server side, multiple servers could listen for connections, using **TcpReceiver.startTcpReceiverProxy()** and attach to other servers using **ActorSystem.addProxy()**
+    - A coordination server (e.g. Redis or something custom written with Fibry) could register which proxy holds the connection to each client
+    - The directory **examples/distributed** has a demonstration of two clients connected to two servers with a coordinator
 
-While limited, this means that Fibry can run as a distributed actor system across HTTP clusters, and in particular it could be used as a very simple **RPC** mechanism to send messages **across MicroServices**.
+While HttpChannel is limited, it means that Fibry can run as a distributed actor system across HTTP clusters, and in particular it could be used as a very simple **RPC** mechanism to send messages **across MicroServices**.
 For now, you are still responsible to create an endpoint to receive the messages and send them to the appropriate actors.
 If you are using **Spring Boot**, the **Fibry-Spring** project could help.
 It can also be used to deal with queues in a transparent way, though at the moment you have to implement the logic by yourself.
+
+TcpChannel is more flexible, and allows more sophisticated distributed systems, though surely it needs improvements, and even if it has been designed to recover in case of a failed connection, some stabilization work is necessary.
+In principle, a server with some kernel tuning, a lot of RAM and Loom installed could serve 1M or more concurrent clients.
 
 Discovering remote actors
 ===

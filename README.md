@@ -221,13 +221,13 @@ Fibry provides a simple, generic, support to contact (named) actors running on o
 - RemoteActorChannel: an interface to send messages to named actors running on remote machines; these actors can return a value.
 - RemoteActorChannelSendOnly: an interface to send messages to named actors running on remote machines; these actors cannot return any value (e.g. queues).
 - ChannelSerializer / ChannelDeserializer / ChannelSerDeser: interfaces used for serialization and deserialization of messages
-In addition, Fibry provides a generic mechanism for **actors discovery**, though the only implementation provided is based on UDP multicast, and it is therefore only usable for machines in the same network. 
+In addition, Fibry provides a generic mechanism for **actors discovery**; the only implementation provided is based on UDP multicast, and it is therefore only usable for machines in the same network. 
 
-To make it more useful, Fibry provides some implementations:
-- HttpChannel: implements a channel using HTTP (and you can add your flavour of authentication)
-- JacksonSerDeser: serialization and deserialization is done with Jackson (if present, as Fibry does not import it as a dependency)
-- JavaSerializationSerDeser and ObjectSerializerUsingToString, mainly for testing purposes.
-- TcpChannel: experimental implementation of a channel using TCP; it is intended to simplify very much the creation of a distributed chat system; it works but though it needs some improvements:
+To make it useful, Fibry provides some implementations:
+- **HttpChannel**: implements a channel using HTTP (and you can add your flavour of authentication)
+- **JacksonSerDeser**: serialization and deserialization is done with Jackson (if present, as Fibry does not import it as a dependency)
+- **JavaSerializationSerDeser** and **ObjectSerializerUsingToString**, mainly for testing purposes.
+- **TcpChannel**: experimental implementation of a channel using TCP; it is intended to simplify very much the creation of a distributed chat system; it works but though it needs some improvements:
     - Each client named actor can represent a user, and open a permanent TCP channel with a server (e.g. through a load balancer)
     - Server side, multiple servers could listen for connections, using **TcpReceiver.startTcpReceiverProxy()** and attach to other servers using **ActorSystem.addProxy()**
     - A coordination server (e.g. Redis or something custom written with Fibry) could register which proxy holds the connection to each client

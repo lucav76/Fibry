@@ -37,7 +37,7 @@ Simplicity first, flexibility second
 - It implements some simple mechanisms to help to process messages in **batches**
 - It implements a mechanism to **track progress** of long-running tasks, which can be extended to support the progress of messages processed by another server
 - It provides a way to create simple **Finite State Machines**, either with Actors or with Consumers (recommended)
-- It provides support for three types of **transactions**, from lightweight to full, rollbackable, transactions 
+- It provides support for three types of **transactions**, from lightweight to full transactions, with roll-back 
 
 Some numbers
 ===
@@ -329,16 +329,14 @@ Transactions
 Fibry supports three types of transactions:
 - Light transactional actors, created using **ActorSystem.newLightTransactionalActor()**; these actors have an implementation of **sendMessages()** (plus a couple of new methods, **sendMessageTransaction()** and **sendMessageTransactionReturn()**) that creates light transactions.
   The only guarantee that a light transaction provides is that messages in the transaction are processed one after the other, without any other messages allowed to be executed between them; the messages need to all be provided at the same time.
-- FUll transactions: many actors have a **transaction()** method that initiate a full transaction, that can be rollbacked;.
-- FUll transactions without rollback: many actors have a **transactionWithoutRollback()** method that initiate a full transaction, however, in case of an error, no rollback is provided. The only reason to use this method instead of transaction() is if it is too complex to close the state or if rollback has no sense.
+- Full transactions: many types of actor have a **transaction()** method that initiate a full transaction, that can be roll-backed;.
+- Full transactions without roll-back: many types of actor have a **transactionWithoutRollback()** method that initiate a full transaction, however, in case of an error, no roll-back is provided. The only reason to use this method instead of transaction() is if it is too complex to clone the state for roll-back, or if roll-back has no sense.
 
 Light transactions are very lightweight, and they can be used without any particular precaution.
 On the other hand, full transaction needs to be used with caution, because they block the actor, which cannot receive any message until the transaction is completed; in addition,
 transactions are not initiated immediately, as we need their message to reach the actor and be processed. As it would be impossible to execute methods of the actor while blocking it,
 a convenient synchronous actor can be used inside the transaction.
 Please check the unit tests for examples on how to use these transactions.
-
-At the moment, these messages need to be sent at the same time, with a single method call.
 
 Utilities
 ===

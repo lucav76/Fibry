@@ -10,6 +10,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+/** Example of maping server; this has been created to provide an implementation without dependencies,
+ * and for testing, but in production it would be recommended to use Redis or some other Key Value store */
 public class MapActor {
     static final int port = 9810;
     static final Map<String, String> map = new ConcurrentHashMap<>();
@@ -50,6 +52,7 @@ public class MapActor {
             }
         });
 
+        // for debugging
         Stereotypes.def().embeddedHttpServer(port + 1,
                 new Stereotypes.HttpStringWorker("/list", exchange -> "Actors registered: \n" + getList()));
 

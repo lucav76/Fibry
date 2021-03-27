@@ -17,23 +17,29 @@ public class ProxyA {
     static void startProxy(int thisProxyPort, String thisProxyName, int nextProxyPort, String nextProxyName, int portMapActor, String mapActorName, String sharedKey) throws IOException {
         var ser = StringSerDeser.INSTANCE;
 
+        // Starts a receiver usable for proxies
         TcpReceiver.startTcpReceiverProxy(thisProxyPort, sharedKey, ser, ser, false);
 
+        // Creates a channel toward another proxy
         var ch = new TcpChannel<String, String>(new InetSocketAddress(nextProxyPort), sharedKey, ser, ser, true, thisProxyName + "->" + nextProxyName);
         ActorSystem.addProxy(nextProxyName, ch);
 
+        // Registers two internal actors, for testing
         ActorSystem.named(thisProxyName + "Echo").newActorWithReturn(str -> thisProxyName + "Echo" + "-PONG to " + str);
         ActorSystem.named(thisProxyName).newActorWithReturn(str -> thisProxyName + "-PONG to " + str);
 
+        // Creates a mapping actor, used to retrieve the routes to find the actors
         createMapActor(thisProxyName, portMapActor, mapActorName, ser, sharedKey);
 
         System.out.println("*** " + thisProxyName + " listening on port " + thisProxyPort);
     }
 
     private static void createMapActor(String thisProxyName, int portMapActor, String mapActorName, StringSerDeser ser, String sharedKey) {
+        // Creates a channel and an actor toward the mapping server
         var chMap = new TcpChannel<String, String>(new InetSocketAddress(portMapActor), sharedKey, ser, ser, true, thisProxyName + "->" + mapActorName);
         var mapActor = ActorSystem.anonymous().<String, String>newRemoteActorWithReturn(mapActorName, chMap, ser);
 
+        // Creates an alias resolver, used to find which proxy knows the actor
         ActorSystem.setAliasResolver(actor -> {
             String proxyFromMap = null;
             try {
@@ -45,6 +51,7 @@ public class ProxyA {
             return proxyFromMap;
         });
 
+        // Updates the mapping actor with the new information regarding actors joining and leaving
         TcpReceiver.setListener((actorName, operation) -> {
             if (operation == TcpReceiver.ActorOperation.LEFT)
                 mapActor.sendMessage("DELETE|" + actorName);

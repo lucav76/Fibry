@@ -199,6 +199,7 @@ public class TestRemoteActors {
         int port = 20001;
         var ser = new JacksonSerDeser<String, String>(String.class);
 
+        // Server actor code
         TcpReceiver.startTcpReceiverProxy(port, "abc", ser, ser, false);
 
         ActorSystem.named("tcpActor1").newActor(str -> {
@@ -207,6 +208,7 @@ public class TestRemoteActors {
             latch.countDown();
         });
 
+        // Client actor code
         var ch = new TcpChannel<String, Void>(new InetSocketAddress(port), "abc", null, null, true, "chNoReturn");
         var actor = ActorSystem.anonymous().<String>newRemoteActor("tcpActor1", ch, ser);
 
@@ -215,11 +217,12 @@ public class TestRemoteActors {
         latch.await();
     }
 
-    public void testTcpAnswer() throws IOException, InterruptedException, ExecutionException {
+    public void testTcpAnswerProxyType() throws IOException, InterruptedException, ExecutionException {
         CountDownLatch latch = new CountDownLatch(1);
         int port = 20002;
         var ser = new JacksonSerDeser<String, String>(String.class);
 
+        // Server actor code
         TcpReceiver.startTcpReceiverProxy(port, "abc", ser, ser, false);
 
         ActorSystem.named("tcpActor2").newActorWithReturn(str -> {
@@ -230,7 +233,35 @@ public class TestRemoteActors {
             return str.toString().toUpperCase();
         });
 
+        // Client actor code
         var ch = new TcpChannel<String, String>(new InetSocketAddress(port), "abc", ser, ser, true, "chAnswer");
+        var actor = ActorSystem.anonymous().<String, String>newRemoteActorWithReturn("tcpActor2", ch, ser);
+
+        var ret = actor.sendMessageReturn("test2");
+
+        latch.await();
+
+        Assert.assertEquals("TEST2", ret.get());
+    }
+
+    public void testTcpAnswerDirectType() throws IOException, InterruptedException, ExecutionException {
+        CountDownLatch latch = new CountDownLatch(1);
+        int port = 20022;
+        var ser = new JacksonSerDeser<String, String>(String.class);
+
+        // Server actor code; it's using an alias, but it does not have to
+        TcpReceiver.startTcpReceiverDirectActor(port, "abc", ser, ser, false, "tcpActor2-d-alias");
+
+        ActorSystem.named("tcpActor2-d-alias").newActorWithReturn(str -> {
+            Assert.assertEquals(str, "test2");
+
+            latch.countDown();
+
+            return str.toString().toUpperCase();
+        });
+
+        // Client actor code
+        var ch = new TcpChannel<String, String>(new InetSocketAddress(port), "abc", ser, ser, false, "chAnswer");
         var actor = ActorSystem.anonymous().<String, String>newRemoteActorWithReturn("tcpActor2", ch, ser);
 
         var ret = actor.sendMessageReturn("test2");

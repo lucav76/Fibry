@@ -11,6 +11,25 @@ import java.util.Arrays;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 
+/** TCP channel, that can put in communication the actors in a server with the actors in anther one
+ * The target host can basically have two configurations:
+ * - Direct: the whole target server is considered a single actor from the point of view of the sender
+ * - Proxy: the target server can host multiple actors (and therefore we need to specify which one we are looking for);
+ *   proxies can also in principle forward the message to other servers
+ *
+ *  Some considerations: in a way, the actors need to be aware of how to route the requests to remote actors; in pracitce
+ *  it means that:
+ *  - client actors are connected to a proxy
+ *  - if there is a single proxy, it will know all the actors
+ *  - if there are multiple proxies
+ *    - each proxy should be connected to all other proxies
+ *    - you need a mechanism (e.g. Redis) to know which proxy holds which actor, so they can route the message
+ *
+ *  More complex structure can be created, if needed.
+ *
+ *  Typically, the actors need a way to know some other actors, but this is left to the implementation; for example,
+ *  in a chat of a social network, the social network will provide a list of friends, and these will be the actors.
+ * */
 public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
     private final InetSocketAddress address;
     private final ConsumerEx<SocketChannel, IOException> channelAuthorizer;
@@ -25,10 +44,15 @@ public class TcpChannel<T, R> implements RemoteActorChannel<T, R> {
 
 
     /**
-     * Channel based on TCP IP
-     *
+     * Creates a channel using TCP IP
      * @param address Target host
-     * @param channelAuthorizer Initializer of the channel
+     * @param channelAuthorizer Object that can initialize the channel, typically demonstrating that the connecting server is authorized and trusted
+     * @param ser Serializer, to be able to transmit the messages
+     * @param deser Deserializer, to be able to receive the messages
+     * @param sendTargetActorName True if we need to send the target actor name; this is mandatory for proxies (as we need to identify the target actor)
+     * @param channelName Unique channel name:
+     *   - client actors (which host one remote actor per channel), must use their name (e.g. alice), to be reachable
+     *   - proxies when connecting to other proxies should use the "source-&gt;target" convention or similar, to help debugging
      */
     public TcpChannel(InetSocketAddress address, ConsumerEx<SocketChannel, IOException> channelAuthorizer, ChannelSerializer<T> ser, ChannelDeserializer<R> deser, boolean sendTargetActorName, String channelName) {
         this.address = address;

@@ -10,7 +10,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-/* Please run TcpExample, which will run this class as well */
 public class Alice {
     public static void main(String[] args) {
         int proxy1Port = 9801;
@@ -19,7 +18,10 @@ public class Alice {
 
         System.out.println("***** Alice UP");
 
-        var ch = new TcpChannel<String, String>(new InetSocketAddress(proxy1Port), "secret", ser, ser, true, "Alice->proxyA");
+        // Typical client configuration:
+        // - creates a channel to a proxy (to register itself)
+        // - creates a remote actor on the channel, to be able to reach another actor
+        var ch = new TcpChannel<String, String>(new InetSocketAddress(proxy1Port), "secret", ser, ser, true, "alice");
         var bob = ActorSystem.anonymous().<String, String>newRemoteActorWithReturn("bob", ch, ser);
 
         for (int i = 1; i <= 5; i++) {

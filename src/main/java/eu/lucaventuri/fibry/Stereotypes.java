@@ -103,6 +103,7 @@ class MultiTracker<T extends MergeableParallelBatches> {
  */
 public class Stereotypes {
     private static AtomicBoolean debug = new AtomicBoolean(false);
+    private static AtomicInteger defaultHttpBacklog = new AtomicInteger(100);
 
     public static class HttpWorker {
         final String context;
@@ -202,7 +203,7 @@ public class Stereotypes {
          */
         public void embeddedHttpServer(int port, HttpWorker... workers) throws IOException {
             NamedStateActorCreator<Void> config = anonymous().initialState(null);
-            HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
+            HttpServer server = HttpServer.create(new InetSocketAddress(port), defaultHttpBacklog.get());
 
             for (HttpWorker worker : workers) {
                 server.createContext(worker.context, exchange -> {
@@ -242,26 +243,25 @@ public class Stereotypes {
          * @param workers pairs of context and handler, associating a path to a worker
          * @throws IOException Thrown in case of I/O errors
          */
-        public void embeddedHttpServer(int port, HttpStringWorker... workers) throws IOException {
-            NamedStateActorCreator<Void> config = anonymous().initialState(null);
-            HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
+        public HttpServer embeddedHttpServer(int port, HttpStringWorker... workers) throws IOException {
+            //NamedStateActorCreator<Void> config = anonymous().initialState(null);
+            HttpServer server = HttpServer.create(new InetSocketAddress(port), defaultHttpBacklog.get());
+            server.setExecutor(AUTO.newExecutor());
 
             for (HttpStringWorker worker : workers) {
                 server.createContext(worker.context, exchange -> {
-                    config.<HttpExchange>newActor((ex, actor) -> {
                         Exceptions.log(() -> {
-                            String answer = worker.worker.apply(ex);
-                            ex.sendResponseHeaders(200, answer.getBytes().length);//response code and length
-                            OutputStream os = ex.getResponseBody();
+                            String answer = worker.worker.apply(exchange);
+                            exchange.sendResponseHeaders(200, answer.getBytes().length);//response code and length
+                            OutputStream os = exchange.getResponseBody();
                             os.write(answer.getBytes());
                             os.close();
                         });
-
-                        actor.askExit();
-                    }).sendMessage(exchange);
                 });
             }
             server.start();
+
+            return server;
         }
 
         /**
@@ -556,13 +556,12 @@ public class Stereotypes {
         }
 
         private <S> Function<SinkActorSingleTask<Void>, Actor<Socket, Void, S>> getTcpAcceptorWorkerCreator(Consumer<Socket> workersLogic, boolean autoCloseSocket) {
-             return (acceptorActor) -> anonymous().initialState((S) null).newActor((Socket socket) -> {
-                assert socket!=null;
+            return (acceptorActor) -> anonymous().initialState((S) null).newActor((Socket socket) -> {
+                assert socket != null;
 
                 try {
                     workersLogic.accept(socket);
-                }
-                finally {
+                } finally {
                     if (autoCloseSocket)
                         SystemUtils.close(socket);
                 }
@@ -1018,5 +1017,9 @@ public class Stereotypes {
 
     public static void setDebug(boolean activateDebug) {
         debug.set(activateDebug);
+    }
+
+    public static void setDefaultHttpBacklog(int defaultHttpBacklog) {
+        Stereotypes.defaultHttpBacklog.set(defaultHttpBacklog);
     }
 }

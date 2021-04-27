@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Array;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.*;
@@ -28,6 +29,7 @@ public final class ActorUtils {
     private final static MethodHandle mhFiberScopeScheduleRunnable;
     private final static MethodHandle mmhFiberScopeScheduleCallable;
     private final static MethodHandle mhVirtualThread;
+    private final static Method mtNewVirtualThreadExecutor;
     private final static Object options;
     private final static AutoCloseable globalFiberScope;
 
@@ -37,6 +39,7 @@ public final class ActorUtils {
         MethodHandle tmpMethodScheduleRunnable = null;
         MethodHandle tmpMethodScheduleCallable = null;
         MethodHandle tmpMethodVirtualThread = null;
+        Method tmpMethodNewVirtualThreadExecutor = null;
         clzFiberScope = SystemUtils.findClassByName("java.lang.FiberScope");
 
         clzFiber = SystemUtils.findClassByName("java.lang.Fiber");
@@ -62,6 +65,13 @@ public final class ActorUtils {
         } catch (NoSuchMethodException | IllegalAccessException e) {
         }
 
+        // New virtual thread executor, Dibers version 2
+        try {
+            var clz = java.util.concurrent.Executors.class;
+            tmpMethodNewVirtualThreadExecutor = clz.getMethod("newVirtualThreadExecutor");
+        } catch (NoSuchMethodException e) {
+        }
+
         // Fibers version 1
         mhFiberScopeOpen = tmpMethodOpen;
         mhFiberScopeScheduleRunnable = tmpMethodScheduleRunnable;
@@ -71,6 +81,7 @@ public final class ActorUtils {
         // Fibers version 2
         mhVirtualThread = tmpMethodVirtualThread;
 
+        mtNewVirtualThreadExecutor = tmpMethodNewVirtualThreadExecutor;
 
         //System.out.println("clzOptionArray: " + clzOptionArray);
     }
@@ -369,4 +380,21 @@ public final class ActorUtils {
     }
 
 
+    public static ExecutorService newFibersExecutor() {
+        assert areFibersAvailable();
+
+        if(mtNewVirtualThreadExecutor==null) {
+            System.err.println("Virtual executor: falling back to ForkJoinPool");
+            return new java.util.concurrent.ForkJoinPool();
+        }
+
+        try {
+            return (ExecutorService) mtNewVirtualThreadExecutor.invoke(null);
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            System.err.println("Could not create an executor with virtual threads, switching to ForkJoin pool");
+
+            // Better than nothing
+            return new java.util.concurrent.ForkJoinPool();
+        }
+    }
 }

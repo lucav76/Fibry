@@ -179,6 +179,9 @@ This is a very simple HTTP Hello World:
 Stereotypes.def().embeddedHttpServer(8080, new Stereotypes.HttpStringWorker("/", ex -> "Hello world!"));
 ```
 
+You can change the backlog used by the server, to improve its stability under load, calling **Stereotypes.setDefaultHttpBacklog()**.  
+
+
 This is a very simple UDP Server:
 ```java
 var actor = Stereotypes.def().udpServerString(port, message -> {

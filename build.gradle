@@ -34,6 +34,10 @@ class ReleaseCheckState {
     static volatile String releaseNotes = ""
 }
 
+task testJar(type: Jar) {
+    from sourceSets.test.output + sourceSets.main.output
+}
+
 tasks.register("releaseCheck") {
     if (gradle.startParameter.taskNames.any { it == "release"}) {
         ReleaseCheckState.releaseNotes = file("RELEASE_NOTES.md").text

@@ -25,10 +25,10 @@ Simplicity first, flexibility second
 - It is simple to retrieve the result of a message
 - It is possible to send messages to named actors even before they are created, potentially simplifying your logic; the messages can be discarded or processed when the actor will be available 
 - There is a fluid interface to build the actors
-- You can receive messages of your choice while processing a message  
-- Many types of actor implement the **Executor** interface, so you can "send code" to be executed in the thread/fiber of almost any actors, and use them on service that are not actor-aware
+- On some actors, you can receive messages of your choice while processing a message (Erlang style)  
+- Many types of actor implement the **Executor** interface, so you can "send code" to be executed by the thread/fiber of almost any actors, and use them on service that are not actor-aware
 - Most actors can be converted to **Reactive Flow Subscribers** (TCK tested), calling *asReactiveSubscriber()*
-- Fibry can create generators (Iterable) in a simple and effective way
+- Fibry can create **generators** (Iterable) in a simple and effective way
 - Remote actors can be **discovered** using UDP Multicast
 - It implements several types of actor pools, for work-stealing tasks, with the possibility to assign a weight to each job 
 - It implements a very simple **Map/Reduce mechanism**, limited to the local computer.

@@ -28,7 +28,7 @@ Simplicity first, flexibility second
 - On some actors, you can receive messages of your choice while processing a message (Erlang style)  
 - Many types of actor implement the **Executor** interface, so you can "send code" to be executed by the thread/fiber of almost any actors, and use them on service that are not actor-aware
 - Most actors can be converted to **Reactive Flow Subscribers** (TCK tested), calling *asReactiveSubscriber()*
-- Fibry can create **generators** (Iterable) in a simple and effective way
+- Fibry can create **generators** (Iterables with **back-pressure**) in a simple and effective way
 - Remote actors can be **discovered** using UDP Multicast
 - It implements several types of actor pools, for work-stealing tasks, with the possibility to assign a weight to each job 
 - It implements a very simple **Map/Reduce mechanism**, limited to the local computer.
@@ -258,9 +258,9 @@ Generators
 ===
 Some languages like Python have the possibility to *yield* a value, meaning that the function returns an iterator / generator.
 Java does not have such a feature, but now Fibry implements several mechanisms for that, offering you a choice between simplicity and speed.
-Clearly this is a bit less elegant and more complex than having a yield keyword, but in at least it can be customized based on your needs.
+This is a bit less elegant and more complex than having a yield keyword, but at least it can be customized based on your needs.
 
-This is a basic example, but you can find more examples in the unit test. I plan to write an article about this feature, but not anytime soon.
+This is a basic example, but you can find more examples in the unit test. I plan to write an article about this feature.
  
  ```Java
 Iterable<Integer> gen = Generator.fromProducer(yielder -> {
@@ -270,12 +270,15 @@ Iterable<Integer> gen = Generator.fromProducer(yielder -> {
   }
 }, 5, true);
 ```
- 
-Stream can often substitute generators, but this example would be tricky because you don't know ina dvance the length of the stream.
-You could use a list, but then you need to keep all the elements in RAM, which is not always possible.
-You can write an Iterable, but it is qutie some code, and not always super straightforward.
+In the previous example, we get an iterator that will provide all the numbers selected, but not more than 5 will be "in fly", precomputed; this allows us to find a balance between speed and other resources (like memory, disk or CPU) that might become scarce when creating too many elements, in real world cases.
+For example, if you were to download and analyze some big files, you might want to download some of them in parallel (but not too many to not fill the hard drive) and then you might want to also process them in parallel, and generators can help you to hit the sweet spot.
+In practice, this is an implementation of a **back-pressure** mechanism. 
 
-Fibry Generators don't have these limitations, and can let you customize how many elements to keep in memory (5 in mt example); more elements usually mean better performance, but Fibry has also other ways to tune speed.
+Streams can often substitute generators, but this example would be tricky because you cannot know in advance the length of the stream.
+You could use a list, but then you need to keep all the elements in RAM, which is not always possible.
+You can write an Iterable, but it is quite some code, and not always super straightforward.
+
+Fibry Generators don't have these limitations, and can let you customize how many elements to keep in memory (5 in my example); more elements usually mean better performance, but Fibry has also other ways to tune speed.
 Please note that every generator is back by a thread / fiber, and while it can process millions of elements per second, it might still be slower than other solutions.
  
  

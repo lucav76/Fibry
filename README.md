@@ -171,6 +171,7 @@ Some examples:
 - *sink()*: creates an actor that cannot process messages, but that can still be used for thread confinement, sending code to it
 - *runOnce()*: creates an actor that executes some logic in a separated thread, once.
 - *schedule()*: creates an actor that executes some logic in a separated thread, as many times as requested, as often as requested
+- *scheduler()*: creates a Scheduler that can be used to schedule messages in the future, in several ways
 - *tcpAcceptor()*: creates a master actor that will receive TCP connections, delegating the processing of each connection to a dedicated fiber. This is nice for IoI, to design a chat system or in general, if you have a proxy.
 
 Please check the **examples** package for inspiration.

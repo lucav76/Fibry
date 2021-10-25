@@ -30,6 +30,7 @@ Simplicity first, flexibility second
 - Most actors can be converted to **Reactive Flow Subscribers** (TCK tested), calling *asReactiveSubscriber()*
 - Fibry can create **generators** (Iterables with **back-pressure**) in a simple and effective way
 - Remote actors can be **discovered** using UDP Multicast
+- It implements a way to schedule messages in the future
 - It implements several types of actor pools, for work-stealing tasks, with the possibility to assign a weight to each job 
 - It implements a very simple **Map/Reduce mechanism**, limited to the local computer.
 - It implements a very simple **Pub/Sub** mechanism, limited to the local computer.
@@ -354,6 +355,19 @@ On the other hand, full transaction needs to be used with caution, because they 
 transactions are not initiated immediately, as we need their message to reach the actor and be processed. As it would be impossible to execute methods of the actor while blocking it,
 a convenient synchronous actor can be used inside the transaction.
 Please check the unit tests for examples on how to use these transactions.
+
+Scheduling
+===
+Fibry implements a simple Scheduler, that can be used to postpone messages or to schedule them at a fixed rate or at a fixed delay; the messages will be sent to the specified actor.
+The syntax is the same as **ScheduledExecutorService**, except that it is also possible to specify a maximum number of messages to schedule  
+
+```java
+Scheduler scheduler = new Scheduler();
+
+scheduler.schedule(actor2, "msg2", 11, TimeUnit.MILLISECONDS);
+scheduler.scheduleAtFixedRate(actor, "msg", 5, 5, TimeUnit.MILLISECONDS, maxMessages);
+scheduler.scheduleWithFixedDelay(actor3, "msg3", 4, 3, TimeUnit.MILLISECONDS);
+```
 
 Utilities
 ===

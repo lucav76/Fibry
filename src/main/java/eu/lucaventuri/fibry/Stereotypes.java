@@ -250,13 +250,13 @@ public class Stereotypes {
 
             for (HttpStringWorker worker : workers) {
                 server.createContext(worker.context, exchange -> {
-                        Exceptions.log(() -> {
-                            String answer = worker.worker.apply(exchange);
-                            exchange.sendResponseHeaders(200, answer.getBytes().length);//response code and length
-                            OutputStream os = exchange.getResponseBody();
-                            os.write(answer.getBytes());
-                            os.close();
-                        });
+                    Exceptions.log(() -> {
+                        String answer = worker.worker.apply(exchange);
+                        exchange.sendResponseHeaders(200, answer.getBytes().length);//response code and length
+                        OutputStream os = exchange.getResponseBody();
+                        os.write(answer.getBytes());
+                        os.close();
+                    });
                 });
             }
             server.start();
@@ -934,8 +934,14 @@ public class Stereotypes {
             return strategy.start(actor);
         }
 
-        public <T> void weightedWorkStealingPool(int numWorkers, Consumer<T> logic) {
+        /** Creates an object that can postpone messages */
+        public Scheduler scheduler() {
+            return new Scheduler();
+        }
 
+        /** Creates an object that can postpone messages */
+        public Scheduler scheduler(int waitMs) {
+            return new Scheduler(waitMs);
         }
 
         private NamedStrategyActorCreator anonymous() {

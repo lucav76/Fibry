@@ -1,7 +1,7 @@
 package eu.lucaventuri.fibry;
 
 import eu.lucaventuri.common.MathUtil;
-import eu.lucaventuri.common.SystemUtils;
+import eu.lucaventuri.common.TimeProvider;
 
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -48,14 +48,18 @@ public class Scheduler {
 
     private final PriorityBlockingQueue<Message> queue = new PriorityBlockingQueue<>();
     private final SinkActorSingleTask<Void> schedulingActor;
-    private final int waitMs;
+    private final TimeProvider timeProvider;
 
     public Scheduler() {
-        this(50);
+        this(50, TimeProvider.fromSystemTime());
     }
 
     public Scheduler(int waitMs) {
-        this.waitMs = waitMs;
+        this(waitMs, TimeProvider.fromSystemTime());
+    }
+
+    public Scheduler(int waitMs, TimeProvider timeProvider) {
+        this.timeProvider = timeProvider;
 
         this.schedulingActor = Stereotypes.def().runOnceWithThis((thisActor) -> {
             while (!thisActor.isExiting()) {
@@ -63,14 +67,15 @@ public class Scheduler {
                     Message message = queue.poll(100, TimeUnit.MILLISECONDS);
 
                     if (message == null) {
-                        SystemUtils.sleep(waitMs);
+                        timeProvider.sleepMs(waitMs);
                     } else {
-                        long now = System.currentTimeMillis();
+                        long now = timeProvider.get();
 
                         if (now >= message.time) {
                             if (message.fixedDelayMs > 0 && message.maxMessages > 1) {
                                 message.actor.sendMessageReturn(message.message).thenRunAsync(() -> {
-                                    queue.add(message.withTimeDecreaseMax(System.currentTimeMillis() + message.fixedDelayMs));
+                                    //System.out.println("Delay - Received: " + timeProvider.get() + " - delay: " + message.fixedDelayMs);
+                                    queue.add(message.withTimeDecreaseMax(timeProvider.get() + message.fixedDelayMs));
                                 });
                             } else {
                                 message.actor.sendMessage(message.message);
@@ -80,7 +85,7 @@ public class Scheduler {
                             }
                         } else {
                             queue.add(message);
-                            SystemUtils.sleep(Math.min(waitMs, message.time - now));
+                            timeProvider.sleepMs(Math.min(waitMs, message.time - now));
                         }
                     }
                 } catch (InterruptedException e) {
@@ -96,7 +101,7 @@ public class Scheduler {
     }
 
     private <T> void scheduleMs(Actor<T, ?, ?> actor, T message, long waitMs, long fixedRateMs, long fixedDelayMs, long maxMessages) {
-        queue.add(new Message(actor, message, System.currentTimeMillis() + waitMs, fixedRateMs, fixedDelayMs, maxMessages));
+        queue.add(new Message(actor, message, timeProvider.get() + waitMs, fixedRateMs, fixedDelayMs, maxMessages));
     }
 
     public <T> void scheduleAtFixedRate(Actor<T, ?, ?> actor, T message, long initialDelay, long period, TimeUnit timeUnit) {

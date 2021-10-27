@@ -1,6 +1,7 @@
 package eu.lucaventuri.fibry;
 
 import eu.lucaventuri.common.SystemUtils;
+import eu.lucaventuri.common.TimeProvider;
 import org.junit.Test;
 
 import java.util.concurrent.TimeUnit;
@@ -49,50 +50,59 @@ public class TestScheduler {
 
     @Test
     public void testSchedulerRate() {
-        long time = System.currentTimeMillis();
         int numMessageToTest = 7;
         AtomicInteger num = new AtomicInteger(numMessageToTest);
         AtomicInteger num2 = new AtomicInteger(1);
         AtomicInteger num3 = new AtomicInteger(numMessageToTest + 3);
+        var timeProvider = TimeProvider.flexible();
 
         var actor = ActorSystem.anonymous().<String>newActor(message -> {
                     assertEquals(message, "msg");
                     num.decrementAndGet();
-                    System.out.println(message + ": " + (System.currentTimeMillis() - time));
+                    long curTime = timeProvider.get();
+                    //System.out.println(message + ": " + curTime);
+                    assertEquals(0, curTime % 5);
                 }
         );
 
         var actor2 = ActorSystem.anonymous().<String>newActor(message -> {
                     assertEquals(message, "msg2");
-                    System.out.println(message + ": " + (System.currentTimeMillis() - time));
+                    long curTime = timeProvider.get();
+                    //System.out.println(message + ": " + curTime);
+                    assertEquals(11, curTime);
                     num2.decrementAndGet();
                 }
         );
 
         var actor3 = ActorSystem.anonymous().<String>newActor(message -> {
                     assertEquals(message, "msg3");
-                    System.out.println(message + ": " + (System.currentTimeMillis() - time));
+                    long curTime = timeProvider.get();
+                    //System.out.println(message + ": " + curTime);
                     num3.decrementAndGet();
-                    SystemUtils.sleep(7);
+                    timeProvider.sleepUntil(curTime + 7);
+                    assertEquals((curTime - 34) % 10, 0);
                 }
         );
 
-        Scheduler scheduler = new Scheduler(0);
+        Scheduler scheduler = new Scheduler(0, timeProvider);
 
         scheduler.schedule(actor2, "msg2", 11, TimeUnit.MILLISECONDS);
         scheduler.scheduleAtFixedRate(actor, "msg", 5, 5, TimeUnit.MILLISECONDS);
-        scheduler.scheduleWithFixedDelay(actor3, "msg3", 4, 3, TimeUnit.MILLISECONDS);
+        scheduler.scheduleWithFixedDelay(actor3, "msg3", 34, 3, TimeUnit.MILLISECONDS);
 
         while (num.get() != 0) {
-            SystemUtils.sleep(1);
+            SystemUtils.sleep(5);
+            timeProvider.inc();
         }
 
         while (num2.get() != 0) {
-            SystemUtils.sleep(1);
+            SystemUtils.sleep(5);
+            timeProvider.inc();
         }
 
         while (num3.get() != 0) {
-            SystemUtils.sleep(1);
+            SystemUtils.sleep(5);
+            timeProvider.inc();
         }
 
         scheduler.askExit();

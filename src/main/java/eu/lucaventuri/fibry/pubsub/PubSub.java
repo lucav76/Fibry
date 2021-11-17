@@ -5,6 +5,7 @@ import eu.lucaventuri.fibry.fsm.FsmContext;
 
 import java.util.Collection;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * Very simple Pub/Sub, where you can choose the level of parallelism.
@@ -49,6 +50,10 @@ public interface PubSub<T> {
     }
 
     Subscription subscribe(String topic, Consumer<T> consumer, int maxSubscribers);
+
+    default <T2> Subscription subscribe(String topic, Function<T, T2> converter, Consumer<T2> consumerOfOtherType, int maxSubscribers) {
+        return subscribe(topic, t-> consumerOfOtherType.accept(converter.apply(t)), maxSubscribers);
+    }
 
     int getNumberOfActors(String topic);
 

@@ -77,6 +77,11 @@ public class ReceivingActor<T, R, S> extends BaseActor<T, R, S> {
             public <E extends T> E receive(Class<E> clz, Predicate<E> filter) {
                 return (E) bag.receiveAndConvert(clz, filter);
             }
+
+            @Override
+            public <E extends T> E receive(Class<E> clz, Predicate<E> filter, long timeoutMs) {
+                return (E) bag.receiveAndConvert(clz, filter, timeoutMs);
+            }
         };
     }
 
@@ -96,6 +101,10 @@ public class ReceivingActor<T, R, S> extends BaseActor<T, R, S> {
 
     public <E extends T> E receive(Class<E> clz, Predicate<E> filter) {
         return bagConverter.receive(clz, filter);
+    }
+
+    public <E extends T> E receive(Class<E> clz, Predicate<E> filter, int timeoutMs) {
+        return bagConverter.receive(clz, filter, timeoutMs);
     }
 
     public MessageReceiver<T> getMessageReceiver() {

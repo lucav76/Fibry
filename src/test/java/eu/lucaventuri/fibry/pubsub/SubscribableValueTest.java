@@ -34,7 +34,10 @@ public class SubscribableValueTest extends TestCase {
         assertEquals(times.get(), 4);
         assertEquals(v.get(), "DDD");
 
-        v.subscribe(s -> times.incrementAndGet());
+        v.subscribe(s -> {
+            times.incrementAndGet();
+            assertEquals(s, "EEE");
+        });
         v.set("EEE");
         assertEquals(times.get(), 5);
         assertEquals(v.get(), "EEE");

@@ -96,6 +96,10 @@ public class Scheduler {
         });
     }
 
+    public <T> void scheduleOnce(Actor<T, ?, ?> actor, T message, long delay, TimeUnit timeUnit) {
+        schedule(actor, message, delay, timeUnit);
+    }
+
     public <T> void schedule(Actor<T, ?, ?> actor, T message, long delay, TimeUnit timeUnit) {
         scheduleMs(actor, message, timeUnit.toMillis(delay), 0, 0, 1);
     }

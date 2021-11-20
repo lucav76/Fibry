@@ -2,7 +2,8 @@ plugins {
     id 'java-library'
     id 'maven-publish'
     id 'signing'
-    id 'net.researchgate.release' version '2.8.1'
+    id 'org.kordamp.gradle.java-project' version '0.45.0'
+    id 'org.jreleaser' version '0.8.0'
 }
 
 apply plugin: 'maven'
@@ -39,7 +40,7 @@ task testJar(type: Jar) {
 }
 
 tasks.register("releaseCheck") {
-    if (gradle.startParameter.taskNames.any { it == "release"}) {
+    if (gradle.startParameter.taskNames.any { it == "release" || it == "jreleaserConfig" || it == "jreleaserFullRelease"}) {
         ReleaseCheckState.releaseNotes = file("RELEASE_NOTES.md").text
 
         println "*** RELEASE NOTES:\n$ReleaseCheckState.releaseNotes\n"
@@ -49,12 +50,6 @@ tasks.register("releaseCheck") {
         if (!"y".equalsIgnoreCase(ant.properties.releaseOk.toString()))
             System.exit(0)
     }
-}
-
-release {
-    println "RELEASE TASK"
-    buildTasks = ['build', 'releaseCheck']
-    tagCommitMessage = ReleaseCheckState.releaseNotes
 }
 
 task createPom {
@@ -75,5 +70,58 @@ task createPom {
                 }
             }
         }.writeTo("pom.xml")
+    }
+}
+
+
+
+config {
+    info {
+        name          = 'Fibry'
+        description   = 'The first Java Actor System using fibers '
+        inceptionYear = '2019'
+        vendor        = 'Smart-Up AS'
+
+        links {
+            website      = 'http://www.lucaventuri.eu/'
+            issueTracker = 'https://github.com/lucav76/Fibry/issues'
+            scm          = 'https://github.com/lucav76/Fibry.git'
+        }
+
+        scm {
+            url                 = 'https://github.com/lucav76/Fibry'
+            connection          = 'scm:git:https://github.com/lucav76/Fibry.git'
+            developerConnection = 'scm:git:git@github.com:lucav76/Fibry.git'
+        }
+
+        people {
+            person {
+                id    = 'lucav76'
+                name  = 'Luca Venturi'
+                roles = ['developer', 'author']
+            }
+            person {
+                id    = 'denizt'
+                name  = 'Deniz Türkoglu'
+                roles = ['developer', 'author']
+            }
+        }
+    }
+
+    licensing {
+        licenses {
+            license {
+                id = 'MIT'
+            }
+        }
+    }
+}
+
+jreleaser {
+    release {
+        github {
+            owner = 'lucav76'
+            overwrite = true
+        }
     }
 }

@@ -1,17 +1,17 @@
-task sourceJar(type: Jar) {
+task sourceJarSonatype(type: Jar) {
     classifier "sources"
     from sourceSets.main.allJava
 }
 
-task javadocJar(type: Jar, dependsOn: javadoc) {
+task javadocJarSonatype(type: Jar, dependsOn: javadoc) {
     classifier "javadoc"
     from javadoc.destinationDir
 }
 
 artifacts {
     archives jar
-    archives sourceJar
-    archives javadocJar
+    archives sourceJarSonatype
+    archives javadocJarSonatype
 }
 
 publishing {
@@ -21,10 +21,10 @@ publishing {
             artifactId = 'fibry'
             from components.java
 
-            artifact(sourceJar) {
+            artifact(sourceJarSonatype) {
                 classifier = 'sources'
             }
-            artifact(javadocJar) {
+            artifact(javadocJarSonatype) {
                 classifier = 'javadoc'
             }
 

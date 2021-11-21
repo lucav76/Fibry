@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit;
  * Class able to postpone messages to other actors;
  * this is not intended for ms precision
  */
-public class Scheduler {
+public class Scheduler implements AutoCloseable {
     private class Message<T> implements Comparable<Message<T>> {
         private final Actor<T, ?, ?> actor;
         private final T message;
@@ -130,5 +130,10 @@ public class Scheduler {
 
     public void waitForExit() {
         schedulingActor.waitForExit();
+    }
+
+    @Override
+    public void close() throws Exception {
+        askExit();
     }
 }

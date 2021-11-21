@@ -12,6 +12,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
 
 public class HttpUtil {
     /** Timeout, in ms, to wait before stopping trying to open a new connection */
@@ -33,6 +34,45 @@ public class HttpUtil {
                 .uri(uri).GET().build();
 
         return client.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    public static HttpResponse<byte[]> getBytes(String uri, int timeoutSeconds) throws IOException, InterruptedException, URISyntaxException {
+        return getBytes(new URI(uri), timeoutSeconds);
+    }
+
+    public static HttpResponse<byte[]> getBytes(URI uri, int timeoutSeconds) throws IOException, InterruptedException {
+        HttpClient client = getHttpClient(timeoutSeconds);
+
+        var request = HttpRequest.newBuilder()
+                .uri(uri).GET().build();
+
+        return client.send(request, HttpResponse.BodyHandlers.ofByteArray());
+    }
+
+    public static CompletableFuture<HttpResponse<String>> getAsync(String uri, int timeoutSeconds) throws IOException, InterruptedException, URISyntaxException {
+        return getAsync(new URI(uri), timeoutSeconds);
+    }
+
+    public static CompletableFuture<HttpResponse<String>> getAsync(URI uri, int timeoutSeconds) throws IOException, InterruptedException {
+        HttpClient client = getHttpClient(timeoutSeconds);
+
+        var request = HttpRequest.newBuilder()
+                .uri(uri).GET().build();
+
+        return client.sendAsync(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    public static CompletableFuture<HttpResponse<byte[]>> getBytesAsync(String uri, int timeoutSeconds) throws IOException, InterruptedException, URISyntaxException {
+        return getBytesAsync(new URI(uri), timeoutSeconds);
+    }
+
+    public static CompletableFuture<HttpResponse<byte[]>> getBytesAsync(URI uri, int timeoutSeconds) throws IOException, InterruptedException {
+        HttpClient client = getHttpClient(timeoutSeconds);
+
+        var request = HttpRequest.newBuilder()
+                .uri(uri).GET().build();
+
+        return client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray());
     }
 
     public static HttpClient getHttpClient(int timeoutSeconds) {

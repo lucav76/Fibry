@@ -122,6 +122,10 @@ jreleaser {
         github {
             owner = 'lucav76'
             overwrite = true
+
+            changelog {
+                external=file('RELEASE_NOTES.md')
+            }
         }
     }
 }

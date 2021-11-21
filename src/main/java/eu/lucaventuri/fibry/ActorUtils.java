@@ -127,6 +127,10 @@ public final class ActorUtils {
         Exceptions.log(sc::await);
     }
 
+    public static <T, T2> Consumer<T> convertAndSendTo(Consumer<T2> targetActor, Function<T, T2> converter) {
+        return originalValue -> targetActor.accept(converter.apply(originalValue));
+    }
+
     static <T, R, S> CompletableFuture<Void> execFuture(MiniQueue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> worker) {
         SignalingSingleConsumer<S> sr = SignalingSingleConsumer.of(worker);
 
@@ -383,7 +387,7 @@ public final class ActorUtils {
     public static ExecutorService newFibersExecutor() {
         assert areFibersAvailable();
 
-        if(mtNewVirtualThreadExecutor==null) {
+        if (mtNewVirtualThreadExecutor == null) {
             System.err.println("Virtual executor: falling back to ForkJoinPool");
             return new java.util.concurrent.ForkJoinPool();
         }

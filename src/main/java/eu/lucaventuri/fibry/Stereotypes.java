@@ -10,11 +10,15 @@ import eu.lucaventuri.fibry.ActorSystem.NamedStrategyActorCreator;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.*;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.channels.ServerSocketChannel;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -123,6 +127,50 @@ public class Stereotypes {
             this.context = context;
             this.worker = worker;
         }
+    }
+
+    public static class HttpUrlDownload<T> {
+        public final URI uri;
+        public final Consumer<HttpResult<T>> actorResponse;
+        private final int numRetries;
+        private final int secondsBeforeRetry;
+
+        public HttpUrlDownload(URI uri, Consumer<HttpResult<T>> actorResponse, int numRetries, int secondsBeforeRetry) {
+            this.uri = uri;
+            this.actorResponse = actorResponse;
+            this.numRetries = numRetries;
+            this.secondsBeforeRetry = secondsBeforeRetry;
+        }
+
+        public HttpUrlDownload(String uri, Consumer<HttpResult<T>> actorResponse, int numRetries, int secondsBeforeRetry) {
+            this(URI.create(uri), actorResponse, numRetries, secondsBeforeRetry);
+        }
+
+        public HttpUrlDownload<T> decreaseRetry() {
+            assert numRetries > 0;
+
+            return new HttpUrlDownload<>(uri, actorResponse, numRetries, secondsBeforeRetry);
+        }
+
+        HttpRequest toGetRequest() {
+            return HttpRequest.newBuilder().uri(uri).GET().build();
+        }
+    }
+
+    public static class HttpResult<T> {
+        public HttpResult(HttpUrlDownload<T> downloadRequest, HttpResponse<T> response, Throwable exception, Reason reason) {
+            this.downloadRequest = downloadRequest;
+            this.response = response;
+            this.exception = exception;
+            this.reason = reason;
+        }
+
+        public enum Reason {OK, /** Failed after retries */ FAILED, EXCEPTION}
+
+        public final HttpUrlDownload<T> downloadRequest;
+        public final HttpResponse<T> response;
+        public final Throwable exception;
+        public final Reason reason;
     }
 
     public static class NamedStereotype {
@@ -250,13 +298,20 @@ public class Stereotypes {
 
             for (HttpStringWorker worker : workers) {
                 server.createContext(worker.context, exchange -> {
-                    Exceptions.log(() -> {
+                    try {
                         String answer = worker.worker.apply(exchange);
                         exchange.sendResponseHeaders(200, answer.getBytes().length);//response code and length
                         OutputStream os = exchange.getResponseBody();
                         os.write(answer.getBytes());
                         os.close();
-                    });
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        String answer = "Internal Server error: " + e.toString();
+                        exchange.sendResponseHeaders(500, answer.getBytes().length);//response code and length
+                        OutputStream os = exchange.getResponseBody();
+                        os.write(answer.getBytes());
+                        os.close();
+                    }
                 });
             }
             server.start();
@@ -730,6 +785,57 @@ public class Stereotypes {
         }
 
         /**
+         * Creates an actor that:
+         * - Downloads a specified URL
+         * - Send the response to another actor
+         * - In case of error, it retries
+         */
+        public Actor<HttpUrlDownload<String>, Void, Void> downloader(Scheduler scheduler, int timeoutSeconds, boolean sendLastError) {
+            var refActor = new AtomicReference<Actor<HttpUrlDownload<String>, Void, Void>>();
+            HttpClient client = HttpUtil.getHttpClient(timeoutSeconds);
+
+            refActor.set(ActorSystem.anonymous().strategy(strategy).newActor(download -> {
+                client.sendAsync(download.toGetRequest(), HttpResponse.BodyHandlers.ofString()).whenComplete((response, ex) -> {
+                    manageHttpClientResponse(scheduler, sendLastError, refActor, download, response, ex);
+                });
+            }));
+
+            return refActor.get();
+        }
+
+        public Actor<HttpUrlDownload<String>, Void, Void> downloader() {
+            var scheduler = new Scheduler();
+            var actor = downloader(scheduler, 30, true);
+
+            actor.closeOnExit(scheduler);
+
+            return actor;
+        }
+
+        /**
+         * Creates an actor that:
+         * - Downloads a specified URL
+         * - Send the response to another actor
+         * - In case of error, it retries
+         */
+        public Actor<HttpUrlDownload<byte[]>, Void, Void> binaryDownloader(Scheduler scheduler, int timeoutSeconds, boolean sendLastError) {
+            var refActor = new AtomicReference<Actor<HttpUrlDownload<byte[]>, Void, Void>>();
+            HttpClient client = HttpUtil.getHttpClient(timeoutSeconds);
+
+            refActor.set(ActorSystem.anonymous().strategy(strategy).newActor(download -> {
+                client.sendAsync(download.toGetRequest(), HttpResponse.BodyHandlers.ofByteArray()).whenComplete((response, ex) -> {
+                    manageHttpClientResponse(scheduler, sendLastError, refActor, download, response, ex);
+                });
+            }));
+
+            return refActor.get();
+        }
+
+        public Actor<HttpUrlDownload<byte[]>, Void, Void> binaryDownloader() {
+            return binaryDownloader(new Scheduler(), 30, true);
+        }
+
+        /**
          * Process messages in batches, after grouping by the key and counting how many messages are received.
          * e.g. ['a', 'a', 'b', 'c', 'a'] would generate ['a':3, 'b':1, 'c':1]
          *
@@ -950,6 +1056,25 @@ public class Stereotypes {
 
         private NamedStrategyActorCreator named(String name) {
             return ActorSystem.named(name).strategy(strategy, closeStrategy);
+        }
+    }
+
+    private static <T> void manageHttpClientResponse(Scheduler scheduler, boolean sendLastError, AtomicReference<Actor<HttpUrlDownload<T>, Void, Void>> refActor, HttpUrlDownload<T> download, HttpResponse<T> response, Throwable ex) {
+        if (ex != null) {
+            if (download.numRetries > 0)
+                scheduler.scheduleOnce(refActor.get(), download.decreaseRetry(), download.secondsBeforeRetry, TimeUnit.SECONDS);
+            else
+                download.actorResponse.accept(new HttpResult<>(download, null, ex, HttpResult.Reason.EXCEPTION));
+
+            return;
+        }
+        if (response.statusCode() >= 200 && response.statusCode() < 300)
+            download.actorResponse.accept(new HttpResult<>(download, response, null, HttpResult.Reason.OK));
+        else {
+            if (download.numRetries > 0)
+                scheduler.scheduleOnce(refActor.get(), download.decreaseRetry(), download.secondsBeforeRetry, TimeUnit.SECONDS);
+            else if (sendLastError)
+                download.actorResponse.accept(new HttpResult<>(download, response, null, HttpResult.Reason.FAILED));
         }
     }
 

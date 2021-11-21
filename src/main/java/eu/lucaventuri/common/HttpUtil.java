@@ -49,11 +49,11 @@ public class HttpUtil {
         return client.send(request, HttpResponse.BodyHandlers.ofByteArray());
     }
 
-    public static CompletableFuture<HttpResponse<String>> getAsync(String uri, int timeoutSeconds) throws IOException, InterruptedException, URISyntaxException {
+    public static CompletableFuture<HttpResponse<String>> getAsync(String uri, int timeoutSeconds) throws URISyntaxException {
         return getAsync(new URI(uri), timeoutSeconds);
     }
 
-    public static CompletableFuture<HttpResponse<String>> getAsync(URI uri, int timeoutSeconds) throws IOException, InterruptedException {
+    public static CompletableFuture<HttpResponse<String>> getAsync(URI uri, int timeoutSeconds) {
         HttpClient client = getHttpClient(timeoutSeconds);
 
         var request = HttpRequest.newBuilder()

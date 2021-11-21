@@ -27,8 +27,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 class M extends BatchMergeable implements MergeableParallelBatches {
     private final String key;
@@ -714,5 +713,107 @@ public class TestStereotypes {
         actor.waitForExit();  // Added to the batch when the actor exits
 
         countC.await();
+    }
+
+    @Test
+    public void testDownloader() throws IOException, InterruptedException {
+        AtomicInteger num = new AtomicInteger();
+        var server = Stereotypes.auto().embeddedHttpServer(1001, new Stereotypes.HttpStringWorker("/test", ex -> "100"),
+                new Stereotypes.HttpStringWorker("/test2", ex -> {
+                    throw new RuntimeException("Expected");
+                }), new Stereotypes.HttpStringWorker("/test3", ex -> {
+                    if (num.incrementAndGet() == 1)
+                        throw new RuntimeException("Expected");
+
+                    return "200";
+                }));
+        CountDownLatch latch = new CountDownLatch(4);
+
+        try {
+            Stereotypes.auto().downloader().sendMessage(new Stereotypes.HttpUrlDownload<String>("http://localhost:1001/test", r -> {
+                assertEquals(r.reason, Stereotypes.HttpResult.Reason.OK);
+                assertEquals(r.response.statusCode(), 200);
+                assertEquals(r.response.body(), "100");
+                latch.countDown();
+            }, 0, 0));
+
+            Stereotypes.auto().downloader(new Scheduler(), 1, true).sendMessage(new Stereotypes.HttpUrlDownload<String>("http://localhost:1001/dummy", r -> {
+                assertEquals(r.reason, Stereotypes.HttpResult.Reason.FAILED);
+                assertEquals(r.response.statusCode(), 404);
+                latch.countDown();
+            }, 0, 0));
+
+            Stereotypes.auto().downloader(new Scheduler(), 1, true).sendMessage(new Stereotypes.HttpUrlDownload<String>("http://localhost:10011/dummy", r -> {
+                assertEquals(r.reason, Stereotypes.HttpResult.Reason.EXCEPTION);
+                latch.countDown();
+            }, 0, 0));
+
+            Stereotypes.auto().downloader(new Scheduler(), 1, true).sendMessage(new Stereotypes.HttpUrlDownload<String>("http://localhost:1001/test2", r -> {
+                assertEquals(r.reason, Stereotypes.HttpResult.Reason.FAILED);
+                latch.countDown();
+            }, 0, 0));
+
+            Stereotypes.auto().downloader(new Scheduler(), 1, true).sendMessage(new Stereotypes.HttpUrlDownload<String>("http://localhost:1001/test3", r -> {
+                assertEquals(r.reason, Stereotypes.HttpResult.Reason.OK);
+                assertEquals(r.response.statusCode(), 200);
+                assertEquals(r.response.body(), "200");
+                latch.countDown();
+            }, 0, 0));
+
+            latch.await();
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    public void testBytesDownloader() throws IOException, InterruptedException {
+        AtomicInteger num = new AtomicInteger();
+        var server = Stereotypes.auto().embeddedHttpServer(1001, new Stereotypes.HttpStringWorker("/test", ex -> "100"),
+                new Stereotypes.HttpStringWorker("/test2", ex -> {
+                    throw new RuntimeException("Expected");
+                }), new Stereotypes.HttpStringWorker("/test3", ex -> {
+                    if (num.incrementAndGet() == 1)
+                        throw new RuntimeException("Expected");
+
+                    return "200";
+                }));
+        CountDownLatch latch = new CountDownLatch(4);
+
+        try {
+            Stereotypes.auto().binaryDownloader().sendMessage(new Stereotypes.HttpUrlDownload<byte[]>("http://localhost:1001/test", r -> {
+                assertEquals(r.reason, Stereotypes.HttpResult.Reason.OK);
+                assertEquals(r.response.statusCode(), 200);
+                assertArrayEquals(r.response.body(), new byte[]{'1', '0', '0'});
+                latch.countDown();
+            }, 0, 0));
+
+            Stereotypes.auto().binaryDownloader(new Scheduler(), 1, true).sendMessage(new Stereotypes.HttpUrlDownload<byte[]>("http://localhost:1001/dummy", r -> {
+                assertEquals(r.reason, Stereotypes.HttpResult.Reason.FAILED);
+                assertEquals(r.response.statusCode(), 404);
+                latch.countDown();
+            }, 0, 0));
+
+            Stereotypes.auto().binaryDownloader(new Scheduler(), 1, true).sendMessage(new Stereotypes.HttpUrlDownload<byte[]>("http://localhost:10011/dummy", r -> {
+                assertEquals(r.reason, Stereotypes.HttpResult.Reason.EXCEPTION);
+                latch.countDown();
+            }, 0, 0));
+
+            Stereotypes.auto().binaryDownloader(new Scheduler(), 1, true).sendMessage(new Stereotypes.HttpUrlDownload<byte[]>("http://localhost:1001/test2", r -> {
+                assertEquals(r.reason, Stereotypes.HttpResult.Reason.FAILED);
+                latch.countDown();
+            }, 0, 0));
+
+            Stereotypes.auto().binaryDownloader(new Scheduler(), 1, true).sendMessage(new Stereotypes.HttpUrlDownload<byte[]>("http://localhost:1001/test3", r -> {
+                assertEquals(r.reason, Stereotypes.HttpResult.Reason.OK);
+                assertEquals(r.response.statusCode(), 200);
+                assertArrayEquals(r.response.body(), new byte[]{'2', '0', '0'});
+                latch.countDown();
+            }, 0, 0));
+
+            latch.await();
+        } finally {
+            server.stop(0);
+        }
     }
 }

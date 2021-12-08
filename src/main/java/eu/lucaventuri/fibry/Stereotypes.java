@@ -300,7 +300,13 @@ public class Stereotypes {
                 server.createContext(worker.context, exchange -> {
                     try {
                         String answer = worker.worker.apply(exchange);
-                        exchange.sendResponseHeaders(200, answer.getBytes().length);//response code and length
+
+                        if (answer == null) {
+                            answer = "404 - File not found";
+                            exchange.sendResponseHeaders(404, answer.getBytes().length);//response code and length
+                        } else {
+                            exchange.sendResponseHeaders(200, answer.getBytes().length);//response code and length
+                        }
                         OutputStream os = exchange.getResponseBody();
                         os.write(answer.getBytes());
                         os.close();

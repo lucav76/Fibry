@@ -15,6 +15,8 @@ import java.util.function.Function;
  * PubSub objects are independent, so you could have the same topic in two PubSub and they would behave independently.
  */
 public interface PubSub<T> {
+    static final String DEFAULT_TOPIC = "__DEF_TOPIC__";
+
     interface Subscription extends AutoCloseable {
         void cancel();
 

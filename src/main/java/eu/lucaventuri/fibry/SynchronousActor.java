@@ -8,7 +8,7 @@ import java.util.function.Function;
 
 /**
  * Actor that runs in the same thread as the caller; this is achieved with the Actor being the queue as well.
- * THis can be useful in particular cases.
+ * This can be useful in particular cases.
  */
 public class SynchronousActor<T, R, S> extends Actor<T, R, S> implements MiniFibryQueue<T, R, PartialActor<T, S>> {
     public SynchronousActor(Consumer<T> actorLogic, S initialState, Consumer<S> initializer, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {

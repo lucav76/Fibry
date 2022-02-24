@@ -15,7 +15,7 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 /**
- * A generator is like a lazy Iterable, so it can no know implicitly if the elements are over.
+ * A generator is like a lazy Iterable, so it can not know implicitly if the elements are over.
  * In general, the generator should be able to be iterated multiple times
  */
 public interface Generator<T> extends Iterable<T> {

@@ -223,6 +223,10 @@ A Distributed Actor System
 ===
 Fibry 2.X is a Distributed Actor System, meaning that it can use multiple machines to run your actors, and they are still able to communicate using the network. This feature is experimental at the moment.
 Fibry provides a simple, generic, support to contact (named) actors running on other machines. It is based on these principles: channels (the communication method) and serializers / deserializers (to transmit the message via network).
+
+Remote actors can be created using **newRemoteActor()**, **newRemoteActorWithReturn()** and **newRemoteActorSendOnly()**, from ActorSystem.
+FOr more details, please check the examples in the **eu.lucaventuri.examples.distributed** package.
+
 It provides some interfaces:
 - **RemoteActorChannel**: an interface to send messages to named actors running on remote machines; these actors can return a value.
 - **RemoteActorChannelSendOnly**: an interface to send messages to named actors running on remote machines; these actors cannot return any value (e.g. queues).

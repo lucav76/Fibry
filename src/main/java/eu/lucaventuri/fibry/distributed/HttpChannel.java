@@ -16,6 +16,7 @@ import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+/** Creates a channel able to send data to remote actors, via HTTP */
 public class HttpChannel<T, R> implements RemoteActorChannel<T, R> {
     private final String url;
     private final Executor executor;

@@ -284,7 +284,7 @@ public final class ActorUtils {
         });
     }
 
-    public static <T, R> Function<T, R> extractEventHandlerLogicWithReturn(Object messageHandler) {
+      public static <T, R> Function<T, R> extractEventHandlerLogicWithReturn(Object messageHandler) {
         final Set<Map.Entry<Class, Method>> types = extractEventHandlers(messageHandler.getClass()).entrySet();
 
         return message -> Exceptions.logShort(() -> {

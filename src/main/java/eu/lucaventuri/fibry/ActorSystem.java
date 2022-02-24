@@ -287,6 +287,7 @@ public class ActorSystem {
          * Creates a new actor that can process multiple types of messages, dispatched to the appropriate function.
          * The handling functions must:
          * - be public
+         * - return void
          * - have a name starting with "on" followed by an uppercase letter
          * - have a single parameter
          * - the type of the parameter cannot be the same of another handling function

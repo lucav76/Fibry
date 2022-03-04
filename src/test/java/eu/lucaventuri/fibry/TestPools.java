@@ -20,7 +20,7 @@ public class TestPools {
     @Test
     // FIXME: This test should be more stable
     public void testFixedSize() throws ExecutionException, InterruptedException {
-        Set<Thread> actors = new HashSet<>();
+        Set<Thread> actors = ConcurrentHashSet.build();
         CountDownLatch latch = new CountDownLatch(3);
         CountDownLatch latch2 = new CountDownLatch(1);
         PoolActorLeader<String, Void, String> leader = (PoolActorLeader<String, Void, String>) ActorSystem.anonymous().<String>poolParams(PoolParameters.fixedSize(3), null).<String>newPool(msg -> {

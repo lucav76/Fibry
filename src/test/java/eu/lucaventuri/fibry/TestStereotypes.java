@@ -718,7 +718,7 @@ public class TestStereotypes {
     @Test
     public void testDownloader() throws IOException, InterruptedException {
         AtomicInteger num = new AtomicInteger();
-        var server = Stereotypes.auto().embeddedHttpServer(1001, new Stereotypes.HttpStringWorker("/test", ex -> "100"),
+        var server = Stereotypes.auto().embeddedHttpServer(1061, new Stereotypes.HttpStringWorker("/test", ex -> "100"),
                 new Stereotypes.HttpStringWorker("/test2", ex -> {
                     throw new RuntimeException("Expected");
                 }), new Stereotypes.HttpStringWorker("/test3", ex -> {
@@ -730,30 +730,30 @@ public class TestStereotypes {
         CountDownLatch latch = new CountDownLatch(4);
 
         try {
-            Stereotypes.auto().downloader().sendMessage(new Stereotypes.HttpUrlDownload<String>("http://localhost:1001/test", r -> {
+            Stereotypes.auto().downloader().sendMessage(new Stereotypes.HttpUrlDownload<String>("http://localhost:1061/test", r -> {
                 assertEquals(r.reason, Stereotypes.HttpResult.Reason.OK);
                 assertEquals(r.response.statusCode(), 200);
                 assertEquals(r.response.body(), "100");
                 latch.countDown();
             }, 0, 0));
 
-            Stereotypes.auto().downloader(new Scheduler(), 1, true).sendMessage(new Stereotypes.HttpUrlDownload<String>("http://localhost:1001/dummy", r -> {
+            Stereotypes.auto().downloader(new Scheduler(), 1, true).sendMessage(new Stereotypes.HttpUrlDownload<String>("http://localhost:1061/dummy", r -> {
                 assertEquals(r.reason, Stereotypes.HttpResult.Reason.FAILED);
                 assertEquals(r.response.statusCode(), 404);
                 latch.countDown();
             }, 0, 0));
 
-            Stereotypes.auto().downloader(new Scheduler(), 1, true).sendMessage(new Stereotypes.HttpUrlDownload<String>("http://localhost:10011/dummy", r -> {
+            Stereotypes.auto().downloader(new Scheduler(), 1, true).sendMessage(new Stereotypes.HttpUrlDownload<String>("http://localhost:1011/dummy", r -> {
                 assertEquals(r.reason, Stereotypes.HttpResult.Reason.EXCEPTION);
                 latch.countDown();
             }, 0, 0));
 
-            Stereotypes.auto().downloader(new Scheduler(), 1, true).sendMessage(new Stereotypes.HttpUrlDownload<String>("http://localhost:1001/test2", r -> {
+            Stereotypes.auto().downloader(new Scheduler(), 1, true).sendMessage(new Stereotypes.HttpUrlDownload<String>("http://localhost:1061/test2", r -> {
                 assertEquals(r.reason, Stereotypes.HttpResult.Reason.FAILED);
                 latch.countDown();
             }, 0, 0));
 
-            Stereotypes.auto().downloader(new Scheduler(), 1, true).sendMessage(new Stereotypes.HttpUrlDownload<String>("http://localhost:1001/test3", r -> {
+            Stereotypes.auto().downloader(new Scheduler(), 1, true).sendMessage(new Stereotypes.HttpUrlDownload<String>("http://localhost:1061/test3", r -> {
                 assertEquals(r.reason, Stereotypes.HttpResult.Reason.OK);
                 assertEquals(r.response.statusCode(), 200);
                 assertEquals(r.response.body(), "200");
@@ -769,7 +769,7 @@ public class TestStereotypes {
     @Test
     public void testBytesDownloader() throws IOException, InterruptedException {
         AtomicInteger num = new AtomicInteger();
-        var server = Stereotypes.auto().embeddedHttpServer(1001, new Stereotypes.HttpStringWorker("/test", ex -> "100"),
+        var server = Stereotypes.auto().embeddedHttpServer(1051, new Stereotypes.HttpStringWorker("/test", ex -> "100"),
                 new Stereotypes.HttpStringWorker("/test2", ex -> {
                     throw new RuntimeException("Expected");
                 }), new Stereotypes.HttpStringWorker("/test3", ex -> {
@@ -781,30 +781,30 @@ public class TestStereotypes {
         CountDownLatch latch = new CountDownLatch(4);
 
         try {
-            Stereotypes.auto().binaryDownloader().sendMessage(new Stereotypes.HttpUrlDownload<byte[]>("http://localhost:1001/test", r -> {
+            Stereotypes.auto().binaryDownloader().sendMessage(new Stereotypes.HttpUrlDownload<byte[]>("http://localhost:1051/test", r -> {
                 assertEquals(r.reason, Stereotypes.HttpResult.Reason.OK);
                 assertEquals(r.response.statusCode(), 200);
                 assertArrayEquals(r.response.body(), new byte[]{'1', '0', '0'});
                 latch.countDown();
             }, 0, 0));
 
-            Stereotypes.auto().binaryDownloader(new Scheduler(), 1, true).sendMessage(new Stereotypes.HttpUrlDownload<byte[]>("http://localhost:1001/dummy", r -> {
+            Stereotypes.auto().binaryDownloader(new Scheduler(), 1, true).sendMessage(new Stereotypes.HttpUrlDownload<byte[]>("http://localhost:1051/dummy", r -> {
                 assertEquals(r.reason, Stereotypes.HttpResult.Reason.FAILED);
                 assertEquals(r.response.statusCode(), 404);
                 latch.countDown();
             }, 0, 0));
 
-            Stereotypes.auto().binaryDownloader(new Scheduler(), 1, true).sendMessage(new Stereotypes.HttpUrlDownload<byte[]>("http://localhost:10011/dummy", r -> {
+            Stereotypes.auto().binaryDownloader(new Scheduler(), 1, true).sendMessage(new Stereotypes.HttpUrlDownload<byte[]>("http://localhost:10511/dummy", r -> {
                 assertEquals(r.reason, Stereotypes.HttpResult.Reason.EXCEPTION);
                 latch.countDown();
             }, 0, 0));
 
-            Stereotypes.auto().binaryDownloader(new Scheduler(), 1, true).sendMessage(new Stereotypes.HttpUrlDownload<byte[]>("http://localhost:1001/test2", r -> {
+            Stereotypes.auto().binaryDownloader(new Scheduler(), 1, true).sendMessage(new Stereotypes.HttpUrlDownload<byte[]>("http://localhost:1051/test2", r -> {
                 assertEquals(r.reason, Stereotypes.HttpResult.Reason.FAILED);
                 latch.countDown();
             }, 0, 0));
 
-            Stereotypes.auto().binaryDownloader(new Scheduler(), 1, true).sendMessage(new Stereotypes.HttpUrlDownload<byte[]>("http://localhost:1001/test3", r -> {
+            Stereotypes.auto().binaryDownloader(new Scheduler(), 1, true).sendMessage(new Stereotypes.HttpUrlDownload<byte[]>("http://localhost:1051/test3", r -> {
                 assertEquals(r.reason, Stereotypes.HttpResult.Reason.OK);
                 assertEquals(r.response.statusCode(), 200);
                 assertArrayEquals(r.response.body(), new byte[]{'2', '0', '0'});

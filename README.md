@@ -34,6 +34,7 @@ Simplicity first, flexibility second
 - It implements several types of actor pools, for work-stealing tasks, with the possibility to assign a weight to each job 
 - It implements a very simple **Map/Reduce mechanism**, limited to the local computer.
 - It implements a very simple **Pub/Sub** mechanism, limited to the local computer.
+- It implements SyncVar and SyncMap, to notify (even remote actors) actors that a variable (or the value of a map) changed
 - It implements a simple **TCP port forwarding**, both as a Stereotype and as a small cli application: TcpForwarding
 - It implements some simple mechanisms to help to process messages in **batches**
 - It implements a mechanism to **track progress** of long-running tasks, which can be extended to support the progress of messages processed by another server
@@ -346,6 +347,21 @@ ps.publish("test", "HelloWorld!");
 
 Pub/Sub can help decoupling components, reducing latency (as tasks can be processed by actors asynchronously) and transparently adding/removing logging and monitoring, even at runtime.
 Applications using WebSockets or Queues might also benefit from Pub/Sub, as their domain is event based. 
+
+SyncVar and SyncMap
+===
+Fibry provides the class SyncVar, to notify actors that a certain variable changed value; if you need to monitor many values, you might want to consider SyncMap.
+A SyncVar can be called directly to check the value of the variable, or clients can use its PubSub object to be notified of changes.
+```java
+SyncVar<String> sv = new SyncVar<>();
+
+sv.subscribe(v -> {...});
+String str = sv.getValue();        
+```
+
+If you want to use these functionalities with remote actors, the SyncVarConsumer can help you simplify your code.
+SyncVar has a second constructor when you can provide a custom PubSub object, if the default behavior does not fit your needs.
+
 
 Transactions
 ===

@@ -38,6 +38,7 @@ public final class SystemUtils {
         try {
             Thread.sleep(ms < 0 ? 0 : ms);
         } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         }
     }
 

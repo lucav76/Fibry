@@ -17,7 +17,7 @@ public class PoolActorLeader<T, R, S> extends Actor<T, R, S> {
 
     PoolActorLeader(MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState, MultiExitable groupExit, Consumer<S> finalizer) {
         super(msg -> {
-        }, queue, initialState, finalizer, CloseStrategy.SEND_POISON_PILL_AND_WAIT, Integer.MAX_VALUE);
+        }, queue, initialState, finalizer, CloseStrategy.SEND_POISON_PILL_AND_WAIT, Integer.MAX_VALUE, null, null);
         this.groupExit = groupExit;
     }
 

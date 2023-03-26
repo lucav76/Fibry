@@ -29,7 +29,8 @@ public class ReceivingActor<T, R, S> extends BaseActor<T, R, S> {
      * @param pollTimeoutMs Poll timeout (to allow the actor to exit without a poison pill); Integer.MAX_VALUE == no timeout
      */
     protected ReceivingActor(BiConsumer<MessageReceiver<T>, T> actorLogic, MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>, T> messageBag, S initialState, Consumer<S> initializer, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
-        super(messageBag, initializer, finalizer, closeStrategy, pollTimeoutMs);
+        // TODO: should we add support for execution timeout?
+        super(messageBag, initializer, finalizer, closeStrategy, pollTimeoutMs, null, null);
         BiFunction<MessageReceiver<T>, T, R> tmpLogicReturn = ActorUtils.discardingToReturning(actorLogic);
 
         this.bag = messageBag;
@@ -52,7 +53,8 @@ public class ReceivingActor<T, R, S> extends BaseActor<T, R, S> {
      * @param initialState     optional initial state
      */
     ReceivingActor(BiFunction<MessageReceiver<T>, T, R> actorLogicReturn, MessageBag<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>, T> messageBag, S initialState, Consumer<S> initializer, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
-        super(messageBag, initializer, finalizer, closeStrategy, pollTimeoutMs);
+        // TODO: should we add support for execution timeout?
+        super(messageBag, initializer, finalizer, closeStrategy, pollTimeoutMs, null , null);
 
         this.bag = messageBag;
         this.bagConverter = convertBag(this.bag);
@@ -122,6 +124,11 @@ public class ReceivingActor<T, R, S> extends BaseActor<T, R, S> {
             ActorUtils.sendMessage(queue, message);
 
         return this;
+    }
+
+    @Override
+    protected BaseActor<T, R, S> recreate() {
+        throw new UnsupportedOperationException("Receiving actors do not support auto healing");
     }
 
     @Override

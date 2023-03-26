@@ -16,8 +16,9 @@ public class PoolActorLeader<T, R, S> extends Actor<T, R, S> {
     private final MultiExitable groupExit;
 
     PoolActorLeader(MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState, MultiExitable groupExit, Consumer<S> initializer, Consumer<S> finalizer) {
+        // TODO: Should we add support for auto healing?
         super(msg -> {
-        }, queue, initialState, initializer, finalizer, null, Integer.MAX_VALUE);
+        }, queue, initialState, initializer, finalizer, null, Integer.MAX_VALUE, null, null);
         this.groupExit = groupExit;
     }
 

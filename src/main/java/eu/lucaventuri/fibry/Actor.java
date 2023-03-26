@@ -40,9 +40,8 @@ public class Actor<T, R, S> extends BaseActor<T, R, S> {
      * @param closeStrategy What to do when close() is called
      * @param pollTimeoutMs Poll timeout (to allow the actor to exit without a poison pill); Integer.MAX_VALUE == no timeout
      */
-    protected Actor(Consumer<T> actorLogic, MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState, Consumer<S> initializer, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
-        super(queue, initializer, finalizer, closeStrategy, pollTimeoutMs);
-
+    protected Actor(Consumer<T> actorLogic, MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState, Consumer<S> initializer, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs, ActorSystem.AutoHealingSettings autoHealing, CreationStrategy strategy) {
+        super(queue, initializer, finalizer, closeStrategy, pollTimeoutMs, autoHealing, strategy);
         Function<T, R> tmpLogicReturn = ActorUtils.discardingToReturning(actorLogic);
 
         this.actorLogic = actorLogic;
@@ -60,8 +59,8 @@ public class Actor<T, R, S> extends BaseActor<T, R, S> {
      * @param closeStrategy What to do when close() is called
      * @param pollTimeoutMs Poll timeout (to allow the actor to exit without a poison pill); Integer.MAX_VALUE == no timeout
      */
-    protected Actor(Function<T, R> actorLogicReturn, MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState, Consumer<S> initializer, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
-        super(queue, initializer, finalizer, closeStrategy, pollTimeoutMs);
+    protected Actor(Function<T, R> actorLogicReturn, MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, S initialState, Consumer<S> initializer, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs, ActorSystem.AutoHealingSettings autoHealing, CreationStrategy strategy) {
+        super(queue, initializer, finalizer, closeStrategy, pollTimeoutMs, autoHealing, strategy);
         this.actorLogic = ActorUtils.returningToDiscarding(actorLogicReturn);
         this.actorLogicReturn = mwr -> {
             try {
@@ -83,14 +82,19 @@ public class Actor<T, R, S> extends BaseActor<T, R, S> {
     protected void takeAndProcessSingleMessageTimeout() throws InterruptedException {
         Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>> message = queue.poll(pollTimeoutMs, TimeUnit.MILLISECONDS);
 
-        if (message != null)
+        if (message != null) {
+            if (autoHealing != null && autoHealing.executionTimeoutSeconds > 0)
+                HealRegistry.INSTANCE.put(this, autoHealing, Thread.currentThread());
             message.ifEither(cns -> cns.accept(this), actorLogic::accept, actorLogicReturn::accept);
+        }
     }
 
     @Override
     protected void takeAndProcessSingleMessage() throws InterruptedException {
         Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>> message = queue.take();
 
+        if (autoHealing != null && autoHealing.executionTimeoutSeconds > 0)
+            HealRegistry.INSTANCE.put(this, autoHealing, Thread.currentThread());
         message.ifEither(cns -> cns.accept(this), actorLogic::accept, actorLogicReturn::accept);
     }
 
@@ -104,6 +108,15 @@ public class Actor<T, R, S> extends BaseActor<T, R, S> {
         if (!isExiting())
             ActorUtils.sendMessage(queue, message);
         return this;
+    }
+
+    @Override
+    protected Actor<T, R, S> recreate() {
+        var newActor = new Actor<>(actorLogic, queue, state, initializer, finalizer, closeStrategy, pollTimeoutMs, autoHealing, strategy);
+
+        strategy.start(newActor);
+
+        return newActor;
     }
 
     Flow.Subscriber<T> asReactiveSubscriber(int optimalQueueLength, Consumer<Throwable> onErrorHandler, Consumer<PartialActor<T, S>> onCompleteHandler) {

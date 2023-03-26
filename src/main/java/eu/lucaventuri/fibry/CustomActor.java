@@ -10,7 +10,8 @@ public abstract class CustomActor<T, R, S> extends BaseActor<T, R, S> {
     protected final Consumer<MessageWithAnswer<T, R>> actorLogicReturn;
 
     protected CustomActor(MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> initializer, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
-        super(queue, initializer, finalizer, closeStrategy, pollTimeoutMs);
+        // TODO: should we add support for execution timeout?
+        super(queue, initializer, finalizer, closeStrategy, pollTimeoutMs, null, null);
 
         Function<T, R> tmpLogicReturn = ActorUtils.discardingToReturning(this::onMessage);
 
@@ -38,5 +39,10 @@ public abstract class CustomActor<T, R, S> extends BaseActor<T, R, S> {
             message.ifEither(cns -> cns.accept(this), this::onMessage, actorLogicReturn::accept);
         else
             onNoMessages();
+    }
+
+    @Override
+    protected BaseActor<T, R, S> recreate() {
+        throw new UnsupportedOperationException("Receiving actors do not support auto healing");
     }
 }

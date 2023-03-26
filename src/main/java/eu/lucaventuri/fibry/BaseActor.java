@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -26,14 +27,21 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
     protected final List<AutoCloseable> closeOnExit = new Vector<>();
     protected volatile boolean drainMessagesOnExit = true;
     protected final int pollTimeoutMs;
+    protected final ActorSystem.AutoHealingSettings autoHealing;
+    protected final CreationStrategy strategy;
 
 
-    BaseActor(MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> initializer, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs) {
+    BaseActor(MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> initializer, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs, ActorSystem.AutoHealingSettings autoHealing, CreationStrategy strategy) {
         this.queue = queue;
         this.initializer = initializer;
         this.finalizer = finalizer;
         this.sendPoisonPillWhenExiting = true;
         this.pollTimeoutMs = pollTimeoutMs;
+        this.autoHealing = autoHealing;
+        this.strategy = strategy;
+
+        if (autoHealing != null && autoHealing.executionTimeoutSeconds > 0)
+            HealRegistry.INSTANCE.startThread();
 
         if (closeStrategy != null)
             this.closeStrategy = closeStrategy;
@@ -231,6 +239,26 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
     }
 
     /**
+     * Queue a request to exit, that will be processed after all the messages currently in the queue
+     *
+     * @return a completable future that can be used to check when the pill ahs been sent
+     */
+    public CompletableFuture<Boolean> sendPoisonPillFuture() {
+        try {
+            CompletableFuture<Boolean> future = new CompletableFuture<>();
+
+            execAsync(state -> {
+                askExit();
+                future.complete(true);
+            });
+
+            return future;
+        } catch (IllegalStateException state) {
+            return CompletableFuture.completedFuture(false);
+        }
+    }
+
+    /**
      * @return the state of the actor
      */
     public S getState() {
@@ -248,12 +276,35 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
         if (initializer != null)
             initializer.accept(state);
 
-        if (pollTimeoutMs == Integer.MAX_VALUE) {
-            while (!isExiting())
-                Exceptions.log(this::takeAndProcessSingleMessage);
-        } else {
-            while (!isExiting())
-                Exceptions.log(this::takeAndProcessSingleMessageTimeout);
+        if (autoHealing == null || autoHealing.executionTimeoutSeconds <= 0) {  // No executio timeout
+            if (pollTimeoutMs == Integer.MAX_VALUE) {
+                while (!isExiting())
+                    Exceptions.log(this::takeAndProcessSingleMessage);
+            } else {
+                while (!isExiting())
+                    Exceptions.log(this::takeAndProcessSingleMessageTimeout);
+            }
+        } else { // Execution timeout
+            var curThread = Thread.currentThread();
+            AtomicBoolean threadShouldDie = new AtomicBoolean();
+
+            while (!isExiting()) {
+                try {
+                    if (pollTimeoutMs == Integer.MAX_VALUE)
+                        takeAndProcessSingleMessage();
+                    else
+                        takeAndProcessSingleMessageTimeout();
+                } catch (Exception e) {
+                    System.err.println(e);
+                    if (autoHealing.onInterruption != null && (Thread.interrupted() ||
+                            e.getClass() == InterruptedException.class || e.getCause().getClass() == InterruptedException.class))
+                        autoHealing.onInterruption.run();
+                }
+                HealRegistry.INSTANCE.remove(this, curThread, threadShouldDie);
+                if (threadShouldDie.get()) {  // Notification done in HealRegistry, earlier
+                    return;  // Skips finalization, or the messages will be removed
+                }
+            }
         }
 
         finalOperations();
@@ -307,4 +358,7 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
 
         return this;
     }
+
+    // Create a new Thread reusing the same actor, for auto healing
+    protected abstract BaseActor<T, R, S> recreate();
 }

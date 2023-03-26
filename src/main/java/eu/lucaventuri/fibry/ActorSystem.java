@@ -84,13 +84,13 @@ public class ActorSystem {
 
 
         <T, R> void createNewWorkerAndAddToPool(PoolActorLeader<T, R, S> groupLeader, Either<Consumer<T>, Function<T, R>> actorLogic) {
-            NamedStateActorCreator<S> creator = new NamedStateActorCreator<>(name, strategy, stateSupplier == null ? null : stateSupplier.get(), true, initializer, finalizer, null, defaultQueueCapacity, true, 50);
+            NamedStateActorCreator<S> creator = new NamedStateActorCreator<>(name, strategy, stateSupplier == null ? null : stateSupplier.get(), true, initializer, finalizer, null, defaultQueueCapacity, true, 50, null);
             actorLogic.ifEither(logic -> groupLeader.getGroupExit().add(creator.newActor(logic).setDrainMessagesOnExit(false).setExitSendsPoisonPill(false)),
                     logic -> groupLeader.getGroupExit().add(creator.newActorWithReturn(logic).setDrainMessagesOnExit(false).setExitSendsPoisonPill(false)));
         }
 
         private <T, R> void createNewWorkerAndAddToPool(PoolActorLeader<T, R, S> groupLeader, BiConsumer<T, PartialActor<T, S>> actorBiLogic) {
-            NamedStateActorCreator<S> creator = new NamedStateActorCreator<S>(name, strategy, stateSupplier == null ? null : stateSupplier.get(), true, initializer, finalizer, null, defaultQueueCapacity, true, 50);
+            NamedStateActorCreator<S> creator = new NamedStateActorCreator<S>(name, strategy, stateSupplier == null ? null : stateSupplier.get(), true, initializer, finalizer, null, defaultQueueCapacity, true, 50, null);
             groupLeader.getGroupExit().add(creator.newActor(actorBiLogic).setDrainMessagesOnExit(false).setExitSendsPoisonPill(false));
         }
 
@@ -190,6 +190,20 @@ public class ActorSystem {
         }
     }
 
+    public static class AutoHealingSettings {
+        public final int executionTimeoutSeconds;  // 0 means no timeout
+        public final int maxThreads;
+        public final Runnable onInterruption;
+        public final Runnable onNewThread;
+
+        public AutoHealingSettings(int executionTimeoutSeconds, int maxThreads, Runnable onInterruption, Runnable onNewThread) {
+            this.executionTimeoutSeconds = executionTimeoutSeconds;
+            this.maxThreads = maxThreads;
+            this.onInterruption = onInterruption;
+            this.onNewThread = onNewThread;
+        }
+    }
+
     public static class NamedStateActorCreator<S> {
         final S initialState;
         final CreationStrategy strategy;
@@ -200,8 +214,10 @@ public class ActorSystem {
         final CloseStrategy closeStrategy;
         final int queueCapacity;
         final int pollTimeoutMs;
+        final AutoHealingSettings autoHealing;
 
-        public NamedStateActorCreator(String name, CreationStrategy strategy, S initialState, boolean allowReuse, Consumer<S> initializer, Consumer<S> finalizer, CloseStrategy closeStrategy, int queueCapacity, int pollTimeoutMs) {
+
+        public NamedStateActorCreator(String name, CreationStrategy strategy, S initialState, boolean allowReuse, Consumer<S> initializer, Consumer<S> finalizer, CloseStrategy closeStrategy, int queueCapacity, int pollTimeoutMs, AutoHealingSettings autoHealing) {
             this.initialState = initialState;
             this.strategy = strategy;
             this.name = name;
@@ -211,6 +227,7 @@ public class ActorSystem {
             this.closeStrategy = closeStrategy;
             this.queueCapacity = queueCapacity;
             this.pollTimeoutMs = pollTimeoutMs;
+            this.autoHealing = autoHealing;
         }
 
         private NamedStateActorCreator(String name, CreationStrategy strategy, S initialState, boolean allowReuse, Consumer<S> initializer, Consumer<S> finalizer, CloseStrategy closeStrategy, int queueCapacity, boolean queueProtection) {
@@ -223,9 +240,10 @@ public class ActorSystem {
             this.closeStrategy = closeStrategy;
             this.queueCapacity = queueCapacity;
             this.pollTimeoutMs = defaultPollTimeoutMs;
+            this.autoHealing = null;
         }
 
-        private NamedStateActorCreator(String name, CreationStrategy strategy, S initialState, boolean allowReuse, Consumer<S> initializer, Consumer<S> finalizer, CloseStrategy closeStrategy, int queueCapacity, boolean queueProtection, int pollTimeoutMs) {
+        private NamedStateActorCreator(String name, CreationStrategy strategy, S initialState, boolean allowReuse, Consumer<S> initializer, Consumer<S> finalizer, CloseStrategy closeStrategy, int queueCapacity, boolean queueProtection, int pollTimeoutMs, AutoHealingSettings autoHealing) {
             this.name = name;
             this.strategy = strategy;
             this.initialState = initialState;
@@ -235,17 +253,22 @@ public class ActorSystem {
             this.closeStrategy = closeStrategy;
             this.queueCapacity = queueCapacity;
             this.pollTimeoutMs = pollTimeoutMs;
+            this.autoHealing = autoHealing;
         }
 
-        public NamedStateActorCreator pollTimeout(int newPollTimeoutMs) {
-            return new NamedStateActorCreator<S>(name, strategy, initialState, allowReuse, initializer, finalizer, closeStrategy, queueCapacity, newPollTimeoutMs);
+        public NamedStateActorCreator<S> pollTimeout(int newPollTimeoutMs) {
+            return new NamedStateActorCreator<S>(name, strategy, initialState, allowReuse, initializer, finalizer, closeStrategy, queueCapacity, newPollTimeoutMs, autoHealing);
+        }
+
+        public NamedStateActorCreator<S> autoHealing(AutoHealingSettings newAutoHealing) {
+            return new NamedStateActorCreator<S>(name, strategy, initialState, allowReuse, initializer, finalizer, closeStrategy, queueCapacity, pollTimeoutMs, newAutoHealing);
         }
 
         /**
          * Creates a new actor
          */
         public <T> Actor<T, Void, S> newActor(Consumer<T> actorLogic) {
-            return (Actor<T, Void, S>) strategy.<T, Void, S>start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, initializer, finalizer, closeStrategy, pollTimeoutMs));
+            return (Actor<T, Void, S>) strategy.<T, Void, S>start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, initializer, finalizer, closeStrategy, pollTimeoutMs, autoHealing, strategy));
         }
 
         /** Creates an actor supporting light transactions; please check LightTransactionalActor for more details */
@@ -266,7 +289,7 @@ public class ActorSystem {
             return ActorUtils.initRef(ref -> {
                 Consumer<T> actorLogic = message -> actorBiLogic.accept(message, ref.get());
 
-                return (Actor<T, Void, S>) strategy.<T, Void, S>start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, initializer, finalizer, closeStrategy, pollTimeoutMs));
+                return (Actor<T, Void, S>) strategy.<T, Void, S>start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, initializer, finalizer, closeStrategy, pollTimeoutMs, autoHealing, strategy));
             });
         }
 
@@ -277,7 +300,7 @@ public class ActorSystem {
                     for (var message : list)
                         actorBiLogic.accept(message, ref.get());
                 };
-                return (Actor<List<T>, Void, S>) strategy.<List<T>, Void, S>start(new Actor<>(listLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, initializer, finalizer, closeStrategy, pollTimeoutMs));
+                return (Actor<List<T>, Void, S>) strategy.<List<T>, Void, S>start(new Actor<>(listLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, initializer, finalizer, closeStrategy, pollTimeoutMs, autoHealing, strategy));
             });
 
             return new LightTransactionalActor<T, S>(backingActor);
@@ -312,7 +335,7 @@ public class ActorSystem {
          * Creates a new actor that can return a value
          */
         public <T, R> Actor<T, R, S> newActorWithReturn(Function<T, R> actorLogic) {
-            return (Actor<T, R, S>) strategy.start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, initializer, finalizer, closeStrategy, pollTimeoutMs));
+            return (Actor<T, R, S>) strategy.start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, initializer, finalizer, closeStrategy, pollTimeoutMs, autoHealing, strategy));
         }
 
         /**
@@ -322,7 +345,7 @@ public class ActorSystem {
             return ActorUtils.initRef(ref -> {
                 Function<T, R> actorLogic = message -> actorBiLogic.apply(message, ref.get());
 
-                return (Actor<T, R, S>) strategy.start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, initializer, finalizer, closeStrategy, pollTimeoutMs));
+                return (Actor<T, R, S>) strategy.start(new Actor<>(actorLogic, getOrCreateActorQueue(registerActorName(name, allowReuse), queueCapacity), initialState, initializer, finalizer, closeStrategy, pollTimeoutMs, autoHealing, strategy));
             });
         }
 

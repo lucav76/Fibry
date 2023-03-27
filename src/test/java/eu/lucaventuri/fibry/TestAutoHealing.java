@@ -80,4 +80,9 @@ public class TestAutoHealing {
         Assert.assertTrue(end - start < 9000);
         Assert.assertTrue(end - partial >=-  3000);
     }
+
+    @Test(expected = UnsupportedOperationException.class)
+    public void tesFailOnFibers() {
+        ActorSystem.anonymous().strategy(CreationStrategy.FIBER).autoHealing(new ActorSystem.AutoHealingSettings(1, 2, null, null)).newActor(SystemUtils::sleepEnsure);
+    }
 }

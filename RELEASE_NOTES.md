@@ -1,6 +1,5 @@
-- Improved support for actors with bounded queue:
-  - execute() now waits indefinitely, instead of throwing an exception
-  - sendPoisonPill() now waits indefinitely, instead of simply returning false
-  - added execAsyncTimeout(), that does not throw an exception
-- Backport of generators to Java 8
+- Adds AutoHealing, only for threads, which:
+  - Tries to interrupt an actor
+  - If it is not possible, a new actor is created (reusing the same queue, so no messages are lost, except possibly the one freezing the thread)
+  - If the frozen job eventually finishes, the thread is disposed  
  

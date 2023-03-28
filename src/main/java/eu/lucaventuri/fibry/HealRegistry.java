@@ -61,6 +61,10 @@ public enum HealRegistry {
         actors.put(actor, new HealthState(now + autoHealing.executionTimeoutSeconds * 1000L, actorTthread, autoHealing.onNewThread));
     }
 
+    void addThread(BaseActor actor) {
+        threadsLeft.merge(actor.queue, 1 , Integer::sum);
+    }
+
     void startThread() {
         if (sched.get() == null) {
             synchronized (this) {

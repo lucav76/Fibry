@@ -1,1 +1,1 @@
-- Adjusts auto healing attempts available based on threads killed
+- Adds scheduled actors tha can use AutoHealing

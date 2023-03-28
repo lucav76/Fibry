@@ -289,6 +289,7 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
                 }
                 HealRegistry.INSTANCE.remove(this, curThread, threadShouldDie);
                 if (threadShouldDie.get()) {  // Notification done in HealRegistry, earlier
+                    HealRegistry.INSTANCE.addThread(this);
                     return;  // Skips finalization, or the messages will be removed
                 }
             }

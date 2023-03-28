@@ -65,8 +65,9 @@ public class TestAutoHealing {
         CountDownLatch latchRecreate = new CountDownLatch(2);
         long start = System.currentTimeMillis();
 
-        Actor<Long, Void, Void> actor = ActorSystem.anonymous().autoHealing(new ActorSystem.AutoHealingSettings(1, 2, () -> Assert.fail("Unexpected Notification by AutoHealing - Thread interrupted"), latchRecreate::countDown)).newActor(SystemUtils::sleepEnsure);
+        Actor<Long, Void, Void> actor = ActorSystem.anonymous().autoHealing(new ActorSystem.AutoHealingSettings(1, 1, () -> Assert.fail("Unexpected Notification by AutoHealing - Thread interrupted"), latchRecreate::countDown)).newActor(SystemUtils::sleepEnsure);
 
+        actor.sendMessage(3_000L);
         actor.sendMessage(3_000L);
         actor.sendMessage(3_000L);
         actor.sendMessage(3_000L);
@@ -78,7 +79,35 @@ public class TestAutoHealing {
         long end = System.currentTimeMillis();
         System.out.println((partial-start) + " - " + (end-partial) + ": " + (end-start));
         Assert.assertTrue(end - start < 9000);
-        Assert.assertTrue(end - partial >=-  3000);
+        Assert.assertTrue(end - partial >= 3000);
+    }
+
+    @Test(expected = UnsupportedOperationException.class)
+    public void tesFailOnFibers() {
+        ActorSystem.anonymous().strategy(CreationStrategy.FIBER).autoHealing(new ActorSystem.AutoHealingSettings(1, 2, null, null)).newActor(SystemUtils::sleepEnsure);
+    }
+
+    @Test
+    public void testMaxRecovering() throws InterruptedException, ExecutionException {
+        HealRegistry.INSTANCE.setGracePeriod(10, TimeUnit.MILLISECONDS);
+        CountDownLatch latchRecreate = new CountDownLatch(2);
+        long start = System.currentTimeMillis();
+
+        Actor<Long, Void, Void> actor = ActorSystem.anonymous().autoHealing(new ActorSystem.AutoHealingSettings(1, 2, () -> Assert.fail("Unexpected Notification by AutoHealing - Thread interrupted"), latchRecreate::countDown)).newActor(SystemUtils::sleepEnsure);
+
+        actor.sendMessage(2_000L);
+        actor.sendMessage(2_000L);
+        actor.sendMessage(2_000L);
+        actor.sendMessage(2_000L);
+
+        latchRecreate.await();
+        System.out.println("Latch counted down");
+        long partial = System.currentTimeMillis();
+        actor.sendMessageReturn(10L).get();
+        long end = System.currentTimeMillis();
+        System.out.println((partial-start) + " - " + (end-partial) + ": " + (end-start));
+        Assert.assertTrue(end - start < 6000);
+        Assert.assertTrue(end - partial >=-  4000);
     }
 
     @Test(expected = UnsupportedOperationException.class)

@@ -8,6 +8,7 @@ import org.junit.Test;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class TestAutoHealing {
     @BeforeClass
@@ -77,7 +78,7 @@ public class TestAutoHealing {
         long partial = System.currentTimeMillis();
         actor.sendMessageReturn(10L).get();
         long end = System.currentTimeMillis();
-        System.out.println((partial-start) + " - " + (end-partial) + ": " + (end-start));
+        System.out.println((partial - start) + " - " + (end - partial) + ": " + (end - start));
         Assert.assertTrue(end - start < 9000);
         Assert.assertTrue(end - partial >= 3000);
     }
@@ -105,8 +106,83 @@ public class TestAutoHealing {
         long partial = System.currentTimeMillis();
         actor.sendMessageReturn(10L).get();
         long end = System.currentTimeMillis();
-        System.out.println((partial-start) + " - " + (end-partial) + ": " + (end-start));
+        System.out.println((partial - start) + " - " + (end - partial) + ": " + (end - start));
         Assert.assertTrue(end - start < 6000);
-        Assert.assertTrue(end - partial >=-  4000);
+        Assert.assertTrue(end - partial >= -4000);
     }
+
+    @Test
+    public void testSchedulingNoHealing() throws Exception {
+        CountDownLatch latch = new CountDownLatch(3);
+
+        try (SinkActorSingleTask<Void> actor = Stereotypes.threads().scheduleWithFixedDelay(latch::countDown, 0, 1, TimeUnit.MILLISECONDS, null)) {
+            latch.await();
+        }
+    }
+
+    @Test
+    public void testSchedulingHealing() throws Exception {
+        HealRegistry.INSTANCE.setGracePeriod(200, TimeUnit.MILLISECONDS);
+        CountDownLatch latch = new CountDownLatch(3);
+        AtomicInteger calls = new AtomicInteger();
+        AtomicInteger count = new AtomicInteger();
+        AtomicInteger interruptions = new AtomicInteger();
+        AtomicInteger recreations = new AtomicInteger();
+
+        try (SinkActorSingleTask<Void> actor = Stereotypes.threads().scheduleWithFixedDelay(() -> {
+            calls.incrementAndGet();
+            if (count.get() < 3) {
+                long ms = 2000 / calls.get();
+                System.out.println("Waiting for " + ms);
+                SystemUtils.sleep(ms);
+                latch.countDown();
+                count.incrementAndGet();
+            }
+        }, 0, 1, TimeUnit.MILLISECONDS, new ActorSystem.AutoHealingSettings(1, 5, interruptions::incrementAndGet, recreations::incrementAndGet))) {
+            latch.await();
+            actor.askExit();
+        }
+
+        Assert.assertEquals(4, calls.get());
+        Assert.assertEquals(3, count.get());
+        Assert.assertEquals(1, interruptions.get());
+        Assert.assertEquals(0, recreations.get());
+    }
+
+    @Test
+    public void testSchedulingHealing2() throws Exception {
+        HealRegistry.INSTANCE.setGracePeriod(200, TimeUnit.MILLISECONDS);
+        CountDownLatch latch = new CountDownLatch(3);
+        AtomicInteger calls = new AtomicInteger();
+        AtomicInteger count = new AtomicInteger();
+        AtomicInteger interruptions = new AtomicInteger();
+        AtomicInteger recreations = new AtomicInteger();
+
+        try (SinkActorSingleTask<Void> actor = Stereotypes.threads().scheduleWithFixedDelay(() -> {
+            calls.incrementAndGet();
+            if (count.get() < 3) {
+                long ms = 2000 / calls.get();
+                System.out.println("Waiting for " + ms);
+                SystemUtils.sleepEnsure(ms);
+                latch.countDown();
+                count.incrementAndGet();
+            }
+        }, 0, 1, TimeUnit.MILLISECONDS, new ActorSystem.AutoHealingSettings(1, 5, interruptions::incrementAndGet, recreations::incrementAndGet))) {
+            latch.await();
+            actor.askExit();
+        }
+
+        Assert.assertEquals(3, calls.get());
+        Assert.assertEquals(3, count.get());
+        Assert.assertEquals(0, interruptions.get());
+        Assert.assertEquals(1, recreations.get());
+
+        SystemUtils.sleep(1200);
+
+        Assert.assertEquals(4, calls.get());
+        Assert.assertEquals(3, count.get());
+        Assert.assertEquals(0, interruptions.get());
+        Assert.assertEquals(1, recreations.get());
+    }
+
 }

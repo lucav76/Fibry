@@ -419,6 +419,26 @@ public class Stereotypes {
         }
 
         /**
+         * Creates an actor that does not receive messages; this is useful to execute code in a remote thread
+         */
+        public <S> SinkActor<S> sinkHealing(S state, ActorSystem.AutoHealingSettings autoHealing) {
+            NamedStateActorCreator<S> config = threads().anonymous().initialState(state).autoHealing(autoHealing);
+
+            return config.newActor(message -> {
+            });
+        }
+
+        /**
+         * Creates an actor that does not receive messages; this is useful to execute code in a remote thread
+         */
+        public <S> SinkActor<S> sinkHealing(String name, S state, ActorSystem.AutoHealingSettings autoHealing) {
+            NamedStateActorCreator<S> config = threads().named(name).initialState(state).autoHealing(autoHealing);
+
+            return config.newActor(message -> {
+            });
+        }
+
+        /**
          * Creates a map-reduce local system, using a pool of actors and a single reducer. This is preferred method to do a Map-reduce job.
          *
          * @param params Parameters for the creation of the pool
@@ -537,6 +557,32 @@ public class Stereotypes {
                     times++;
                 }
             });
+
+            return actor;
+        }
+
+        /**
+         * Creates an actor that runs a Runnable with fixed delay; it optionally supports autoHealing
+         */
+        public SinkActorSingleTask<Void> scheduleWithFixedDelay(Runnable run, long initialDelay, long delay, TimeUnit timeUnit, ActorSystem.AutoHealingSettings autoHealing) {
+            Actor<Object, Void, Void> actor = (Actor<Object, Void, Void>) sinkHealing((Void) null, autoHealing);
+
+            // Deadlock prevention
+            actor.setCloseStrategy(Exitable.CloseStrategy.ASK_EXIT);
+
+            if (initialDelay > 0)
+              actor.execAsync(() -> SystemUtils.sleep(timeUnit.toMillis(initialDelay)));
+
+
+            AtomicReference<Runnable> runThenWait = new AtomicReference<>();
+
+            runThenWait.set(() -> {
+                actor.execAsync(() -> SystemUtils.sleep(timeUnit.toMillis(delay)));
+                actor.execAsync(run);
+                actor.execAsync(runThenWait.get());
+            });
+
+            actor.execAsync(runThenWait.get());
 
             return actor;
         }

@@ -1,1 +1,1 @@
-- Removes an unnecessary paramter
+- Allow shorter timeouts than the scheduling time

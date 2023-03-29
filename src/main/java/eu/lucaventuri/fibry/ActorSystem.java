@@ -155,7 +155,7 @@ public class ActorSystem {
         }
     }
 
-    public static class AutoHealingSettings<T> {
+    public static class AutoHealingSettings {
         public final int executionTimeoutSeconds;  // 0 means no timeout
         public final int maxThreads;
         public final Runnable onInterruption;

@@ -22,10 +22,10 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
     protected final List<AutoCloseable> closeOnExit = new Vector<>();
     protected volatile boolean drainMessagesOnExit = true;
     protected final int pollTimeoutMs;
-    protected final ActorSystem.AutoHealingSettings<T> autoHealing;
+    protected final ActorSystem.AutoHealingSettings autoHealing;
     protected final CreationStrategy strategy;
 
-    BaseActor(MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs, ActorSystem.AutoHealingSettings<T> autoHealing, CreationStrategy strategy) {
+    BaseActor(MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs, ActorSystem.AutoHealingSettings autoHealing, CreationStrategy strategy) {
         this.queue = queue;
         this.finalizer = finalizer;
         this.sendPoisonPillWhenExiting = true;

@@ -30,6 +30,7 @@ public class TestAutoHealing {
         actor.sendMessageReturn(10L).get();
     }
 
+
     @Test
     public void testRecreate() throws InterruptedException, ExecutionException {
         HealRegistry.INSTANCE.setGracePeriod(10, TimeUnit.MILLISECONDS);
@@ -58,6 +59,20 @@ public class TestAutoHealing {
         latchRecreate.await();
         System.out.println("Latch counted down");
         actor.sendMessageReturn(10L).get();
+    }
+
+    @Test
+    public void testWait() throws InterruptedException, ExecutionException {
+        HealRegistry.INSTANCE.setGracePeriod(10, TimeUnit.MILLISECONDS);
+        AtomicInteger actions = new AtomicInteger();
+
+        Actor<Long, Void, Void> actor = ActorSystem.anonymous().autoHealing(new ActorSystem.AutoHealingSettings(1, 2, actions::incrementAndGet, actions::incrementAndGet)).newActor(SystemUtils::sleep);
+
+        actor.sendMessage(50L);
+        SystemUtils.sleep(1500);
+        actor.sendMessageReturn(50L).get();
+
+        Assert.assertEquals(0, actions.get());
     }
 
     @Test

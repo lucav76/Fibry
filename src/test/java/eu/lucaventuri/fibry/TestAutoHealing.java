@@ -76,6 +76,20 @@ public class TestAutoHealing {
     }
 
     @Test
+    public void testSchedulingWait() throws Exception {
+        HealRegistry.INSTANCE.setGracePeriod(10, TimeUnit.MILLISECONDS);
+        AtomicInteger actions = new AtomicInteger();
+        CountDownLatch latch = new CountDownLatch(2);
+
+        try (SinkActorSingleTask<Void> actor = Stereotypes.threads().scheduleWithFixedDelay(latch::countDown, 0, 1200, TimeUnit.MILLISECONDS, new ActorSystem.AutoHealingSettings(1, 5, actions::incrementAndGet, actions::incrementAndGet))) {
+            latch.await();
+            actor.askExit();
+        }
+
+        Assert.assertEquals(0, actions.get());
+    }
+
+    @Test
     public void testMax() throws InterruptedException, ExecutionException {
         HealRegistry.INSTANCE.setGracePeriod(10, TimeUnit.MILLISECONDS);
         CountDownLatch latchRecreate = new CountDownLatch(2);

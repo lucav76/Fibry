@@ -1,1 +1,1 @@
-- Adds scheduled actors tha can use AutoHealing
+- Removes an unnecessary paramter

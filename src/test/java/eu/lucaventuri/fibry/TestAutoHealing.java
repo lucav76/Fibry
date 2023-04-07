@@ -21,7 +21,7 @@ public class TestAutoHealing {
         HealRegistry.INSTANCE.setGracePeriod(10_000, TimeUnit.MILLISECONDS);
         CountDownLatch latchInterruption = new CountDownLatch(1);
 
-        Actor<Long, Void, Void> actor = ActorSystem.anonymous().autoHealing(new ActorSystem.AutoHealingSettings(1, 2, latchInterruption::countDown, () -> Assert.fail("Unexpected Notification by AutoHealing - New Thread"))).newActor(SystemUtils::sleep);
+        Actor<Long, Void, Void> actor = ActorSystem.anonymous().autoHealing(new ActorSystem.AutoHealingSettings(1, 2, e -> latchInterruption.countDown(), () -> Assert.fail("Unexpected Notification by AutoHealing - New Thread"))).newActor(SystemUtils::sleep);
 
         actor.sendMessage(30_000L);
 
@@ -36,7 +36,7 @@ public class TestAutoHealing {
         HealRegistry.INSTANCE.setGracePeriod(10, TimeUnit.MILLISECONDS);
         CountDownLatch latchRecreate = new CountDownLatch(1);
 
-        Actor<Long, Void, Void> actor = ActorSystem.anonymous().autoHealing(new ActorSystem.AutoHealingSettings(1, 2, () -> Assert.fail("Unexpected Notification by AutoHealing - Thread interrupted"), latchRecreate::countDown)).newActor(SystemUtils::sleepEnsure);
+        Actor<Long, Void, Void> actor = ActorSystem.anonymous().autoHealing(new ActorSystem.AutoHealingSettings(1, 2, (e) -> Assert.fail("Unexpected Notification by AutoHealing - Thread interrupted"), latchRecreate::countDown)).newActor(SystemUtils::sleepEnsure);
 
         actor.sendMessage(30_000L);
 
@@ -50,7 +50,7 @@ public class TestAutoHealing {
         HealRegistry.INSTANCE.setGracePeriod(10, TimeUnit.MILLISECONDS);
         CountDownLatch latchRecreate = new CountDownLatch(3);
 
-        Actor<Long, Void, Void> actor = ActorSystem.anonymous().autoHealing(new ActorSystem.AutoHealingSettings(1, 5, () -> Assert.fail("Unexpected Notification by AutoHealing - Thread interrupted"), latchRecreate::countDown)).newActor(SystemUtils::sleepEnsure);
+        Actor<Long, Void, Void> actor = ActorSystem.anonymous().autoHealing(new ActorSystem.AutoHealingSettings(1, 5, (e) -> Assert.fail("Unexpected Notification by AutoHealing - Thread interrupted"), latchRecreate::countDown)).newActor(SystemUtils::sleepEnsure);
 
         actor.sendMessage(30_000L);
         actor.sendMessage(30_000L);
@@ -66,7 +66,7 @@ public class TestAutoHealing {
         HealRegistry.INSTANCE.setGracePeriod(10, TimeUnit.MILLISECONDS);
         AtomicInteger actions = new AtomicInteger();
 
-        Actor<Long, Void, Void> actor = ActorSystem.anonymous().autoHealing(new ActorSystem.AutoHealingSettings(1, 2, actions::incrementAndGet, actions::incrementAndGet)).newActor(SystemUtils::sleep);
+        Actor<Long, Void, Void> actor = ActorSystem.anonymous().autoHealing(new ActorSystem.AutoHealingSettings(1, 2, e -> actions.incrementAndGet(), actions::incrementAndGet)).newActor(SystemUtils::sleep);
 
         actor.sendMessage(50L);
         SystemUtils.sleep(1500);
@@ -81,7 +81,7 @@ public class TestAutoHealing {
         AtomicInteger actions = new AtomicInteger();
         CountDownLatch latch = new CountDownLatch(2);
 
-        try (SinkActorSingleTask<Void> actor = Stereotypes.threads().scheduleWithFixedDelay(latch::countDown, 0, 1200, TimeUnit.MILLISECONDS, new ActorSystem.AutoHealingSettings(1, 5, actions::incrementAndGet, actions::incrementAndGet))) {
+        try (SinkActorSingleTask<Void> actor = Stereotypes.threads().scheduleWithFixedDelay(latch::countDown, 0, 1200, TimeUnit.MILLISECONDS, new ActorSystem.AutoHealingSettings(1, 5, e -> actions.incrementAndGet(), actions::incrementAndGet))) {
             latch.await();
             actor.askExit();
         }
@@ -95,7 +95,7 @@ public class TestAutoHealing {
         CountDownLatch latchRecreate = new CountDownLatch(2);
         long start = System.currentTimeMillis();
 
-        Actor<Long, Void, Void> actor = ActorSystem.anonymous().autoHealing(new ActorSystem.AutoHealingSettings(1, 1, () -> Assert.fail("Unexpected Notification by AutoHealing - Thread interrupted"), latchRecreate::countDown)).newActor(SystemUtils::sleepEnsure);
+        Actor<Long, Void, Void> actor = ActorSystem.anonymous().autoHealing(new ActorSystem.AutoHealingSettings(1, 1, (e) -> Assert.fail("Unexpected Notification by AutoHealing - Thread interrupted"), latchRecreate::countDown)).newActor(SystemUtils::sleepEnsure);
 
         actor.sendMessage(3_000L);
         actor.sendMessage(3_000L);
@@ -113,7 +113,7 @@ public class TestAutoHealing {
     }
 
     @Test(expected = UnsupportedOperationException.class)
-    public void tesFailOnFibers() {
+    public void testFailOnFibers() {
         ActorSystem.anonymous().strategy(CreationStrategy.FIBER).autoHealing(new ActorSystem.AutoHealingSettings(1, 2, null, null)).newActor(SystemUtils::sleepEnsure);
     }
 
@@ -123,7 +123,7 @@ public class TestAutoHealing {
         CountDownLatch latchRecreate = new CountDownLatch(2);
         long start = System.currentTimeMillis();
 
-        Actor<Long, Void, Void> actor = ActorSystem.anonymous().autoHealing(new ActorSystem.AutoHealingSettings(1, 2, () -> Assert.fail("Unexpected Notification by AutoHealing - Thread interrupted"), latchRecreate::countDown)).newActor(SystemUtils::sleepEnsure);
+        Actor<Long, Void, Void> actor = ActorSystem.anonymous().autoHealing(new ActorSystem.AutoHealingSettings(1, 2, (e) -> Assert.fail("Unexpected Notification by AutoHealing - Thread interrupted"), latchRecreate::countDown)).newActor(SystemUtils::sleepEnsure);
 
         actor.sendMessage(2_000L);
         actor.sendMessage(2_000L);
@@ -167,7 +167,7 @@ public class TestAutoHealing {
                 latch.countDown();
                 count.incrementAndGet();
             }
-        }, 0, 1, TimeUnit.MILLISECONDS, new ActorSystem.AutoHealingSettings(1, 5, interruptions::incrementAndGet, recreations::incrementAndGet))) {
+        }, 0, 1, TimeUnit.MILLISECONDS, new ActorSystem.AutoHealingSettings(1, 5, e -> interruptions.incrementAndGet(), recreations::incrementAndGet))) {
             latch.await();
             actor.askExit();
         }
@@ -196,7 +196,7 @@ public class TestAutoHealing {
                 latch.countDown();
                 count.incrementAndGet();
             }
-        }, 0, 1, TimeUnit.MILLISECONDS, new ActorSystem.AutoHealingSettings(1, 5, interruptions::incrementAndGet, recreations::incrementAndGet))) {
+        }, 0, 1, TimeUnit.MILLISECONDS, new ActorSystem.AutoHealingSettings(1, 5, e -> interruptions.incrementAndGet(), recreations::incrementAndGet))) {
             latch.await();
             actor.askExit();
         }

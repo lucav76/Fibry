@@ -41,6 +41,7 @@ class HealthState {
         return onNewThread;
     }
 }
+
 public enum HealRegistry {
     INSTANCE;
 
@@ -50,7 +51,7 @@ public enum HealRegistry {
 
     private final ConcurrentHashMap<BaseActor, HealthState> actors = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<MiniQueue, Integer> threadsLeft = new ConcurrentHashMap<>();
-    private final AtomicReference<ScheduledExecutorService>sched = new AtomicReference<>();
+    private final AtomicReference<ScheduledExecutorService> sched = new AtomicReference<>();
     private final Set<BaseActor> threadsToKill = ConcurrentHashSet.build();
 
     void put(BaseActor actor, ActorSystem.AutoHealingSettings autoHealing, Thread actorTthread) {
@@ -62,7 +63,7 @@ public enum HealRegistry {
     }
 
     void addThread(BaseActor actor) {
-        threadsLeft.merge(actor.queue, 1 , Integer::sum);
+        threadsLeft.merge(actor.queue, 1, Integer::sum);
     }
 
     void startThread() {
@@ -84,7 +85,7 @@ public enum HealRegistry {
             sched.get().shutdownNow();
     }
 
-    void remove(BaseActor actor, Thread actorTthread, AtomicBoolean threadShouldDIe) {
+    void remove(BaseActor actor, Thread actorTthread, AtomicBoolean threadShouldDie) {
         var status = actors.get(actor);
 
         if (status != null) {
@@ -94,7 +95,7 @@ public enum HealRegistry {
             }
         }
 
-        threadShouldDIe.set(threadsToKill.contains(actor));
+        threadShouldDie.set(threadsToKill.contains(actor));
     }
 
     Runnable logic() {
@@ -102,10 +103,10 @@ public enum HealRegistry {
             long now = System.currentTimeMillis();
             List<Map.Entry<BaseActor, HealthState>> entriesToRemove = new ArrayList<>();
 
-            for(var entry: actors.entrySet()) {
+            for (var entry : actors.entrySet()) {
                 if (entry.getValue().deadlineRecreation() <= now) {
                     if (threadsLeft.get(entry.getKey().queue) > 0) {
-                        threadsLeft.compute(entry.getKey().queue, (queue, threads) -> threads-1);
+                        threadsLeft.compute(entry.getKey().queue, (queue, threads) -> threads - 1);
                         System.out.println("Fibry AutoHealing - Recreating " + entry.getValue().thread().getName() + " - attempts left: " + threadsLeft.get(entry.getKey().queue));
                         entriesToRemove.add(entry);
                         threadsToKill.add(entry.getKey());
@@ -119,7 +120,7 @@ public enum HealRegistry {
                 }
             }
 
-            for(var entry: entriesToRemove)
+            for (var entry : entriesToRemove)
                 actors.remove(entry.getKey(), entry.getValue());
         };
     }

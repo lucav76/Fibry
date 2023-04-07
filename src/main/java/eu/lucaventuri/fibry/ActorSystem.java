@@ -193,10 +193,10 @@ public class ActorSystem {
     public static class AutoHealingSettings {
         public final int executionTimeoutSeconds;  // 0 means no timeout
         public final int maxThreads;
-        public final Runnable onInterruption;
+        public final Consumer<Exception> onInterruption;
         public final Runnable onNewThread;
 
-        public AutoHealingSettings(int executionTimeoutSeconds, int maxThreads, Runnable onInterruption, Runnable onNewThread) {
+        public AutoHealingSettings(int executionTimeoutSeconds, int maxThreads, Consumer<Exception>  onInterruption, Runnable onNewThread) {
             this.executionTimeoutSeconds = executionTimeoutSeconds;
             this.maxThreads = maxThreads;
             this.onInterruption = onInterruption;

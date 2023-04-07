@@ -284,7 +284,7 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
                 while (!isExiting())
                     Exceptions.log(this::takeAndProcessSingleMessageTimeout);
             }
-        } else { // Execution timeout
+        } else { // Execution timeout with auto healing
             var curThread = Thread.currentThread();
             AtomicBoolean threadShouldDie = new AtomicBoolean();
 
@@ -297,10 +297,13 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
                 } catch (Exception e) {
                     System.err.println(e);
                     if (autoHealing.onInterruption != null && (Thread.interrupted() ||
-                            e.getClass() == InterruptedException.class || e.getCause().getClass() == InterruptedException.class))
-                        autoHealing.onInterruption.run();
+                            e.getClass() == InterruptedException.class || e.getCause().getClass() == InterruptedException.class)) {
+                        Exceptions.logShort(() -> autoHealing.onInterruption.accept(e));
+                    }
                 }
-                HealRegistry.INSTANCE.remove(this, curThread, threadShouldDie);
+                finally {
+                    HealRegistry.INSTANCE.remove(this, curThread, threadShouldDie);
+                }
                 if (threadShouldDie.get()) {  // Notification done in HealRegistry, earlier
                     HealRegistry.INSTANCE.addThread(this);
                     return;  // Skips finalization, or the messages will be removed

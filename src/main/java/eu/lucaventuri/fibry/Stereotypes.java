@@ -891,6 +891,43 @@ public class Stereotypes {
             return binaryDownloader(new Scheduler(), 30, true);
         }
 
+        public <T> BaseActor<T, Void, Void> rateLimited(Consumer<T> actorLogic, int msBetweenCalls) {
+            NamedStateActorCreator<Void> config = anonymous().initialState(null);
+
+            Consumer<T> rateLimitedLogic = value -> {
+                long start = System.currentTimeMillis();
+
+                actorLogic.accept(value);
+
+                long end = System.currentTimeMillis() - start;
+
+                if (msBetweenCalls > (end - start))
+                    SystemUtils.sleep(msBetweenCalls - (end - start));
+            };
+
+            return config.newActor(rateLimitedLogic);
+        }
+
+        public <T, R> BaseActor<T, R, Void> rateLimitedReturn(Function<T, R> actorLogic, int msBetweenCalls) {
+            NamedStateActorCreator<Void> config = anonymous().initialState(null);
+
+            Function<T, R> rateLimitedLogic = value -> {
+                long start = System.currentTimeMillis();
+
+                R result = actorLogic.apply(value);
+
+                long end = System.currentTimeMillis();
+
+                if (msBetweenCalls > (end - start)) {
+                    SystemUtils.sleep(msBetweenCalls - (end - start));
+                }
+
+                return result;
+            };
+
+            return config.newActorWithReturn(rateLimitedLogic);
+        }
+
         /**
          * Process messages in batches, after grouping by the key and counting how many messages are received.
          * e.g. ['a', 'a', 'b', 'c', 'a'] would generate ['a':3, 'b':1, 'c':1]

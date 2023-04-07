@@ -816,4 +816,18 @@ public class TestStereotypes {
             server.stop(0);
         }
     }
+
+    @Test
+    public void testRateLimit() throws ExecutionException, InterruptedException {
+        long start = System.currentTimeMillis();
+
+        try (var actor = Stereotypes.auto().rateLimitedReturn(item -> 0, 20)) {
+            actor.sendMessageReturn("A");
+            actor.sendMessageReturn("B");
+            actor.sendMessageReturn("C").get();
+        }
+
+        var time = System.currentTimeMillis() - start;
+        assertTrue(time >= 60 );
+    }
 }

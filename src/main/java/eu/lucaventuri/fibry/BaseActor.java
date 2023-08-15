@@ -199,6 +199,19 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
             ActorUtils.execAsync(queue, state -> worker.run());
     }
 
+    public void execAsyncNoHealing(Runnable worker) {
+        var that = this;
+
+        if (!isExiting()) {
+            ActorUtils.execAsync(queue, state -> {
+                        // Allow shorter timeout than the scheduling time
+                        HealRegistry.INSTANCE.remove(that, Thread.currentThread(), new AtomicBoolean());
+                        worker.run();
+                    }
+            );
+        }
+    }
+
     /**
      * Synchronously executes some logic in the actor.
      */
@@ -300,8 +313,7 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
                             e.getClass() == InterruptedException.class || e.getCause().getClass() == InterruptedException.class)) {
                         Exceptions.logShort(() -> autoHealing.onInterruption.accept(e));
                     }
-                }
-                finally {
+                } finally {
                     HealRegistry.INSTANCE.remove(this, curThread, threadShouldDie);
                 }
                 if (threadShouldDie.get()) {  // Notification done in HealRegistry, earlier

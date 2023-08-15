@@ -186,8 +186,10 @@ public class TestAutoHealing {
         AtomicInteger count = new AtomicInteger();
         AtomicInteger interruptions = new AtomicInteger();
         AtomicInteger recreations = new AtomicInteger();
+        long start = System.currentTimeMillis();
 
         try (SinkActorSingleTask<Void> actor = Stereotypes.threads().scheduleWithFixedDelay(() -> {
+            System.out.println("Call " + calls.get() + "... " + (System.currentTimeMillis() - start));
             calls.incrementAndGet();
             if (count.get() < 3) {
                 long ms = 2000 / calls.get();
@@ -195,6 +197,7 @@ public class TestAutoHealing {
                 SystemUtils.sleepEnsure(ms);
                 latch.countDown();
                 count.incrementAndGet();
+                System.out.println("Done waiting " + ms);
             }
         }, 0, 1, TimeUnit.MILLISECONDS, new ActorSystem.AutoHealingSettings(1, 5, e -> interruptions.incrementAndGet(), recreations::incrementAndGet))) {
             latch.await();
@@ -208,7 +211,7 @@ public class TestAutoHealing {
 
         SystemUtils.sleep(1200);
 
-        Assert.assertEquals(4, calls.get());
+        Assert.assertEquals(3, calls.get());
         Assert.assertEquals(3, count.get());
         Assert.assertEquals(0, interruptions.get());
         Assert.assertEquals(1, recreations.get());

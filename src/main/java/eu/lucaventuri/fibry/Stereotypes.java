@@ -21,6 +21,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.*;
 
@@ -565,29 +566,62 @@ public class Stereotypes {
          * Creates an actor that runs a Runnable with fixed delay; it optionally supports autoHealing
          */
         public SinkActorSingleTask<Void> scheduleWithFixedDelay(Runnable run, long initialDelay, long delay, TimeUnit timeUnit, ActorSystem.AutoHealingSettings autoHealing) {
+            Actor<Object, Void, Void> actor = createActorForScheduling(initialDelay, timeUnit, autoHealing);
+            AtomicReference<Runnable> runThenWait = new AtomicReference<>();
+
+            runThenWait.set(() -> {
+                // As we are inside the event loop of the actor, we can only call execAsync
+                actor.execAsync(run);
+                actor.execAsyncNoHealing(() -> {
+                    // When this runs, run.run() has been executed
+                    SystemUtils.sleep(timeUnit.toMillis(delay)); }
+                );
+                actor.execAsync(runThenWait.get());
+            });
+
+            actor.execAsync(runThenWait.get());
+
+            return actor;
+        }
+
+        /**
+         * Creates an actor that runs a Runnable with fixed delay; it optionally supports autoHealing
+         */
+        public SinkActorSingleTask<Void> scheduleWithFixedRate(Runnable run, long initialDelay, long delay, TimeUnit timeUnit, ActorSystem.AutoHealingSettings autoHealing) {
+            Actor<Object, Void, Void> actor = createActorForScheduling(initialDelay, timeUnit, autoHealing);
+            AtomicReference<Runnable> runThenWait = new AtomicReference<>();
+            AtomicLong nextRun = new AtomicLong(System.currentTimeMillis() + timeUnit.toMillis(delay));
+
+            runThenWait.set(() -> {
+                // TODO: It will not work well if the execution time exceeds the delay (e.g. if a task scheduled once an hour uses more than one hour to run)
+                // As we are inside the event loop of the actor, we can only call execAsync
+                actor.execAsync(run);
+                actor.execAsyncNoHealing(() -> {
+                    // When this runs, run.run() has been executed
+
+                    long wait = nextRun.get() - System.currentTimeMillis();
+
+                    // TODO: in case of overlap, should we skip? Should we have a policy for that? CHeck Java?
+                    nextRun.set(nextRun.get() + timeUnit.toMillis(delay));
+                    if (wait > 0)
+                        SystemUtils.sleep(timeUnit.toMillis(wait)); }
+                );
+                actor.execAsync(runThenWait.get());
+            });
+
+            actor.execAsync(runThenWait.get());
+
+            return actor;
+        }
+
+        private Actor<Object, Void, Void> createActorForScheduling(long initialDelay, TimeUnit timeUnit, ActorSystem.AutoHealingSettings autoHealing) {
             Actor<Object, Void, Void> actor = (Actor<Object, Void, Void>) sinkHealing((Void) null, autoHealing);
 
             // Deadlock prevention
             actor.setCloseStrategy(Exitable.CloseStrategy.ASK_EXIT);
 
             if (initialDelay > 0)
-              actor.execAsync(() -> SystemUtils.sleep(timeUnit.toMillis(initialDelay)));
-
-
-            AtomicReference<Runnable> runThenWait = new AtomicReference<>();
-            AtomicBoolean dummyThreadShouldDie  = new AtomicBoolean();
-
-            runThenWait.set(() -> {
-                actor.execAsync(() -> {
-                    // Allow shorter timeout than the scheduling time
-                    HealRegistry.INSTANCE.remove(actor, Thread.currentThread(), dummyThreadShouldDie);
-                    SystemUtils.sleep(timeUnit.toMillis(delay)); });
-                actor.execAsync(run);
-                actor.execAsync(runThenWait.get());
-            });
-
-            actor.execAsync(runThenWait.get());
-
+                actor.execAsync(() -> SystemUtils.sleep(timeUnit.toMillis(initialDelay)));
             return actor;
         }
 
@@ -894,16 +928,7 @@ public class Stereotypes {
         public <T> BaseActor<T, Void, Void> rateLimited(Consumer<T> actorLogic, int msBetweenCalls) {
             NamedStateActorCreator<Void> config = anonymous().initialState(null);
 
-            Consumer<T> rateLimitedLogic = value -> {
-                long start = System.currentTimeMillis();
-
-                actorLogic.accept(value);
-
-                long end = System.currentTimeMillis() - start;
-
-                if (msBetweenCalls > (end - start))
-                    SystemUtils.sleep(msBetweenCalls - (end - start));
-            };
+            Consumer<T> rateLimitedLogic = wrapWithRateLimiting(actorLogic, msBetweenCalls);
 
             return config.newActor(rateLimitedLogic);
         }
@@ -911,19 +936,7 @@ public class Stereotypes {
         public <T, R> BaseActor<T, R, Void> rateLimitedReturn(Function<T, R> actorLogic, int msBetweenCalls) {
             NamedStateActorCreator<Void> config = anonymous().initialState(null);
 
-            Function<T, R> rateLimitedLogic = value -> {
-                long start = System.currentTimeMillis();
-
-                R result = actorLogic.apply(value);
-
-                long end = System.currentTimeMillis();
-
-                if (msBetweenCalls > (end - start)) {
-                    SystemUtils.sleep(msBetweenCalls - (end - start));
-                }
-
-                return result;
-            };
+            Function<T, R> rateLimitedLogic = wrapWithRateLimitingReturn(actorLogic, msBetweenCalls);
 
             return config.newActorWithReturn(rateLimitedLogic);
         }
@@ -1150,6 +1163,35 @@ public class Stereotypes {
         private NamedStrategyActorCreator named(String name) {
             return ActorSystem.named(name).strategy(strategy, closeStrategy);
         }
+    }
+
+    public static <T> Consumer<T> wrapWithRateLimiting(Consumer<T> actorLogic, int msBetweenCalls) {
+        return value -> {
+            long start = System.currentTimeMillis();
+
+            actorLogic.accept(value);
+
+            long end = System.currentTimeMillis() - start;
+
+            if (msBetweenCalls > (end - start))
+                SystemUtils.sleep(msBetweenCalls - (end - start));
+        };
+    }
+
+    public static <T, R> Function<T, R> wrapWithRateLimitingReturn(Function<T, R> actorLogic, int msBetweenCalls) {
+        return value -> {
+            long start = System.currentTimeMillis();
+
+            R result = actorLogic.apply(value);
+
+            long end = System.currentTimeMillis();
+
+            if (msBetweenCalls > (end - start)) {
+                SystemUtils.sleep(msBetweenCalls - (end - start));
+            }
+
+            return result;
+        };
     }
 
     private static <T> void manageHttpClientResponse(Scheduler scheduler, boolean sendLastError, AtomicReference<Actor<HttpUrlDownload<T>, Void, Void>> refActor, HttpUrlDownload<T> download, HttpResponse<T> response, Throwable ex) {

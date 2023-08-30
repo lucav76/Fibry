@@ -1,1 +1,1 @@
-- Allow shorter timeouts than the scheduling time
+- Fixes scheduleWithFixedDelay() initial delay

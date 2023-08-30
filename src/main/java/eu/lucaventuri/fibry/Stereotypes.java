@@ -361,16 +361,15 @@ public class Stereotypes {
             if (initialDelay > 0)
               actor.execAsync(() -> SystemUtils.sleep(timeUnit.toMillis(initialDelay)));
 
-
             AtomicReference<Runnable> runThenWait = new AtomicReference<>();
             AtomicBoolean dummyThreadShouldDie  = new AtomicBoolean();
 
             runThenWait.set(() -> {
+                actor.execAsync(run);
                 actor.execAsync(() -> {
                     // Allow shorter timeout than the scheduling time
                     HealRegistry.INSTANCE.remove(actor, Thread.currentThread(), dummyThreadShouldDie);
                     SystemUtils.sleep(timeUnit.toMillis(delay)); });
-                actor.execAsync(run);
                 actor.execAsync(runThenWait.get());
             });
 

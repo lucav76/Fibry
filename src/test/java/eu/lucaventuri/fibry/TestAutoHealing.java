@@ -208,7 +208,7 @@ public class TestAutoHealing {
 
         SystemUtils.sleep(1200);
 
-        Assert.assertEquals(4, calls.get());
+        Assert.assertEquals(3, calls.get());
         Assert.assertEquals(3, count.get());
         Assert.assertEquals(0, interruptions.get());
         Assert.assertEquals(1, recreations.get());

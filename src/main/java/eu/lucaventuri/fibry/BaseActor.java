@@ -308,10 +308,11 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
                     else
                         takeAndProcessSingleMessageTimeout();
                 } catch (Exception e) {
-                    System.err.println(e);
                     if (autoHealing.onInterruption != null && (Thread.interrupted() ||
                             e.getClass() == InterruptedException.class || e.getCause().getClass() == InterruptedException.class)) {
                         Exceptions.logShort(() -> autoHealing.onInterruption.accept(e));
+                    } else {
+                        System.err.println(e);
                     }
                 } finally {
                     HealRegistry.INSTANCE.remove(this, curThread, threadShouldDie);

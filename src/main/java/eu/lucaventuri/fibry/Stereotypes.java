@@ -572,10 +572,8 @@ public class Stereotypes {
             runThenWait.set(() -> {
                 // As we are inside the event loop of the actor, we can only call execAsync
                 actor.execAsync(run);
-                actor.execAsyncNoHealing(() -> {
-                    // When this runs, run.run() has been executed
-                    SystemUtils.sleep(timeUnit.toMillis(delay)); }
-                );
+                // When this runs, run.run() has been executed
+                actor.execAsyncNoHealing(() -> SystemUtils.sleep(timeUnit.toMillis(delay)));
                 actor.execAsync(runThenWait.get());
             });
 

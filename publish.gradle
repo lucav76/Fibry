@@ -83,3 +83,9 @@ javadoc {
         options.addBooleanOption('html5', true)
     }
 }
+
+release {
+    git {
+        requireBranch.set('jdk8')
+    }
+}

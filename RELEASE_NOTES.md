@@ -1,1 +1,1 @@
-- Fixes scheduleWithFixedDelay() initial delay
+- Reduces log pollution

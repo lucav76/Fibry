@@ -3,7 +3,7 @@ plugins {
     id 'maven-publish'
     id 'signing'
     //id 'org.kordamp.gradle.java-project' version '0.45.0'
-    id 'org.jreleaser' version '0.8.0'
+    id 'org.jreleaser' version '0.10.0'
 }
 
 group 'eu.lucaventuri'

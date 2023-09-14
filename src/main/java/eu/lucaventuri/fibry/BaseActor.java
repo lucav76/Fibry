@@ -282,10 +282,12 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
                     else
                         takeAndProcessSingleMessageTimeout();
                 } catch (Exception e) {
-                    System.err.println(e);
                     if (autoHealing.onInterruption != null && (Thread.interrupted() ||
-                            e.getClass() == InterruptedException.class || e.getCause().getClass() == InterruptedException.class))
+                            e.getClass() == InterruptedException.class || e.getCause().getClass() == InterruptedException.class)) {
                         autoHealing.onInterruption.run();
+                    } else {
+                        System.err.println(e);
+                    }
                 }
                 HealRegistry.INSTANCE.remove(this, curThread, threadShouldDie);
                 if (threadShouldDie.get()) {  // Notification done in HealRegistry, earlier

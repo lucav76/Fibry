@@ -113,10 +113,13 @@ public interface Generator<T> extends Iterable<T> {
             BlockingQueue<T> queue = new LinkedBlockingDeque<>(queueSize);
 
             Stereotypes.def().runOnce(() -> {
-                producer.produceAllItems(elem -> {
-                    safeOffer(queue, elem);
-                });
-                stateRef.set(State.FINISHED);
+                try {
+                    producer.produceAllItems(elem -> {
+                        safeOffer(queue, elem);
+                    });
+                } finally {
+                    stateRef.set(State.FINISHED);
+                }
             });
 
             return fromQueue(queue, stateRef, maxThroughput);
@@ -144,18 +147,21 @@ public interface Generator<T> extends Iterable<T> {
 
             for (int i = 0; i < numProducers; i++) {
                 Stereotypes.def().runOnce(() -> {
-                    producerSupplier.get().produceAllItems(elem -> {
-                        safeOffer(queue, elem);
-                        numElements.incrementAndGet();
-                    });
-                    latch.countDown();
-                    System.out.println("Counting down at " + numElements.get());
-
                     try {
-                        latch.await();
-                    } catch (InterruptedException e) {
+                        producerSupplier.get().produceAllItems(elem -> {
+                            safeOffer(queue, elem);
+                            numElements.incrementAndGet();
+                        });
+                        latch.countDown();
+                        System.out.println("Counting down at " + numElements.get());
+
+                        try {
+                            latch.await();
+                        } catch (InterruptedException e) {
+                        }
+                    } finally {
+                        stateRef.set(State.FINISHED);
                     }
-                    stateRef.set(State.FINISHED);
                     System.out.println("Finished at " + numElements.get());
                 });
             }
@@ -184,11 +190,15 @@ public interface Generator<T> extends Iterable<T> {
             BlockingQueue<T> queue = new LinkedBlockingDeque<>(queueSize);
 
             Stereotypes.def().runOnce(() -> {
-                T lastElement = producer.produceAllItems(elem -> {
-                    stateRef.set(State.GENERATING);
-                    safeOffer(queue, elem);
-                });
-                offerLastElement(stateRef, queue, lastElement);
+                try {
+                    T lastElement = producer.produceAllItems(elem -> {
+                        stateRef.set(State.GENERATING);
+                        safeOffer(queue, elem);
+                    });
+                    offerLastElement(stateRef, queue, lastElement);
+                } finally {
+                    stateRef.set(State.FINISHED);
+                }
             });
 
             return fromQueue(queue, stateRef, maxThroughput);
@@ -219,10 +229,14 @@ public interface Generator<T> extends Iterable<T> {
             BlockingQueue<T> queue = new LinkedBlockingDeque<>(queueSize);
 
             Stereotypes.def().runOnce(() -> {
-                T lastElement = producer.produceAllItems(elem -> {
-                    safeOffer(queue, elem);
-                });
-                offerLastElement(stateRef, queue, lastElement);
+                try {
+                    T lastElement = producer.produceAllItems(elem -> {
+                        safeOffer(queue, elem);
+                    });
+                    offerLastElement(stateRef, queue, lastElement);
+                } finally {
+                    stateRef.set(State.FINISHED);
+                }
             });
 
             return fromQueue(queue, stateRef, maxThroughput);
@@ -236,7 +250,6 @@ public interface Generator<T> extends Iterable<T> {
             stateRef.set(State.WAITING);
             safeOffer(queue, lastElement);
         }
-        stateRef.set(State.FINISHED);
     }
 
     static <T> void safeOffer(BlockingQueue<T> queue, T elem) {

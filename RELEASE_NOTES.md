@@ -1,1 +1,2 @@
-- Reduces log pollution
+- Makes the generator more resilient to exceptions
+- Adds the AntiFreeze class, useful for generators

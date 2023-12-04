@@ -53,7 +53,7 @@ You can find Fibry on Maven Central.
 
 To include it using Gradle:
 ```gradle
-compile group: 'eu.lucaventuri', name: 'fibry', version: '1.1.6'
+compile group: 'eu.lucaventuri', name: 'fibry', version: '1.1.7'
 ```
 
 To include it using Maven:
@@ -61,7 +61,7 @@ To include it using Maven:
 <dependency>
     <groupId>eu.lucaventuri</groupId>
     <artifactId>fibry</artifactId>
-    <version>1.1.6</version>
+    <version>1.1.7</version>
 </dependency>
 ```
 

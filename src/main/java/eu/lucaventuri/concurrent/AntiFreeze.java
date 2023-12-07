@@ -1,6 +1,8 @@
 package eu.lucaventuri.concurrent;
 
 import eu.lucaventuri.common.Exceptions;
+import eu.lucaventuri.common.SystemUtils;
+import eu.lucaventuri.fibry.Generator;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -27,11 +29,11 @@ public class AntiFreeze {
 
     public AntiFreeze(int activityTimeoutMs, int taskTimeoutMs, Runnable onTimeout) {
         assert activityTimeoutMs <= taskTimeoutMs;
-        Thread originalThread = Thread.currentThread();
+        Thread callingThread = Thread.currentThread();
 
         this.activityTimeoutMs = activityTimeoutMs;
         this.taskTimeoutMs = Math.max(activityTimeoutMs, taskTimeoutMs);
-        this.onTimeout = onTimeout == null ? originalThread::interrupt : onTimeout;
+        this.onTimeout = onTimeout == null ? callingThread::interrupt : onTimeout;
 
         AtomicReference<Runnable> runRef = new AtomicReference<>();
         Runnable run = () -> {
@@ -46,6 +48,10 @@ public class AntiFreeze {
 
     public AntiFreeze(int activityTimeoutMs, int taskTimeoutMs) {
         this(activityTimeoutMs, taskTimeoutMs, null);
+    }
+
+    public AntiFreeze(Thread threadToStop, int activityTimeoutMs, int taskTimeoutMs) {
+        this(activityTimeoutMs, taskTimeoutMs, threadToStop == null ? null : () -> Exceptions.rethrowRuntime(threadToStop::interrupt));
     }
 
     /* Return false if it is frozen, which should stop the scheduling */
@@ -93,7 +99,7 @@ public class AntiFreeze {
 
         try {
             System.out.println("Starting...");
-            AntiFreeze frz = new AntiFreeze(1500, 7000);
+            /*AntiFreeze frz = new AntiFreeze(1500, 7000);
 
             try {
                 for (int i = 0; i < 5; i++) {
@@ -102,7 +108,7 @@ public class AntiFreeze {
                 }
             }
             finally {
-                //frz.notifyFinished(); // Comment to test a timeout
+                frz.notifyFinished(); // Comment to test a timeout
             }
 
             frz.notifyActivity();
@@ -121,9 +127,18 @@ public class AntiFreeze {
                         frz2.notifyActivity();
                     }
                 });
-            });
+            });*/
 
             System.out.println("Finished 2...");
+
+            Generator.fromProducer(yielder -> {
+                for (int i=0; i<10; i++) {
+                    SystemUtils.sleep(1000);
+                    yielder.yield(i);
+                }
+            }, 10,false ,2_000 ,5_000 ).toStream().forEach(System.out::println);
+
+            System.out.println("Finished 3...");
         } finally {
             System.out.println("Time passed: " + (System.currentTimeMillis() - start));
             AntiFreeze.stopScheduler();

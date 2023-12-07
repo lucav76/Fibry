@@ -1,7 +1,11 @@
 package eu.lucaventuri.fibry;
 
+import eu.lucaventuri.common.SystemUtils;
 import eu.lucaventuri.concurrent.AntiFreeze;
 
+import com.sun.management.OperatingSystemMXBean;
+
+import java.lang.management.ManagementFactory;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Spliterator;
@@ -70,7 +74,7 @@ public interface Generator<T> extends Iterable<T> {
                 // Waiting to understand if there is an element or not
                 while ((state = stateRef.get()) == State.WAITING && queue.isEmpty()) {
                     if (!maxThroughput)
-                        Thread.yield();
+                        SystemUtils.sleep(1);
                 }
 
                 return state == State.GENERATING || !queue.isEmpty();
@@ -304,5 +308,25 @@ public interface Generator<T> extends Iterable<T> {
 
     static <T> Stream<T> streamFromIterable(Iterable<T> iterable) {
         return streamFromIterator(iterable.iterator());
+    }
+
+    public static void main(String[] args) {
+        OperatingSystemMXBean osBean = (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
+
+        long time = osBean.getProcessCpuTime();
+
+        Generator.fromProducer(yielder -> {
+            SystemUtils.sleepEnsure(2000);
+        }, 100, true).forEach(obj -> {});
+
+        long time2 = osBean.getProcessCpuTime();
+        System.out.println("Max throughput: " + ((time2 - time) / 1_000_000) + " ms");
+
+        Generator.fromProducer(yielder -> {
+            SystemUtils.sleepEnsure(2000);
+        }, 100, false).forEach(obj -> {});
+
+        long time3 = osBean.getProcessCpuTime();
+        System.out.println("Normal throughput: " + ((time3 - time2) / 1_000_000) + " ms");
     }
 }

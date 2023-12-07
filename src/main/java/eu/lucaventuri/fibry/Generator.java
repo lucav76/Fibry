@@ -1,5 +1,7 @@
 package eu.lucaventuri.fibry;
 
+import eu.lucaventuri.concurrent.AntiFreeze;
+
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Spliterator;
@@ -106,6 +108,13 @@ public interface Generator<T> extends Iterable<T> {
      * Simplest way to create a generator, but it can be slow if the queue size is small, so a queue size of 100+ is recommended if performance are not good
      */
     static <T> Generator<T> fromProducer(GeneratorProducer<T> producer, int queueSize, boolean maxThroughput) {
+        return fromProducer(producer, queueSize, maxThroughput, 0, 0);
+    }
+
+    /**
+     * Simplest way to create a generator, but it can be slow if the queue size is small, so a queue size of 100+ is recommended if performance are not good
+     */
+    static <T> Generator<T> fromProducer(GeneratorProducer<T> producer, int queueSize, boolean maxThroughput, int itemTimeoutMs, int fullTimeoutMs) {
         assert queueSize >= 1;
 
         return () -> {
@@ -113,12 +122,18 @@ public interface Generator<T> extends Iterable<T> {
             BlockingQueue<T> queue = new LinkedBlockingDeque<>(queueSize);
 
             Stereotypes.def().runOnce(() -> {
+                AntiFreeze frz = fullTimeoutMs <=0 ? null : new AntiFreeze(itemTimeoutMs, fullTimeoutMs);
+
                 try {
                     producer.produceAllItems(elem -> {
                         safeOffer(queue, elem);
+                        if (frz != null)
+                            frz.notifyActivity();
                     });
                 } finally {
                     stateRef.set(State.FINISHED);
+                    if (frz != null)
+                        frz.notifyFinished();
                 }
             });
 
@@ -183,6 +198,14 @@ public interface Generator<T> extends Iterable<T> {
      * Failing to do so and returning null, will eventually result in a NoSuchElementException
      */
     static <T> Generator<T> fromAdvancedProducer(AdvancedGeneratorProducer<T> producer, int queueSize, boolean maxThroughput) {
+     return fromAdvancedProducer(producer, queueSize, maxThroughput, 0, 0);
+    }
+
+    /**
+     * This is the way to create a fast generator, with the small inconvenience that the last element should be returned, not yielded.
+     * Failing to do so and returning null, will eventually result in a NoSuchElementException
+     */
+    static <T> Generator<T> fromAdvancedProducer(AdvancedGeneratorProducer<T> producer, int queueSize, boolean maxThroughput, int itemTimeoutMs, int fullTimeoutMs) {
         assert queueSize >= 1;
 
         return () -> {
@@ -190,14 +213,22 @@ public interface Generator<T> extends Iterable<T> {
             BlockingQueue<T> queue = new LinkedBlockingDeque<>(queueSize);
 
             Stereotypes.def().runOnce(() -> {
+                AntiFreeze frz = fullTimeoutMs <=0 ? null : new AntiFreeze(itemTimeoutMs, fullTimeoutMs);
+
                 try {
                     T lastElement = producer.produceAllItems(elem -> {
                         stateRef.set(State.GENERATING);
                         safeOffer(queue, elem);
+                        if (frz != null)
+                            frz.notifyActivity();
                     });
                     offerLastElement(stateRef, queue, lastElement);
+                    if (frz != null)
+                        frz.notifyActivity();
                 } finally {
                     stateRef.set(State.FINISHED);
+                    if (frz != null)
+                        frz.notifyFinished();
                 }
             });
 

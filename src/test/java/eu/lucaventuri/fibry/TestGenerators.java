@@ -9,6 +9,17 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
 public class TestGenerators extends TestCase {
+
+    public void testGeneratorEmpty() {
+        Iterable<Integer> gen = Generator.fromProducer(yielder -> {
+        }, 5, true);
+
+        for(int n: gen)
+            System.out.println(n);
+
+        System.out.println("Empty done");
+    }
+
     public void testGeneratorRndom() {
         Iterable<Integer> gen = Generator.fromProducer(yielder -> {
             for (int i = 0; i <= 10; i++) {

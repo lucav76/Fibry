@@ -1,2 +1,2 @@
-- Makes the generator more resilient to exceptions
-- Adds the AntiFreeze class, useful for generators
+- Reduces CPU consumption of "max throughput" generators
+- Integrates AntiFreeze with generators

@@ -2,6 +2,7 @@ package eu.lucaventuri.examples;
 
 import eu.lucaventuri.common.SystemUtils;
 import eu.lucaventuri.fibry.ActorSystem;
+import eu.lucaventuri.fibry.CreationStrategy;
 import eu.lucaventuri.fibry.HealRegistry;
 
 import java.util.concurrent.ExecutionException;
@@ -14,7 +15,7 @@ public class AutoHealingExample {
         HealRegistry.INSTANCE.setFrequency(1, TimeUnit.SECONDS);
         HealRegistry.INSTANCE.setGracePeriod(1, TimeUnit.SECONDS);
 
-        var actor = ActorSystem.anonymous().autoHealing(new ActorSystem.AutoHealingSettings(3, 5, (e) -> System.out.println("Notification by AutoHealing - Interruption"), () -> System.out.println("Notification by AutoHealing - New Thread"))).newActor((Long time) -> {
+        var actor = ActorSystem.anonymous().strategy(CreationStrategy.THREAD).autoHealing(new ActorSystem.AutoHealingSettings(3, 5, (e) -> System.out.println("Notification by AutoHealing - Interruption"), () -> System.out.println("Notification by AutoHealing - New Thread"))).newActor((Long time) -> {
             System.out.println("Waiting for " + time + ": " + Thread.currentThread().getName() + " - " + Thread.currentThread().getId());
             SystemUtils.sleepEnsure(time);
         });

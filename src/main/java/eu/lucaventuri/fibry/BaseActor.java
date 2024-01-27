@@ -309,7 +309,7 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
                         takeAndProcessSingleMessageTimeout();
                 } catch (Exception e) {
                     if (autoHealing.onInterruption != null && (Thread.interrupted() ||
-                            e.getClass() == InterruptedException.class || e.getCause().getClass() == InterruptedException.class)) {
+                            e instanceof InterruptedException || e.getCause() instanceof InterruptedException)) {
                         Exceptions.logShort(() -> autoHealing.onInterruption.accept(e));
                     } else {
                         System.err.println(e);

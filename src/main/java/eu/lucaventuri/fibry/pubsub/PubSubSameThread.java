@@ -45,7 +45,7 @@ class PubSubSameThread<T> implements PubSub<T> {
             synchronized (topicSubscribers) {
                 topicSubscribers.remove(consumer);
 
-                if (topicSubscribers.size() == 0) {
+                if (topicSubscribers.isEmpty()) {
                     subscribers.remove(topic);
                 }
             }

@@ -56,7 +56,7 @@ public class FsmTemplate<S extends Enum, M, A extends Consumer<FsmContext<S, M, 
         var usedStates = mapEnums.values().stream().flatMap(state -> state.transtions.stream().map(transition -> transition.targetState)).distinct().collect(Collectors.toList());
 
         for (var st : usedStates) {
-            if (!mapStates.keySet().contains(st))
+            if (!mapStates.containsKey(st))
                 throw new IllegalArgumentException("Transition to unknown state " + st);
         }
     }

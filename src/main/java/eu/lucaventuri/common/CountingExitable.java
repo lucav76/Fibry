@@ -50,11 +50,6 @@ public class CountingExitable extends Exitable {
         throw new UnsupportedOperationException("waitForExit() is supported only without a timeout");
     }
 
-    @Override
-    public boolean sendPoisonPill() {
-        return false;
-    }
-
     public void addCreated() { created.incrementAndGet(); }
 
     public void addFinished() { finished.incrementAndGet(); }

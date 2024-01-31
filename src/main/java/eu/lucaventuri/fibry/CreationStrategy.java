@@ -33,7 +33,7 @@ public enum CreationStrategy {
         @Override
         public Executor newExecutor() {
             // Executed every task in a new virtual thread / fiber
-            return ActorUtils.newFibersExecutor();
+            return ActorUtils.newVirtualThreadsExecutor();
         }
     },
     /** If fibers are available, then it uses FIBER else it uses THREAD */

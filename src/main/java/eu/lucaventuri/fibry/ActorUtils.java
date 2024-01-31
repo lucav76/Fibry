@@ -1,7 +1,6 @@
 package eu.lucaventuri.fibry;
 
 import eu.lucaventuri.common.Exceptions;
-import eu.lucaventuri.common.SystemUtils;
 import eu.lucaventuri.concurrent.SignalingSingleConsumer;
 import eu.lucaventuri.fibry.receipts.CompletableReceipt;
 import eu.lucaventuri.fibry.receipts.ImmutableReceipt;
@@ -9,10 +8,6 @@ import eu.lucaventuri.fibry.receipts.ReceiptFactory;
 import eu.lucaventuri.functional.Either3;
 
 import java.io.IOException;
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodType;
-import java.lang.reflect.Array;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.*;
@@ -23,69 +18,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 public final class ActorUtils {
-    private final static Class clzFiberScope;
-    private final static Class clzFiber;
-    private final static MethodHandle mhFiberScopeOpen;
-    private final static MethodHandle mhFiberScopeScheduleRunnable;
-    private final static MethodHandle mmhFiberScopeScheduleCallable;
-    private final static MethodHandle mhVirtualThread;
-    private final static Method mtNewVirtualThreadExecutor;
-    private final static Object options;
-    private final static AutoCloseable globalFiberScope;
-
-
-    static {
-        MethodHandle tmpMethodOpen = null;
-        MethodHandle tmpMethodScheduleRunnable = null;
-        MethodHandle tmpMethodScheduleCallable = null;
-        MethodHandle tmpMethodVirtualThread = null;
-        Method tmpMethodNewVirtualThreadExecutor = null;
-        clzFiberScope = SystemUtils.findClassByName("java.lang.FiberScope");
-
-        clzFiber = SystemUtils.findClassByName("java.lang.Fiber");
-        Class clzOptionArray = SystemUtils.findClassByName("[Ljava.lang.FiberScope$Option;");
-        options = clzOptionArray == null ? null : Array.newInstance(clzOptionArray, 0);
-
-        try {
-            // Fibers version 1
-            MethodType mtOpen = clzFiberScope == null ? null : MethodType.methodType(clzFiberScope, clzOptionArray);
-            tmpMethodOpen = clzFiberScope == null ? null : SystemUtils.publicLookup.findStatic(clzFiberScope, "open", mtOpen);
-
-            MethodType mtScheduleRunnable = clzFiberScope == null ? null : MethodType.methodType(clzFiber, Runnable.class);
-            MethodType mtScheduleCallable = clzFiberScope == null ? null : MethodType.methodType(clzFiber, Callable.class);
-            tmpMethodScheduleRunnable = clzFiberScope == null ? null : SystemUtils.publicLookup.findVirtual(clzFiberScope, "schedule", mtScheduleRunnable);
-            tmpMethodScheduleCallable = clzFiberScope == null ? null : SystemUtils.publicLookup.findVirtual(clzFiberScope, "schedule", mtScheduleCallable);
-        } catch (NoSuchMethodException | IllegalAccessException e) {
-        }
-
-        try {
-            // Fibers version 2
-            MethodType mtThreadRunnable = MethodType.methodType(Thread.class, Runnable.class);
-            tmpMethodVirtualThread = SystemUtils.publicLookup.findStatic(Thread.class, "startVirtualThread", mtThreadRunnable);
-        } catch (NoSuchMethodException | IllegalAccessException e) {
-        }
-
-        // New virtual thread executor, Dibers version 2
-        try {
-            var clz = java.util.concurrent.Executors.class;
-            tmpMethodNewVirtualThreadExecutor = clz.getMethod("newVirtualThreadExecutor");
-        } catch (NoSuchMethodException e) {
-        }
-
-        // Fibers version 1
-        mhFiberScopeOpen = tmpMethodOpen;
-        mhFiberScopeScheduleRunnable = tmpMethodScheduleRunnable;
-        mmhFiberScopeScheduleCallable = tmpMethodScheduleCallable;
-        globalFiberScope = clzFiberScope == null ? null : openFiberScope();
-
-        // Fibers version 2
-        mhVirtualThread = tmpMethodVirtualThread;
-
-        mtNewVirtualThreadExecutor = tmpMethodNewVirtualThreadExecutor;
-
-        //System.out.println("clzOptionArray: " + clzOptionArray);
-    }
-
     private ActorUtils() { /* Static methods only */}
 
     static <T, R, S> void sendMessage(MiniQueue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, T message) {
@@ -191,76 +123,7 @@ public final class ActorUtils {
     }
 
     public static boolean areFibersAvailable() {
-        return areFibersV2Available() || areFibersV1Available();
-    }
-
-    public static boolean areFibersV1Available() {
-        return clzFiberScope != null;
-    }
-
-    public static boolean areFibersV2Available() {
-        return mhVirtualThread != null;
-    }
-
-    public static AutoCloseable openFiberScope() {
-        if (null == mhFiberScopeOpen)
-            return null;
-
-        try {
-            return (AutoCloseable) mhFiberScopeOpen.invokeWithArguments();
-        } catch (Throwable e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
-
-    public static void runAsFiberScope(Runnable... runnables) {
-        if (mhFiberScopeScheduleRunnable == null)
-            throw new UnsupportedOperationException("No fibers available!");
-
-        try (AutoCloseable scope = openFiberScope()) {
-            for (Runnable run : runnables)
-                mhFiberScopeScheduleRunnable.invoke(scope, run);
-        } catch (Throwable e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static void runAsFiberScope(Callable... callables) {
-        if (mmhFiberScopeScheduleCallable == null)
-            throw new UnsupportedOperationException("No fibers available!");
-
-        try (AutoCloseable scope = openFiberScope()) {
-            for (Callable callable : callables)
-                mhFiberScopeScheduleRunnable.invoke(scope, callable);
-        } catch (Throwable e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static void runAsFiber(Runnable... runnables) {
-        // Fibers V2
-        if (mhVirtualThread != null) {
-            try {
-                for (Runnable run : runnables)
-                    mhVirtualThread.invoke(run);
-            } catch (Throwable e) {
-                e.printStackTrace();
-            }
-
-            return;
-        }
-
-        // Fibers V1
-        if (mhFiberScopeScheduleRunnable == null)
-            throw new UnsupportedOperationException("No fibers available!");
-
-        try {
-            for (Runnable run : runnables)
-                mhFiberScopeScheduleRunnable.invoke(globalFiberScope, run);
-        } catch (Throwable e) {
-            e.printStackTrace();
-        }
+        return true;
     }
 
     /**
@@ -284,7 +147,7 @@ public final class ActorUtils {
         });
     }
 
-      public static <T, R> Function<T, R> extractEventHandlerLogicWithReturn(Object messageHandler) {
+    public static <T, R> Function<T, R> extractEventHandlerLogicWithReturn(Object messageHandler) {
         final Set<Map.Entry<Class, Method>> types = extractEventHandlers(messageHandler.getClass()).entrySet();
 
         return message -> Exceptions.logShort(() -> {
@@ -379,26 +242,29 @@ public final class ActorUtils {
         return independentTypes;
     }
 
+    public static void runAsFiber(Runnable... runnables) {
+        ThreadFactory threadFactory = Thread.ofVirtual().factory();
+        for (Runnable run : runnables) {
+            threadFactory.newThread(run).start();
+        }
+    }
+
     private static boolean isMethodHandler(Method method) {
         return method.getName().length() >= 3 && method.getName().startsWith("on") && Character.isUpperCase(method.getName().charAt(2)) && method.getParameterCount() == 1;
     }
 
+    public static ExecutorService newVirtualThreadsExecutor() {
+        try (ExecutorService virtualThreadPerTaskExecutor = Executors.newVirtualThreadPerTaskExecutor()) {
+            return virtualThreadPerTaskExecutor;
+        }
+    }
 
+    /**
+     * @return A new virtualThreadsExecutor
+     * @deprecated Use {@link #newVirtualThreadsExecutor()} instead
+     */
+    @Deprecated(since = "3", forRemoval = true)
     public static ExecutorService newFibersExecutor() {
-        assert areFibersAvailable();
-
-        if (mtNewVirtualThreadExecutor == null) {
-            System.err.println("Virtual executor: falling back to ForkJoinPool");
-            return new java.util.concurrent.ForkJoinPool();
-        }
-
-        try {
-            return (ExecutorService) mtNewVirtualThreadExecutor.invoke(null);
-        } catch (IllegalAccessException | InvocationTargetException e) {
-            System.err.println("Could not create an executor with virtual threads, switching to ForkJoin pool");
-
-            // Better than nothing
-            return new java.util.concurrent.ForkJoinPool();
-        }
+        return newVirtualThreadsExecutor();
     }
 }

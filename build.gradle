@@ -9,8 +9,11 @@ plugins {
 group 'eu.lucaventuri'
 version version
 
-sourceCompatibility = 11
-targetCompatibility = 11
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
 
 repositories {
     mavenCentral()

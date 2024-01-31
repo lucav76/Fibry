@@ -16,13 +16,13 @@ public class PubSubOneActorPerSubscriber<T> extends PubSubOneActorPerTopic<T> {
         Actor<T, Void, Void> subscriberActor = ActorSystem.anonymous().newActor(consumer);
         Subscription subscription = super.subscribe(topic, subscriberActor, maxSubscribers);
 
-        if (subscription == null)
-            return subscription;
-
-        return () -> {
-            subscription.cancel();
-            subscriberActor.askExit();
-            subscriberActor.sendPoisonPill();
-        };
+        if (subscription != null) {
+            return () -> {
+                subscription.cancel();
+                subscriberActor.askExit();
+                subscriberActor.sendPoisonPill();
+            };
+        }
+        return null;
     }
 }

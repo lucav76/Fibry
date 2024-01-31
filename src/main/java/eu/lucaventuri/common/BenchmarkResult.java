@@ -15,27 +15,21 @@ public class BenchmarkResult {
 
     public static long min(long[] values) {
         long min = Long.MAX_VALUE;
-
-        for (int i = 0; i < values.length; i++)
-            min = Math.min(min, values[i]);
+        for (long value : values) min = Math.min(min, value);
 
         return min;
     }
 
     public static long max(long[] values) {
         long max = Long.MIN_VALUE;
-
-        for (int i = 0; i < values.length; i++)
-            max = Math.max(max, values[i]);
+        for (long value : values) max = Math.max(max, value);
 
         return max;
     }
 
     public static long average(long[] values) {
         long sum = 0;
-
-        for (int i = 0; i < values.length; i++)
-            sum += values[i];
+        for (long value : values) sum += value;
 
         return sum / values.length;
     }

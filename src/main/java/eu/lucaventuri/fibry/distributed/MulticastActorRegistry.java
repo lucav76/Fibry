@@ -61,10 +61,6 @@ public class MulticastActorRegistry extends BaseActorRegistry {
         }
     }
 
-
-
-
-
     @Override
     public void close() throws Exception {
         super.close();

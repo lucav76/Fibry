@@ -99,7 +99,7 @@ public final class SystemUtils {
     public static List<File> getAllFiles(File parent) {
         List<File> files = new ArrayList<>();
 
-        for (File f : parent.listFiles()) {
+        for (File f : Objects.requireNonNull(parent.listFiles())) {
             if (f.isDirectory())
                 files.addAll(getAllFiles(f));
             else

@@ -147,7 +147,7 @@ public class CacheAheadList<R> implements Supplier<R> {
         if (list.size() <= minSizeRefill)
             asyncRefill();
 
-        R value = list.remove(0);
+        R value = list.removeFirst();
         commit(listCommitter);
         return value;
     }

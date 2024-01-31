@@ -1,10 +1,11 @@
-task sourceJarSonatype(type: Jar) {
-    classifier "sources"
+tasks.register('sourceJarSonatype', Jar) {
+    archiveClassifier.set("sources")
     from sourceSets.main.allJava
 }
 
-task javadocJarSonatype(type: Jar, dependsOn: javadoc) {
-    classifier "javadoc"
+tasks.register('javadocJarSonatype', Jar) {
+    dependsOn javadoc
+    archiveClassifier.set("javadoc")
     from javadoc.destinationDir
 }
 

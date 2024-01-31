@@ -53,7 +53,7 @@ public final class Utilities {
         if (watchDelete)
             events.add(StandardWatchEventKinds.ENTRY_DELETE);
 
-        WatchEvent.Kind<Path> ar[] = events.toArray(new WatchEvent.Kind[0]);
+        WatchEvent.Kind<Path>[] ar = events.toArray(new WatchEvent.Kind[0]);
 
         path.toPath().register(watchService, ar);
 

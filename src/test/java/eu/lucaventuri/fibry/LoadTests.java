@@ -17,28 +17,19 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class LoadTests {
     @Test
     public void testHttp() throws IOException, URISyntaxException, InterruptedException {
-        boolean fibersAvailable = ActorUtils.areFibersAvailable();
-
-        System.out.println("Fibers: " + fibersAvailable);
-
         var num = new AtomicInteger();
         int port = 10001;
-        var url = new URL("http://localhost:" + port + "/test");
         var uri = new URI("http://localhost:" + port + "/test");
 
         Stereotypes.def().embeddedHttpServer(port, new Stereotypes.HttpStringWorker("/test", ex ->
                 ""+num.incrementAndGet()));
 
-        final int numThreads;
-        final int numCalls;
+        final int numThreads = 250;
+        final int numCalls = 100;
 
-        if (fibersAvailable) {
-            numThreads = 250;
-            numCalls = 100;
-        } else {
-            numThreads = 100;
-            numCalls = 100;
-        }
+        System.out.println(uri);
+
+        //Thread.sleep(300_00);
 
         CountDownLatch latch = new CountDownLatch(numThreads);
         var client = HttpUtil.getHttpClient(10);

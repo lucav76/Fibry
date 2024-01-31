@@ -6,7 +6,7 @@ import eu.lucaventuri.fibry.Stereotypes;
 
 public class ChoiceExample {
     public static void main(String[] args) {
-        ActorUtils.runAsFiberScope(() -> System.out.println("Naked fiber 1!"), () -> System.out.println("Naked fiber 2!"), () -> System.out.println("Naked fiber 3!"));
+        // ActorUtils.runAsFiberScope(() -> System.out.println("Naked fiber 1!"), () -> System.out.println("Naked fiber 2!"), () -> System.out.println("Naked fiber 3!"));
 
         ActorUtils.runAsFiber(() -> System.out.println("Naked fiber GS 1!"), () -> System.out.println("Naked fiber GS 2!"), () -> System.out.println("Naked fiber GS 3!"));
 

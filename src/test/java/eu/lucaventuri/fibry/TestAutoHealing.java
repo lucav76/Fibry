@@ -112,11 +112,6 @@ public class TestAutoHealing {
         Assert.assertTrue(end - partial >= 3000);
     }
 
-    @Test(expected = UnsupportedOperationException.class)
-    public void testFailOnFibers() {
-        ActorSystem.anonymous().strategy(CreationStrategy.FIBER).autoHealing(new ActorSystem.AutoHealingSettings(1, 2, null, null)).newActor(SystemUtils::sleepEnsure);
-    }
-
     @Test
     public void testMaxRecovering() throws InterruptedException, ExecutionException {
         HealRegistry.INSTANCE.setGracePeriod(10, TimeUnit.MILLISECONDS);

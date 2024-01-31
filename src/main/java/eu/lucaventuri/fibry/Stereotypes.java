@@ -295,7 +295,7 @@ public class Stereotypes {
         public HttpServer embeddedHttpServer(int port, HttpStringWorker... workers) throws IOException {
             //NamedStateActorCreator<Void> config = anonymous().initialState(null);
             HttpServer server = HttpServer.create(new InetSocketAddress(port), defaultHttpBacklog.get());
-            server.setExecutor(AUTO.newExecutor());
+            server.setExecutor(FIBER.newExecutor());
 
             for (HttpStringWorker worker : workers) {
                 server.createContext(worker.context, exchange -> {

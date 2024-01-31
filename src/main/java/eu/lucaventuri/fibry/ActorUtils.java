@@ -254,9 +254,7 @@ public final class ActorUtils {
     }
 
     public static ExecutorService newVirtualThreadsExecutor() {
-        try (ExecutorService virtualThreadPerTaskExecutor = Executors.newVirtualThreadPerTaskExecutor()) {
-            return virtualThreadPerTaskExecutor;
-        }
+        return Executors.newVirtualThreadPerTaskExecutor();
     }
 
     /**

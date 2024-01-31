@@ -261,8 +261,6 @@ public class ActorSystem {
         }
 
         public NamedStateActorCreator<S> autoHealing(AutoHealingSettings newAutoHealing) {
-            if (strategy == CreationStrategy.FIBER || (strategy == CreationStrategy.AUTO && ActorUtils.areFibersAvailable()))
-                throw new UnsupportedOperationException("AutoHealing for now is only supported on threads");
             return new NamedStateActorCreator<S>(name, strategy, initialState, allowReuse, initializer, finalizer, closeStrategy, queueCapacity, pollTimeoutMs, newAutoHealing);
         }
 

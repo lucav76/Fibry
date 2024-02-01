@@ -6,8 +6,9 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.*;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Stream;
 import java.util.stream.Stream.Builder;
 
@@ -18,7 +19,9 @@ import java.util.stream.Stream.Builder;
  */
 public final class SystemUtils {
     private static final boolean assertsEnabled;
-    public static final MethodHandles.Lookup publicLookup = MethodHandles.publicLookup();;
+    public static final MethodHandles.Lookup publicLookup = MethodHandles.publicLookup();
+
+    private static final Logger logger = Logger.getLogger(SystemUtils.class.getName());
 
     static {
         // Check if the asserts are enabled
@@ -47,7 +50,7 @@ public final class SystemUtils {
     /**
      * Sleeps some ms
      *
-     * @param done return true if the sleep is over
+     * @param done                  return true if the sleep is over
      * @param msToSleepBetweenTests ms to sleep between each test
      */
     public static void sleepUntil(Supplier<Boolean> done, int msToSleepBetweenTests) {
@@ -136,7 +139,7 @@ public final class SystemUtils {
         try {
             clo.close();
         } catch (Exception e) {
-            System.err.println(e);
+            logger.log(Level.FINEST, "Error closing " + clo.toString(), e);
         }
     }
 
@@ -152,7 +155,7 @@ public final class SystemUtils {
         try {
             clo.close();
         } catch (IOException e) {
-            System.err.println(e);
+            logger.log(Level.FINEST, "Error closing " + clo.toString(), e);
         }
     }
 
@@ -210,7 +213,7 @@ public final class SystemUtils {
         long times[] = new long[numRunning];
 
         for (int i = 0; i < numRunning; i++) {
-            System.out.println("Round " + (i + 1) + " of " + numRunning);
+            logger.log(Level.FINE, "Round " + (i + 1) + " of " + numRunning);
             times[i] = timeEx(run);
 
             if (cleanup != null)
@@ -226,8 +229,7 @@ public final class SystemUtils {
         run.run();
 
         long time = System.currentTimeMillis() - start;
-
-        System.out.println(description + " : " + time + " ms");
+        logger.log(Level.FINE, description + " : " + time + " ms");
 
         return time;
     }
@@ -238,8 +240,7 @@ public final class SystemUtils {
         run.run();
 
         long time = System.currentTimeMillis() - start;
-
-        System.out.println(description + " : " + time + " ms");
+        logger.log(Level.FINE, description + " : " + time + " ms");
 
         return time;
     }
@@ -253,14 +254,14 @@ public final class SystemUtils {
             while ((read = is.read(buffer, 0, buffer.length)) >= 0) {
                 os.write(buffer, 0, read);
                 if (echoLabel != null && transferred < 128)
-                    System.out.println(echoLabel + ": " + new String(buffer, 0, (int) Math.min(read - transferred, 128)));
+                    logger.log(Level.FINE, echoLabel + ": " + new String(buffer, 0, (int) Math.min(read - transferred, 128)));
                 transferred += read;
             }
 
             return transferred;
         } finally {
             if (echoLabel != null)
-                System.out.println("Transferred " + echoLabel + " " + transferred + " bytes");
+                logger.log(Level.FINE, "Transferred " + echoLabel + " " + transferred + " bytes");
         }
     }
 
@@ -269,14 +270,14 @@ public final class SystemUtils {
     }
 
     public static void keepReadingStream(InputStream is, byte ar[], int offset, int len) throws IOException {
-        assert offset>=0;
-        assert len>=0;
-        assert offset+len<=ar.length;
+        assert offset >= 0;
+        assert len >= 0;
+        assert offset + len <= ar.length;
 
         int cur = 0;
 
         while (cur < len) {
-            int read = is.read(ar, cur+offset, len - cur);
+            int read = is.read(ar, cur + offset, len - cur);
 
             if (read < 0)
                 throw new EOFException("Stream terminated after " + cur + " bytes!");
@@ -286,7 +287,7 @@ public final class SystemUtils {
 
     /**
      * @param multiCastRequired True if the interface needs to support multicast
-     * @param siteLocalOnly true if only siteLocal IP addresses are required
+     * @param siteLocalOnly     true if only siteLocal IP addresses are required
      * @return all the local IP addresses of the computer
      * @throws SocketException
      */

@@ -18,6 +18,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public abstract class BaseActor<T, R, S> extends Exitable implements Function<T, R>, PartialActor<T, S>, SinkActor<S>, MessageOnlyActor<T, R, S> {
     protected final MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue;
@@ -29,6 +31,8 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
     protected final int pollTimeoutMs;
     protected final ActorSystem.AutoHealingSettings autoHealing;
     protected final CreationStrategy strategy;
+
+    private static final Logger logger = Logger.getLogger(BaseActor.class.getName());
 
 
     BaseActor(MiniQueue<Either3<Consumer<PartialActor<T, S>>, T, MessageWithAnswer<T, R>>> queue, Consumer<S> initializer, Consumer<S> finalizer, CloseStrategy closeStrategy, int pollTimeoutMs, ActorSystem.AutoHealingSettings autoHealing, CreationStrategy strategy) {
@@ -312,7 +316,7 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
                             e instanceof InterruptedException || e.getCause() instanceof InterruptedException)) {
                         Exceptions.logShort(() -> autoHealing.onInterruption.accept(e));
                     } else {
-                        System.err.println(e);
+                        logger.log(Level.FINEST, e.getMessage(), e);
                     }
                 } finally {
                     HealRegistry.INSTANCE.remove(this, curThread, threadShouldDie);

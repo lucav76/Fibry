@@ -12,10 +12,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.BiConsumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class TcpReceiver {
     private static final Map<String, SocketChannel> openChannels = new ConcurrentHashMap<>();
     private static volatile BiConsumer<String, ActorOperation> listener;
+
+    private static final Logger logger = Logger.getLogger(TcpReceiver.class.getName());
 
     public enum ActorOperation {
         JOIN,
@@ -47,7 +51,7 @@ public class TcpReceiver {
                 if (listener != null)
                     listener.accept(channelName, ActorOperation.JOIN);
             } catch (IOException e) {
-                System.err.println(e);
+                logger.log(Level.FINEST, e.getMessage(), e);
                 return;
             }
 
@@ -105,8 +109,7 @@ public class TcpReceiver {
                     int idx = str.indexOf('|');
 
                     if (idx < 0) {
-                        System.err.println("Invalid message header: " + str);
-
+                        logger.log(Level.FINEST, "Invalid message header: " + str);
                         return false;
                     }
 
@@ -137,7 +140,7 @@ public class TcpReceiver {
                             else
                                 ActorSystem.sendMessage(senderActorName, answer, false); // retries managed by the actor
                         } catch (InterruptedException | ExecutionException e) {
-                            System.err.println(e);
+                            logger.log(Level.FINEST, e.getMessage(), e);
                         }
                     });
                 } else {
@@ -157,7 +160,7 @@ public class TcpReceiver {
                 return true;
             }
         } catch (IOException e) {
-            //System.err.println("Error while reading a message: " + e);
+            logger.log(Level.FINEST, "Error while reading the message", e);
 
             return false;
         }

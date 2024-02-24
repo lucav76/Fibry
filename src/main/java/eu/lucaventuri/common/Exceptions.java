@@ -1,7 +1,5 @@
 package eu.lucaventuri.common;
 
-//import lombok.extern.slf4j.Slf4j;
-
 import java.util.Arrays;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
@@ -20,7 +18,7 @@ final public class Exceptions {
         try {
             run.run();
         } catch (Throwable t) {
-            /* */
+            logger.log(Level.FINEST, t.getMessage(), t);
         }
     }
 
@@ -28,7 +26,7 @@ final public class Exceptions {
         try {
             run.run();
         } catch (Throwable t) {
-            /* */
+            logger.log(Level.FINEST, t.getMessage(), t);
         } finally {
             if (finalizer != null)
                 Exceptions.silence(finalizer::run);
@@ -40,7 +38,7 @@ final public class Exceptions {
             try {
                 run.run();
             } catch (Throwable t) {
-                /* */
+                logger.log(Level.FINEST, t.getMessage(), t);
             }
         };
     }
@@ -57,10 +55,11 @@ final public class Exceptions {
         try {
             return call.call();
         } catch (Throwable t) {
+            logger.log(Level.FINEST, t.getMessage(), t);
             return valueOnException;
         } finally {
             if (finalizer != null)
-                Exceptions.silence(finalizer::run);
+                Exceptions.silence(finalizer);
         }
     }
 
@@ -69,6 +68,7 @@ final public class Exceptions {
             try {
                 return call.call();
             } catch (Throwable t) {
+                logger.log(Level.FINEST, t.getMessage(), t);
                 return valueOnException;
             }
         };
@@ -78,7 +78,8 @@ final public class Exceptions {
         return input -> {
             try {
                 consumer.accept(input);
-            } catch (Throwable throwable) {
+            } catch (Throwable t) {
+                logger.log(Level.FINEST, t.getMessage(), t);
             }
         };
     }
@@ -103,9 +104,7 @@ final public class Exceptions {
         try {
             run.run();
         } catch (Throwable t) {
-            // log.error(t.getMessage(), t); Not working...
-            // FIXME: log for real
-            t.printStackTrace();
+            logger.log(Level.INFO, t.getMessage(), t);
         }
     }
 
@@ -113,9 +112,7 @@ final public class Exceptions {
         try {
             run.run();
         } catch (Throwable t) {
-            // log.error(t.getMessage(), t); Not working...
-            // FIXME: log for real
-            t.printStackTrace();
+            logger.log(Level.INFO, t.getMessage(), t);
         }
         finally {
             Exceptions.log(finalRun);
@@ -126,9 +123,7 @@ final public class Exceptions {
         try {
             return call.call();
         } catch (Throwable t) {
-            // FIXME: log for real
-            t.printStackTrace();
-
+            logger.log(Level.INFO, t.getMessage());
             return valueOnException;
         }
     }
@@ -137,9 +132,7 @@ final public class Exceptions {
         try {
             return call.call();
         } catch (Throwable t) {
-            // FIXME: log for real
-            t.printStackTrace();
-
+            logger.log(Level.INFO, t.getMessage());
             return valueOnException;
         }
         finally {
@@ -151,7 +144,7 @@ final public class Exceptions {
         try {
             run.run();
         } catch (Throwable t) {
-            logger.log(Level.FINEST, t.getMessage(), t);
+            logger.log(Level.INFO, t.getMessage());
         }
     }
 
@@ -159,7 +152,7 @@ final public class Exceptions {
         try {
             run.run();
         } catch (Throwable t) {
-            logger.log(Level.FINEST, t.getMessage(), t);
+            logger.log(Level.INFO, t.getMessage());
         }
         finally {
             Exceptions.log(finalRun);
@@ -170,8 +163,7 @@ final public class Exceptions {
         try {
             return call.call();
         } catch (Throwable t) {
-            logger.log(Level.FINEST, t.getMessage(), t);
-
+            logger.log(Level.INFO, t.getMessage());
             return valueOnException;
         }
     }
@@ -180,8 +172,7 @@ final public class Exceptions {
         try {
             return call.call();
         } catch (Throwable t) {
-            logger.log(Level.FINEST, t.getMessage(), t);
-
+            logger.log(Level.INFO, t.getMessage());
             return valueOnException;
         }
         finally {
@@ -202,8 +193,7 @@ final public class Exceptions {
         try {
             return callable.call();
         } catch (Throwable e) {
-            logger.log(Level.FINEST, e.getMessage(), e);
-
+            logger.log(Level.INFO, e.getMessage(), e);
             return defaultSupplier.get();
         }
     }
@@ -221,8 +211,7 @@ final public class Exceptions {
         try {
             return callable.call();
         } catch (Throwable e) {
-            logger.log(Level.FINEST, e.getMessage(), e);
-
+            logger.log(Level.INFO, e.getMessage(), e);
             return defaultValue;
         }
     }

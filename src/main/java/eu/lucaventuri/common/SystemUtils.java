@@ -139,7 +139,7 @@ public final class SystemUtils {
         try {
             clo.close();
         } catch (Exception e) {
-            logger.log(Level.FINEST, "Error closing " + clo.toString(), e);
+            logger.log(Level.FINEST, "Error closing " + clo, e);
         }
     }
 
@@ -155,7 +155,7 @@ public final class SystemUtils {
         try {
             clo.close();
         } catch (IOException e) {
-            logger.log(Level.FINEST, "Error closing " + clo.toString(), e);
+            logger.log(Level.FINEST, "Error closing " + clo, e);
         }
     }
 
@@ -185,6 +185,7 @@ public final class SystemUtils {
         try {
             return Class.forName(className);
         } catch (ClassNotFoundException e) {
+            logger.log(Level.FINEST, "Class not found" , e);
             return null;
         }
     }
@@ -210,7 +211,7 @@ public final class SystemUtils {
     }
 
     public static <E extends Exception> BenchmarkResult benchmarkEx(RunnableEx<E> run, RunnableEx<E> cleanup, int numRunning) throws E {
-        long times[] = new long[numRunning];
+        long[] times = new long[numRunning];
 
         for (int i = 0; i < numRunning; i++) {
             logger.log(Level.FINE, "Round " + (i + 1) + " of " + numRunning);
@@ -225,22 +226,20 @@ public final class SystemUtils {
 
     public static long printTime(Runnable run, String description) {
         long start = System.currentTimeMillis();
-
         run.run();
 
         long time = System.currentTimeMillis() - start;
-        logger.log(Level.FINE, description + " : " + time + " ms");
+        System.out.println(description + " : " + time + " ms");
 
         return time;
     }
 
     public static <E extends Exception> long printTimeEx(RunnableEx<E> run, String description) throws E {
         long start = System.currentTimeMillis();
-
         run.run();
 
         long time = System.currentTimeMillis() - start;
-        logger.log(Level.FINE, description + " : " + time + " ms");
+        System.out.println(description + " : " + time + " ms");
 
         return time;
     }
@@ -254,14 +253,14 @@ public final class SystemUtils {
             while ((read = is.read(buffer, 0, buffer.length)) >= 0) {
                 os.write(buffer, 0, read);
                 if (echoLabel != null && transferred < 128)
-                    logger.log(Level.FINE, echoLabel + ": " + new String(buffer, 0, (int) Math.min(read - transferred, 128)));
+                    System.out.println(echoLabel + ": " + new String(buffer, 0, (int) Math.min(read - transferred, 128)));
                 transferred += read;
             }
 
             return transferred;
         } finally {
             if (echoLabel != null)
-                logger.log(Level.FINE, "Transferred " + echoLabel + " " + transferred + " bytes");
+                System.out.println("Transferred " + echoLabel + " " + transferred + " bytes");
         }
     }
 

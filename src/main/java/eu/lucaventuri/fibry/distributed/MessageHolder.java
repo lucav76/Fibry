@@ -44,8 +44,6 @@ class MessageHolder<R> {
             var buf = ByteBuffer.allocate(9);
             var idAndFuture = msgReg.getNewFuture();
 
-            //System.out.println("writeMessage(): " + message + " - New " + idAndFuture.id);
-
             buf.order(ByteOrder.BIG_ENDIAN);
             buf.put(type.signature);
             buf.putLong(idAndFuture.id);

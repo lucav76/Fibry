@@ -13,6 +13,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -122,7 +124,7 @@ public interface Generator<T> extends Iterable<T> {
             BlockingQueue<T> queue = new LinkedBlockingDeque<>(queueSize);
 
             Stereotypes.def().runOnce(() -> {
-                AntiFreeze frz = fullTimeoutMs <=0 ? null : new AntiFreeze(itemTimeoutMs, fullTimeoutMs);
+                AntiFreeze frz = fullTimeoutMs <= 0 ? null : new AntiFreeze(itemTimeoutMs, fullTimeoutMs);
 
                 try {
                     producer.produceAllItems(elem -> {
@@ -168,16 +170,17 @@ public interface Generator<T> extends Iterable<T> {
                             numElements.incrementAndGet();
                         });
                         latch.countDown();
-                        System.out.println("Counting down at " + numElements.get());
+                        logger.log(Level.FINEST, "Counting down at " + numElements.get());
 
                         try {
                             latch.await();
                         } catch (InterruptedException e) {
+                            logger.log(Level.FINEST, "Thread Interrupted ", e);
                         }
                     } finally {
                         stateRef.set(State.FINISHED);
                     }
-                    System.out.println("Finished at " + numElements.get());
+                    logger.log(Level.FINEST, "Finished at " + numElements.get());
                 });
             }
 
@@ -198,7 +201,7 @@ public interface Generator<T> extends Iterable<T> {
      * Failing to do so and returning null, will eventually result in a NoSuchElementException
      */
     static <T> Generator<T> fromAdvancedProducer(AdvancedGeneratorProducer<T> producer, int queueSize, boolean maxThroughput) {
-     return fromAdvancedProducer(producer, queueSize, maxThroughput, 0, 0);
+        return fromAdvancedProducer(producer, queueSize, maxThroughput, 0, 0);
     }
 
     /**
@@ -213,7 +216,7 @@ public interface Generator<T> extends Iterable<T> {
             BlockingQueue<T> queue = new LinkedBlockingDeque<>(queueSize);
 
             Stereotypes.def().runOnce(() -> {
-                AntiFreeze frz = fullTimeoutMs <=0 ? null : new AntiFreeze(itemTimeoutMs, fullTimeoutMs);
+                AntiFreeze frz = fullTimeoutMs <= 0 ? null : new AntiFreeze(itemTimeoutMs, fullTimeoutMs);
 
                 try {
                     T lastElement = producer.produceAllItems(elem -> {

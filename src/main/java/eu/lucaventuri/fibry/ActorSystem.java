@@ -121,7 +121,6 @@ public class ActorSystem {
 
             Stereotypes.auto().schedule(() -> {
                 long queueSize = leader.getQueueLength();
-                //System.out.println("Queue size: " + queueSize);
 
                 if (queueSize >= poolParams.scalingUpThreshold) {
                     for (int i = 0; i < poolParams.scalingSpeed && groupExit.size() < poolParams.maxSize; i++)
@@ -138,7 +137,6 @@ public class ActorSystem {
 
             Stereotypes.auto().schedule(() -> {
                 long queueSize = leader.getQueueLength();
-                //System.out.println("Queue size: " + queueSize);
 
                 if (queueSize >= poolParams.scalingUpThreshold) {
                     for (int i = 0; i < poolParams.scalingSpeed && groupExit.size() < poolParams.maxSize; i++)

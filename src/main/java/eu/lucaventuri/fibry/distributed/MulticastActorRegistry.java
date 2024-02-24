@@ -9,6 +9,8 @@ import java.net.*;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Predicate;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /** Registry using UDP multicast */
 public class MulticastActorRegistry extends BaseActorRegistry {
@@ -16,7 +18,7 @@ public class MulticastActorRegistry extends BaseActorRegistry {
     private final DatagramSocket clientSocket = new DatagramSocket();
     private final InetAddress multicastGroup;
     private final int localPort;
-    private final InetAddress localAddress;
+    private static final Logger logger = Logger.getLogger(MulticastActorRegistry.class.getName());
 
     public MulticastActorRegistry(InetAddress multicastGroup, int multicastPort, int msRefresh, int msGraceSendRefresh, int msCleanRemoteActors, int msGgraceCleanRemoteActors, Predicate<ActorAction> validator) throws IOException {
         super(msRefresh, msGraceSendRefresh, msCleanRemoteActors, msGgraceCleanRemoteActors, validator);
@@ -24,7 +26,6 @@ public class MulticastActorRegistry extends BaseActorRegistry {
         this.multicastGroup = multicastGroup;
         this.multicastPort = multicastPort;
         this.localPort = clientSocket.getLocalPort();
-        this.localAddress = clientSocket.getLocalAddress();
 
         Stereotypes.auto().udpMulticastServer(multicastGroup, multicastPort, this::onNewInfo);
 
@@ -40,7 +41,7 @@ public class MulticastActorRegistry extends BaseActorRegistry {
                 if (SystemUtils.retrieveIPAddresses(true, true).contains(address.getAddress()))
                     return;
             } catch (SocketException e) {
-                System.err.println(e);
+                logger.log(Level.FINEST, e.getMessage(), e);
             }
         }
 

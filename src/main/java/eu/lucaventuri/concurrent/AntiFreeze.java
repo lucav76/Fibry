@@ -99,38 +99,6 @@ public class AntiFreeze {
 
         try {
             System.out.println("Starting...");
-            /*AntiFreeze frz = new AntiFreeze(1500, 7000);
-
-            try {
-                for (int i = 0; i < 5; i++) {
-                    Thread.sleep(1_000);
-                    frz.notifyActivity();
-                }
-            }
-            finally {
-                frz.notifyFinished(); // Comment to test a timeout
-            }
-
-            frz.notifyActivity();
-
-            for (int i = 0; i < 5; i++) {
-                Thread.sleep(1_000);
-                frz.notifyActivity();
-            }
-
-            System.out.println("Finished 1...");
-
-            AntiFreeze.execute(1500, 7000, (frz2) -> {
-                Exceptions.rethrowRuntime(() -> {
-                    for (int i = 0; i < 5; i++) {
-                        Thread.sleep(1_000);
-                        frz2.notifyActivity();
-                    }
-                });
-            });*/
-
-            System.out.println("Finished 2...");
-
             Generator.fromProducer(yielder -> {
                 for (int i=0; i<10; i++) {
                     SystemUtils.sleep(1000);
@@ -138,7 +106,7 @@ public class AntiFreeze {
                 }
             }, 10,false ,2_000 ,5_000 ).toStream().forEach(System.out::println);
 
-            System.out.println("Finished 3...");
+            System.out.println("Finished...");
         } finally {
             System.out.println("Time passed: " + (System.currentTimeMillis() - start));
             AntiFreeze.stopScheduler();

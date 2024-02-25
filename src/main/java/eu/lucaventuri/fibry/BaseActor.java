@@ -316,7 +316,7 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
                             e instanceof InterruptedException || e.getCause() instanceof InterruptedException)) {
                         Exceptions.logShort(() -> autoHealing.onInterruption.accept(e));
                     } else {
-                        logger.log(Level.FINEST, e.getMessage(), e);
+                        logger.log(Level.FINEST, e.getMessage());
                     }
                 } finally {
                     HealRegistry.INSTANCE.remove(this, curThread, threadShouldDie);

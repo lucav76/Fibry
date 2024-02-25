@@ -12,6 +12,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 class HealthState {
     // After this time, the thread will be interrupted
@@ -53,6 +55,8 @@ public enum HealRegistry {
     private final ConcurrentHashMap<MiniQueue, Integer> threadsLeft = new ConcurrentHashMap<>();
     private final AtomicReference<ScheduledExecutorService> sched = new AtomicReference<>();
     private final Set<BaseActor> threadsToKill = ConcurrentHashSet.build();
+
+    private static final Logger logger = Logger.getLogger(HealRegistry.class.getName());
 
     void put(BaseActor actor, ActorSystem.AutoHealingSettings autoHealing, Thread actorTthread) {
         long now = System.currentTimeMillis();
@@ -107,7 +111,7 @@ public enum HealRegistry {
                 if (entry.getValue().deadlineRecreation() <= now) {
                     if (threadsLeft.get(entry.getKey().queue) > 0) {
                         threadsLeft.compute(entry.getKey().queue, (queue, threads) -> threads - 1);
-                        System.out.println("Fibry AutoHealing - Recreating " + entry.getValue().thread().getName() + " - attempts left: " + threadsLeft.get(entry.getKey().queue));
+                        logger.log(Level.FINEST, "Fibry AutoHealing - Recreating " + entry.getValue().thread().getName() + " - attempts left: " + threadsLeft.get(entry.getKey().queue));
                         entriesToRemove.add(entry);
                         threadsToKill.add(entry.getKey());
                         entry.getKey().recreate();
@@ -115,7 +119,7 @@ public enum HealRegistry {
                             entry.getValue().onNewThread().run();
                     }
                 } else if (entry.getValue().deadlineTimeout() <= now) {
-                    System.out.println("Fibry AutoHealing - Interrupting " + entry.getValue().thread().getName());
+                    logger.log(Level.FINEST, "Fibry AutoHealing - Interrupting " + entry.getValue().thread().getName());
                     entry.getValue().thread().interrupt();
                 }
             }

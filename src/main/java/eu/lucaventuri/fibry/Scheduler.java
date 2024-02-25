@@ -5,6 +5,8 @@ import eu.lucaventuri.common.TimeProvider;
 
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Class able to postpone messages to other actors;
@@ -50,6 +52,8 @@ public class Scheduler implements AutoCloseable {
     private final SinkActorSingleTask<Void> schedulingActor;
     private final TimeProvider timeProvider;
 
+    private static final Logger logger = Logger.getLogger(Scheduler.class.getName());
+
     public Scheduler() {
         this(50, TimeProvider.fromSystemTime());
     }
@@ -74,7 +78,7 @@ public class Scheduler implements AutoCloseable {
                         if (now >= message.time) {
                             if (message.fixedDelayMs > 0 && message.maxMessages > 1) {
                                 message.actor.sendMessageReturn(message.message).thenRunAsync(() -> {
-                                    //System.out.println("Delay - Received: " + timeProvider.get() + " - delay: " + message.fixedDelayMs);
+                                    logger.log(Level.FINEST, "Delay - Received: " + timeProvider.get() + " - delay: " + message.fixedDelayMs);
                                     queue.add(message.withTimeDecreaseMax(timeProvider.get() + message.fixedDelayMs));
                                 });
                             } else {
@@ -89,7 +93,7 @@ public class Scheduler implements AutoCloseable {
                         }
                     }
                 } catch (InterruptedException e) {
-                    System.err.println(e);
+                    logger.log(Level.FINEST, "Thread Interrupted", e);
                 }
             }
 

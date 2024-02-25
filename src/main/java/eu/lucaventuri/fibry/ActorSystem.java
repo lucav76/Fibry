@@ -21,6 +21,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Simple actor system, creating one thread/fiber per Actor. Each Actor can either process messages (with or without return) or execute Consumer inside its thread.
@@ -45,6 +47,8 @@ public class ActorSystem {
         private final PoolParameters poolParams;
         private final Consumer<S> initializer;
         private final Consumer<S> finalizer;
+
+        private static final Logger logger = Logger.getLogger(ActorPoolCreator.class.getName());
 
         private ActorPoolCreator(CreationStrategy strategy, String name, PoolParameters poolParams, Supplier<S> stateSupplier, Consumer<S> initializer, Consumer<S> finalizer) {
             this.strategy = strategy;
@@ -121,7 +125,6 @@ public class ActorSystem {
 
             Stereotypes.auto().schedule(() -> {
                 long queueSize = leader.getQueueLength();
-                //System.out.println("Queue size: " + queueSize);
 
                 if (queueSize >= poolParams.scalingUpThreshold) {
                     for (int i = 0; i < poolParams.scalingSpeed && groupExit.size() < poolParams.maxSize; i++)
@@ -138,7 +141,6 @@ public class ActorSystem {
 
             Stereotypes.auto().schedule(() -> {
                 long queueSize = leader.getQueueLength();
-                //System.out.println("Queue size: " + queueSize);
 
                 if (queueSize >= poolParams.scalingUpThreshold) {
                     for (int i = 0; i < poolParams.scalingSpeed && groupExit.size() < poolParams.maxSize; i++)
@@ -174,7 +176,7 @@ public class ActorSystem {
                 try (var unlock = lockable.acquire(msg.weight)) {
                     actorLogic.accept(msg.message);
                 } catch (Exception e) {
-                    System.err.println("Weighted actor: " + e);
+                    logger.log(Level.INFO, "Weighted actor", e);
                 }
             };
 
@@ -495,6 +497,7 @@ public class ActorSystem {
 
     // Name as supplied, strategy: auto and initialState: null
     public static class NamedActorCreator extends NamedStrategyActorCreator {
+
         private NamedActorCreator(String name, int queueCapacity, boolean queueProtection, boolean allowReuse) {
             super(name, defaultStrategy, null, queueCapacity, queueProtection, allowReuse);
         }
@@ -511,6 +514,8 @@ public class ActorSystem {
             return new NamedStrategyActorCreator(name, CreationStrategy.AUTO, closeStrategy, queueCapacity, queueProtection, allowReuse);
         }
     }
+
+    private static final Logger logger = Logger.getLogger(NamedActorCreator.class.getName());
 
     public static NamedActorCreator named(String name) {
         return new NamedActorCreator(name, defaultQueueCapacity, false, false);
@@ -593,7 +598,7 @@ public class ActorSystem {
                     try {
                         proxyChannel.sendMessage(actorName, proxyChannel.getDefaultChannelSerializer(), message);
                     } catch (IOException e) {
-                        System.err.println(e);
+                        logger.log(Level.INFO, "IOException in sendMessage", e);
                     }
                 } else
                     ActorUtils.sendMessage(getOrCreateActorQueue(aliasActorName, defaultQueueCapacity), message);

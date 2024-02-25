@@ -176,7 +176,7 @@ public class ActorSystem {
                 try (var unlock = lockable.acquire(msg.weight)) {
                     actorLogic.accept(msg.message);
                 } catch (Exception e) {
-                    logger.log(Level.FINEST, "Weighted actor", e);
+                    logger.log(Level.INFO, "Weighted actor", e);
                 }
             };
 
@@ -598,7 +598,7 @@ public class ActorSystem {
                     try {
                         proxyChannel.sendMessage(actorName, proxyChannel.getDefaultChannelSerializer(), message);
                     } catch (IOException e) {
-                        logger.log(Level.FINEST, "IOException in sendMessage", e);
+                        logger.log(Level.INFO, "IOException in sendMessage", e);
                     }
                 } else
                     ActorUtils.sendMessage(getOrCreateActorQueue(aliasActorName, defaultQueueCapacity), message);

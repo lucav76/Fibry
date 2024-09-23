@@ -110,7 +110,7 @@ public class TestScheduler {
     }
 
     @Test
-    public void testSchedulerMAx() {
+    public void testSchedulerMax() {
         long time = System.currentTimeMillis();
         int numMessageToTest = 7;
         AtomicInteger num = new AtomicInteger(numMessageToTest);
@@ -132,5 +132,35 @@ public class TestScheduler {
         assertEquals(num.get(), 4);
         scheduler.askExit();
         scheduler.waitForExit();
+    }
+
+    @Test
+    public void testScheduleNumTimes() throws Exception {
+        AtomicInteger num = new AtomicInteger(0);
+
+        try (var actor = Stereotypes.def().schedule(num::incrementAndGet, 1, 5)) {
+            SystemUtils.sleep(20);
+            assertEquals(5, num.get());
+        }
+    }
+
+    @Test
+    public void testScheduleExit() throws Exception {
+        AtomicInteger num = new AtomicInteger(0);
+
+        try (var actor = Stereotypes.def().schedule( () -> num.incrementAndGet() < 3, 0, 1, 5)) {
+            SystemUtils.sleep(20);
+            assertEquals(3, num.get());
+        }
+    }
+
+    @Test
+    public void testInitialDelay() throws Exception {
+        AtomicInteger num = new AtomicInteger(0);
+
+        try (var actor = Stereotypes.def().schedule( () -> num.incrementAndGet() < 3, 50, 1, 5)) {
+            SystemUtils.sleep(20);
+            assertEquals(0, num.get());
+        }
     }
 }

@@ -537,21 +537,39 @@ public class Stereotypes {
             return schedule(run, scheduleMs, Long.MAX_VALUE);
         }
 
+        public SinkActorSingleTask<Void> schedule(Runnable run, long scheduleMs, long maxTimes) {
+            return schedule(() -> { run.run(); return true; }, 0L, scheduleMs, maxTimes);
+        }
+
         /**
          * Creates an actor that runs a Runnable maxTimes or until somebody asks for exit (this is controlled only in between executions); the actor is scheduled to run every scheduleMs ms
+         * It uses a thread
          */
-        public SinkActorSingleTask<Void> schedule(Runnable run, long scheduleMs, long maxTimes) {
+        public SinkActorSingleTask<Void> schedule(Supplier<Boolean> run /* Return true to schedule again */, long initialDelayMs, long scheduleMs, long maxTimes) {
             Actor<Object, Void, Void> actor = (Actor<Object, Void, Void>) sink((Void) null);
 
             // Deadlock prevention
             actor.setCloseStrategy(Exitable.CloseStrategy.ASK_EXIT);
 
             actor.execAsync(() -> {
+                if (initialDelayMs > 0)
+                    SystemUtils.sleep(initialDelayMs);
+
+                if (Thread.interrupted())
+                    return;
+
                 long prev = System.currentTimeMillis();
                 long times = 0;
 
-                while (!actor.isExiting() && times < maxTimes) {
-                    run.run();
+                while (!actor.isExiting() && times < maxTimes && !Thread.interrupted()) {
+                    if (!run.get())
+                        break;
+
+                    times++;
+
+                    if (times >= maxTimes)
+                        break;
+
                     long now = System.currentTimeMillis();
                     long diff = now - prev;
 
@@ -559,7 +577,6 @@ public class Stereotypes {
                         SystemUtils.sleep(scheduleMs - diff);
 
                     prev = now;
-                    times++;
                 }
             });
 

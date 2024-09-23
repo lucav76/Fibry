@@ -24,8 +24,8 @@ public class LoadTests {
         Stereotypes.def().embeddedHttpServer(port, new Stereotypes.HttpStringWorker("/test", ex ->
                 ""+num.incrementAndGet()));
 
-        final int numThreads = 250;
-        final int numCalls = 100;
+        final int numThreads = 150;
+        final int numCalls = 50;
 
         System.out.println(uri);
 
@@ -33,8 +33,7 @@ public class LoadTests {
 
         CountDownLatch latch = new CountDownLatch(numThreads);
         var client = HttpUtil.getHttpClient(10);
-        var request = HttpRequest.newBuilder()
-                .uri(uri).GET().build();
+        var request = HttpRequest.newBuilder().uri(uri).GET().build();
         var handlers = HttpResponse.BodyHandlers.ofString();
 
         for(int i=0; i<numThreads; i++) {

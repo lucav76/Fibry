@@ -564,7 +564,7 @@ public class ActorSystem {
         return actorName;
     }
 
-    private static <T, R, S> MiniFibryQueue<T, R, S> getOrCreateActorQueue(String actorName, int capacity) {
+    public static <T, R, S> MiniFibryQueue<T, R, S> getOrCreateActorQueue(String actorName, int capacity) {
         if (actorName == null)
             return new FibryQueue<>(capacity);
 

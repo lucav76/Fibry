@@ -17,6 +17,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Used to pre-cache, ahead of time, some resource that might be slow to get.
@@ -38,6 +40,8 @@ public class CacheAheadList<R> implements Supplier<R> {
     private final int numRetries;
     private final int minSizeRefill;
     private final List<R> list;
+
+    private static final Logger logger = Logger.getLogger(CacheAheadList.class.getName());
 
     public enum CacheOperation {GET, PUT}
 
@@ -204,7 +208,7 @@ public class CacheAheadList<R> implements Supplier<R> {
         try {
             return getAsync().get(10, TimeUnit.SECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            System.err.println(e.toString());
+            logger.log(Level.FINEST, e.getMessage(), e);
 
             return null;
         }
@@ -219,7 +223,7 @@ public class CacheAheadList<R> implements Supplier<R> {
         try {
             return getOptionalAsync().get(10, TimeUnit.SECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            System.err.println(e.toString());
+            logger.log(Level.FINEST, e.getMessage(), e);
 
             return Optional.empty();
         }
@@ -234,7 +238,7 @@ public class CacheAheadList<R> implements Supplier<R> {
         try {
             return getAsync(num).get(10, TimeUnit.SECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            System.err.println(e.toString());
+            logger.log(Level.FINEST, e.getMessage(), e);
 
             return null;
         }

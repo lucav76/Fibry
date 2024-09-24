@@ -103,13 +103,6 @@ public class ClassifiedMap {
         }
     }
 
-    private void showDebug(String descr, Object value) {
-        System.out.println(descr + " - Sizes: " + mapByClass.size() + " vs " + list.asListFromHead().size() + " - Class: " + value.getClass());
-
-        for (var clz : mapByClass.keySet())
-            System.out.println("  " + clz);
-    }
-
     private void verify() {
         assert (mapByClass.isEmpty() && list.isEmpty()) || (!mapByClass.isEmpty() && !list.isEmpty());
     }

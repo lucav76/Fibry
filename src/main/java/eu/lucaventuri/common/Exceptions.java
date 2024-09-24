@@ -1,22 +1,24 @@
 package eu.lucaventuri.common;
 
-//import lombok.extern.slf4j.Slf4j;
-
 import java.util.Arrays;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 //@Slf4j
 final public class Exceptions {
+
+    private static final Logger logger = Logger.getLogger(Exceptions.class.getName());
     private Exceptions() { /* Static only*/ }
 
     public static void silence(RunnableEx run) {
         try {
             run.run();
         } catch (Throwable t) {
-            /* */
+            logger.log(Level.FINEST, t.getMessage(), t);
         }
     }
 
@@ -24,7 +26,7 @@ final public class Exceptions {
         try {
             run.run();
         } catch (Throwable t) {
-            /* */
+            logger.log(Level.FINEST, t.getMessage(), t);
         } finally {
             if (finalizer != null)
                 Exceptions.silence(finalizer::run);
@@ -36,7 +38,7 @@ final public class Exceptions {
             try {
                 run.run();
             } catch (Throwable t) {
-                /* */
+                logger.log(Level.FINEST, t.getMessage(), t);
             }
         };
     }
@@ -53,10 +55,11 @@ final public class Exceptions {
         try {
             return call.call();
         } catch (Throwable t) {
+            logger.log(Level.FINEST, t.getMessage(), t);
             return valueOnException;
         } finally {
             if (finalizer != null)
-                Exceptions.silence(finalizer::run);
+                Exceptions.silence(finalizer);
         }
     }
 
@@ -65,6 +68,7 @@ final public class Exceptions {
             try {
                 return call.call();
             } catch (Throwable t) {
+                logger.log(Level.FINEST, t.getMessage(), t);
                 return valueOnException;
             }
         };
@@ -74,7 +78,8 @@ final public class Exceptions {
         return input -> {
             try {
                 consumer.accept(input);
-            } catch (Throwable throwable) {
+            } catch (Throwable t) {
+                logger.log(Level.FINEST, t.getMessage(), t);
             }
         };
     }
@@ -99,9 +104,7 @@ final public class Exceptions {
         try {
             run.run();
         } catch (Throwable t) {
-            // log.error(t.getMessage(), t); Not working...
-            // FIXME: log for real
-            t.printStackTrace();
+            logger.log(Level.INFO, t.getMessage(), t);
         }
     }
 
@@ -109,9 +112,7 @@ final public class Exceptions {
         try {
             run.run();
         } catch (Throwable t) {
-            // log.error(t.getMessage(), t); Not working...
-            // FIXME: log for real
-            t.printStackTrace();
+            logger.log(Level.INFO, t.getMessage(), t);
         }
         finally {
             Exceptions.log(finalRun);
@@ -122,9 +123,7 @@ final public class Exceptions {
         try {
             return call.call();
         } catch (Throwable t) {
-            // FIXME: log for real
-            t.printStackTrace();
-
+            logger.log(Level.INFO, t.getMessage());
             return valueOnException;
         }
     }
@@ -133,9 +132,7 @@ final public class Exceptions {
         try {
             return call.call();
         } catch (Throwable t) {
-            // FIXME: log for real
-            t.printStackTrace();
-
+            logger.log(Level.INFO, t.getMessage());
             return valueOnException;
         }
         finally {
@@ -147,9 +144,7 @@ final public class Exceptions {
         try {
             run.run();
         } catch (Throwable t) {
-            // log.error(t.getMessage(), t); Not working...
-            // FIXME: log for real
-            System.err.println(t);
+            logger.log(Level.INFO, t.getMessage());
         }
     }
 
@@ -157,9 +152,7 @@ final public class Exceptions {
         try {
             run.run();
         } catch (Throwable t) {
-            // log.error(t.getMessage(), t); Not working...
-            // FIXME: log for real
-            System.err.println(t);
+            logger.log(Level.INFO, t.getMessage());
         }
         finally {
             Exceptions.log(finalRun);
@@ -170,9 +163,7 @@ final public class Exceptions {
         try {
             return call.call();
         } catch (Throwable t) {
-            // FIXME: log for real
-            System.err.println(t);
-
+            logger.log(Level.INFO, t.getMessage());
             return valueOnException;
         }
     }
@@ -181,9 +172,7 @@ final public class Exceptions {
         try {
             return call.call();
         } catch (Throwable t) {
-            // FIXME: log for real
-            System.err.println(t);
-
+            logger.log(Level.INFO, t.getMessage());
             return valueOnException;
         }
         finally {
@@ -204,8 +193,7 @@ final public class Exceptions {
         try {
             return callable.call();
         } catch (Throwable e) {
-            System.err.println(e);
-
+            logger.log(Level.INFO, e.getMessage(), e);
             return defaultSupplier.get();
         }
     }
@@ -223,8 +211,7 @@ final public class Exceptions {
         try {
             return callable.call();
         } catch (Throwable e) {
-            System.err.println(e);
-
+            logger.log(Level.INFO, e.getMessage(), e);
             return defaultValue;
         }
     }
@@ -252,12 +239,6 @@ final public class Exceptions {
             stream = stream.filter(s -> !isJavaClass(s));
 
         return stream;
-    }
-
-    public static void printCompactStackTrace(Throwable ex, boolean skippAllJava) {
-        Stream<StackTraceElement> stream = getCompactStackTrace(ex, skippAllJava);
-
-        stream.forEach(System.err::println);
     }
 
     private static boolean isJavaClass(StackTraceElement elem) {

@@ -24,6 +24,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static eu.lucaventuri.fibry.CreationStrategy.*;
 
@@ -177,6 +179,8 @@ public class Stereotypes {
     public static class NamedStereotype {
         private final CreationStrategy strategy;
         private final Exitable.CloseStrategy closeStrategy;
+
+        private static final Logger logger = Logger.getLogger(NamedStereotype.class.getName());
 
         NamedStereotype(CreationStrategy strategy, Exitable.CloseStrategy closeStrategy) {
             this.strategy = strategy;
@@ -342,7 +346,7 @@ public class Stereotypes {
                             socket.receive(packet);
                             consumer.accept(packet);
                         } catch (IOException e) {
-                            System.err.println(e);
+                            logger.log(Level.FINEST, "Socket IO Exception in udpServer", e);
                         }
                     }
                 } finally {
@@ -379,7 +383,7 @@ public class Stereotypes {
                             socket.receive(packet);
                             consumer.accept(packet);
                         } catch (IOException e) {
-                            System.err.println(e);
+                            logger.log(Level.FINEST, "Socket IO Exception in udpMulticastServer", e);
                         }
                     }
                 } finally {
@@ -738,8 +742,7 @@ public class Stereotypes {
 
             SinkActorSingleTask<Void> actor = runOnceWithThis(thisActor -> {
                 while (!thisActor.isExiting()) {
-                    if (debug.get())
-                        System.out.println("Accepting TCP connections on port " + port);
+                    logger.log(Level.FINEST, "Accepting TCP connections on port " + port);
                     Optional<ServerSocket> serverSocket = createServerSocketWithTimeout(port, latchSocketCreation, exception, timeoutAcceptance, fromSocketChannel);
 
                     if (serverSocket.isPresent()) {
@@ -747,8 +750,8 @@ public class Stereotypes {
                     } else
                         SystemUtils.sleep(10); // Slows down a bit in case of continuous exceptions. A circuit breaker would also be an option
                 }
-                if (debug.get())
-                    System.out.println("TCP acceptor actor on port " + port + " shutting down");
+
+                logger.log(Level.FINEST, "TCP acceptor actor on port " + port + " shutting down");
             });
 
             Exceptions.silence(latchSocketCreation::await);
@@ -761,8 +764,7 @@ public class Stereotypes {
                 throw e;
             }
 
-            if (debug.get())
-                System.out.println("TCP acceptor listening on port " + port);
+            logger.log(Level.FINEST, "TCP acceptor listening on port " + port);
 
             return actor;
         }
@@ -796,8 +798,6 @@ public class Stereotypes {
             }, () -> {
                 SystemUtils.close(localSocket);
                 SystemUtils.close(remoteSocket);
-                //if (debugLabel != null)
-                //  System.out.println("Socket closed " + debugLabel);
             });
         }
 

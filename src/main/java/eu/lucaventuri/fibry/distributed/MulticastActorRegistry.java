@@ -41,7 +41,7 @@ public class MulticastActorRegistry extends BaseActorRegistry {
                 if (SystemUtils.retrieveIPAddresses(true, true).contains(address.getAddress()))
                     return;
             } catch (SocketException e) {
-                logger.log(Level.FINEST, e.getMessage(), e);
+                logger.log(Level.WARNING, e.getMessage(), e);
             }
         }
 

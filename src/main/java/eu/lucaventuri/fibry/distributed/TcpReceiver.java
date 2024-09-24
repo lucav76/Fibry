@@ -51,7 +51,7 @@ public class TcpReceiver {
                 if (listener != null)
                     listener.accept(channelName, ActorOperation.JOIN);
             } catch (IOException e) {
-                logger.log(Level.FINEST, e.getMessage(), e);
+                logger.log(Level.SEVERE, e.getMessage(), e);
                 return;
             }
 
@@ -109,7 +109,7 @@ public class TcpReceiver {
                     int idx = str.indexOf('|');
 
                     if (idx < 0) {
-                        logger.log(Level.FINEST, "Invalid message header: " + str);
+                        logger.log(Level.SEVERE, "Invalid message header: " + str);
                         return false;
                     }
 
@@ -140,7 +140,7 @@ public class TcpReceiver {
                             else
                                 ActorSystem.sendMessage(senderActorName, answer, false); // retries managed by the actor
                         } catch (InterruptedException | ExecutionException e) {
-                            logger.log(Level.FINEST, e.getMessage(), e);
+                            logger.log(Level.SEVERE, e.getMessage(), e);
                         }
                     });
                 } else {
@@ -160,7 +160,7 @@ public class TcpReceiver {
                 return true;
             }
         } catch (IOException e) {
-            logger.log(Level.FINEST, "Error while reading the message", e);
+            logger.log(Level.SEVERE, "Error while reading the message", e);
 
             return false;
         }

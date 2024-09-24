@@ -1,6 +1,7 @@
 package eu.lucaventuri.fibry;
 
 import eu.lucaventuri.concurrent.AntiFreeze;
+import eu.lucaventuri.fibry.cache.CacheAheadList;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -23,6 +24,8 @@ import java.util.stream.StreamSupport;
  * In general, the generator should be able to be iterated multiple times
  */
 public interface Generator<T> extends Iterable<T> {
+    Logger logger = Logger.getLogger(Generator.class.getName());
+
     enum State {
         /** It is not known yet if there are other elements available */
         WAITING,
@@ -170,7 +173,6 @@ public interface Generator<T> extends Iterable<T> {
                             numElements.incrementAndGet();
                         });
                         latch.countDown();
-                        logger.log(Level.FINEST, "Counting down at " + numElements.get());
 
                         try {
                             latch.await();
@@ -180,7 +182,6 @@ public interface Generator<T> extends Iterable<T> {
                     } finally {
                         stateRef.set(State.FINISHED);
                     }
-                    logger.log(Level.FINEST, "Finished at " + numElements.get());
                 });
             }
 

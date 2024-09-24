@@ -346,7 +346,7 @@ public class Stereotypes {
                             socket.receive(packet);
                             consumer.accept(packet);
                         } catch (IOException e) {
-                            logger.log(Level.FINEST, "Socket IO Exception in udpServer", e);
+                            logger.log(Level.WARNING, "Socket IO Exception in udpServer", e);
                         }
                     }
                 } finally {
@@ -383,7 +383,7 @@ public class Stereotypes {
                             socket.receive(packet);
                             consumer.accept(packet);
                         } catch (IOException e) {
-                            logger.log(Level.FINEST, "Socket IO Exception in udpMulticastServer", e);
+                            logger.log(Level.WARNING, "Socket IO Exception in udpMulticastServer", e);
                         }
                     }
                 } finally {

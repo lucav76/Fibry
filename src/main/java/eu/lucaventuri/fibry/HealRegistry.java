@@ -111,7 +111,7 @@ public enum HealRegistry {
                 if (entry.getValue().deadlineRecreation() <= now) {
                     if (threadsLeft.get(entry.getKey().queue) > 0) {
                         threadsLeft.compute(entry.getKey().queue, (queue, threads) -> threads - 1);
-                        logger.log(Level.FINEST, "Fibry AutoHealing - Recreating " + entry.getValue().thread().getName() + " - attempts left: " + threadsLeft.get(entry.getKey().queue));
+                        logger.log(Level.FINE, "Fibry AutoHealing - Recreating " + entry.getValue().thread().getName() + " - attempts left: " + threadsLeft.get(entry.getKey().queue));
                         entriesToRemove.add(entry);
                         threadsToKill.add(entry.getKey());
                         entry.getKey().recreate();

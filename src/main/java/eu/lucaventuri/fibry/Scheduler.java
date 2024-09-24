@@ -78,7 +78,6 @@ public class Scheduler implements AutoCloseable {
                         if (now >= message.time) {
                             if (message.fixedDelayMs > 0 && message.maxMessages > 1) {
                                 message.actor.sendMessageReturn(message.message).thenRunAsync(() -> {
-                                    logger.log(Level.FINEST, "Delay - Received: " + timeProvider.get() + " - delay: " + message.fixedDelayMs);
                                     queue.add(message.withTimeDecreaseMax(timeProvider.get() + message.fixedDelayMs));
                                 });
                             } else {

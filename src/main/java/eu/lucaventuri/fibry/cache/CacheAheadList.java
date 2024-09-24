@@ -208,7 +208,7 @@ public class CacheAheadList<R> implements Supplier<R> {
         try {
             return getAsync().get(10, TimeUnit.SECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            logger.log(Level.FINEST, e.getMessage(), e);
+            logger.log(Level.SEVERE, e.getMessage(), e);
 
             return null;
         }
@@ -223,7 +223,7 @@ public class CacheAheadList<R> implements Supplier<R> {
         try {
             return getOptionalAsync().get(10, TimeUnit.SECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            logger.log(Level.FINEST, e.getMessage(), e);
+            logger.log(Level.SEVERE, e.getMessage(), e);
 
             return Optional.empty();
         }
@@ -238,7 +238,7 @@ public class CacheAheadList<R> implements Supplier<R> {
         try {
             return getAsync(num).get(10, TimeUnit.SECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            logger.log(Level.FINEST, e.getMessage(), e);
+            logger.log(Level.SEVERE, e.getMessage(), e);
 
             return null;
         }

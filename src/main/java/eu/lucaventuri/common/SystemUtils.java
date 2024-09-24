@@ -185,7 +185,7 @@ public final class SystemUtils {
         try {
             return Class.forName(className);
         } catch (ClassNotFoundException e) {
-            logger.log(Level.FINEST, "Class not found" , e);
+            logger.log(Level.FINE, "Class not found" , e);
             return null;
         }
     }

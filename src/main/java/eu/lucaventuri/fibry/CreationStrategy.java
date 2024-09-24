@@ -36,16 +36,16 @@ public enum CreationStrategy {
             return ActorUtils.newVirtualThreadsExecutor();
         }
     },
-    /** If fibers are available, then it uses FIBER else it uses THREAD */
+    /** Fibers are now always available, so AUTO and FIBER do the same */
     AUTO {
         @Override
         public <T, R, S> BaseActor<T, R, S> start(BaseActor<T, R, S> actor) {
-            return ActorUtils.areFibersAvailable() ? FIBER.start(actor) : THREAD.start(actor);
+            return FIBER.start(actor);
         }
 
         @Override
         public Executor newExecutor() {
-            return ActorUtils.areFibersAvailable() ? FIBER.newExecutor() : THREAD.newExecutor();
+            return FIBER.newExecutor();
         }
     };
 

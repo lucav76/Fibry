@@ -15,8 +15,8 @@ Fibry aims to replicate some of the features of the Erlang Actor System in Java.
 Fibry allows you to send code to be executed in the thread/fiber of an actor, a mechanism similar to the one used in Chromium and to Java Executors.  
 
 The original line of development was meant to make Fibry useful on the creation of IoT products and video games supporting *online multi-players* functionalities and chats.  
-However, Fibry proved useful on Big Data projects, helping to move terabytes of data and making scheduled tasks more resilient, thanks to its **Auto Healing** functionality.  
-Its **generators** functionality makes easier to squeeze some performance on special tasks, like buckets traversal.   
+However, Fibry proved useful on Big Data projects, helping to move terabytes of data and making scheduled tasks more resilient, thanks to its **Auto Healing**.  
+Its **generators** functionality makes easier to squeeze some performance on special tasks, like cloud buckets traversal.   
 
 Simplicity first, flexibility second
 ===

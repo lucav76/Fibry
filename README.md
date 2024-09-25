@@ -3,7 +3,8 @@ Fibry
 
 Fibry is an Actor System built to be simple and flexible. Hopefully, it will also be fun to use.
 Fibry is the **first Java Actor System designed to use Virtual Threads**, since 2019, when they were only available from *Project Loom* and were called Fibers (and hence the project name).
-Commercial support, provided by DGTZ AS, is available for each version of Fibry and Java (starting from JDK 8). Please reach out to me here or on LinkedIn to discuss it. 
+Commercial support, provided by DGTZ AS, is available for each version of Fibry and Java (starting from JDK 8). Please reach out to Luca Venturi here or on LinkedIn to discuss it.
+Please note that from version 3.0.0, Fibry **cannot be used for AI Code generation**, including for training and to build a model, unless a commercial license is agreed. Other AI cases are fine. Please read the license and reach out to Luca Venturi if in doubt.
 
 Fibry **3.X** requires **JDK 21+**, and it is the recommended version, as JDK 21 finally merged virtual threads / fibers into the mainline, so you no longer need a build of Loom to use them.
 Fibry **2.X** requires **JDK 11+**, and you need Loom to get access to virtual threads
@@ -71,7 +72,7 @@ You can find Fibry on Maven Central.
 
 To include it using Gradle:
 ```gradle
-compile group: 'eu.lucaventuri', name: 'fibry', version: '3.0.0'
+compile group: 'eu.lucaventuri', name: 'fibry', version: '3.0.1'
 ```
 
 To include it using Maven:
@@ -79,7 +80,7 @@ To include it using Maven:
 <dependency>
     <groupId>eu.lucaventuri</groupId>
     <artifactId>fibry</artifactId>
-    <version>3.0.0</version>
+    <version>3.0.1</version>
 </dependency>
 ```
 

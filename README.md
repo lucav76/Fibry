@@ -1,23 +1,28 @@
 Fibry
 ===
 
-Fibry is an experimental Actor System built to be simple and flexible. Hopefully, it will also be fun to use.
-Fibry is the **first Java Actor System using fibers (now called **Virtual Threads**) from [Project Loom](https://openjdk.java.net/projects/loom/)**, however it also works with threads using any OpenJDK.
+Fibry is an Actor System built to be simple and flexible. Hopefully, it will also be fun to use.
+Fibry is the **first Java Actor System designed to use Virtual Threads**, since 2019, when they were only available from *Project Loom* and were called Fibers (and hence the project name).
+Commercial support, provided by DGTZ AS, is available for each version of Fibry and Java (starting from JDK 8). Please reach out to me here or on LinkedIn to discuss it. 
 
-Project Loom is an OpenJDK project that is expected to bring fibers (green threads) and continuations (co-routines) to Java.
-Fibry 1.X works with any version of Java starting from Java 8, while Fibry 2.X is targeting **Java 11**, but in both cases, you will need to use Loom if you want to leverage the power of fibers.
+Fibry **3.X** requires **JDK 21+**, and it is the recommended version, as JDK 21 finally merged virtual threads / fibers into the mainline, so you no longer need a build of Loom to use them.
+Fibry **2.X** requires **JDK 11+**, and you need Loom to get access to virtual threads
+Fibry **1.X** works **JDK 8+**, and you need Loom to get access to virtual threads
+Fibry 2.X is supported, and changes are available in the **jdk11** branch.
 Fibry 1.X is supported, and changes are available in the **jdk8** branch.
 Fibry aims to replicate some of the features of the Erlang Actor System in Java.
-Fibry allows you to send code to be executed in the thread/fiber of an actor, a mechanism similar to the one used in Chromium.
+Fibry allows you to send code to be executed in the thread/fiber of an actor, a mechanism similar to the one used in Chromium and to Java Executors.
 
-The current line of development is meant to make Fibry useful on the creation of IoT products and video games supporting *online multi-players* functionalities.
+The original line of development was meant to make Fibry useful on the creation of IoT products and video games supporting *online multi-players* functionalities and chats.
+However, Fibry proved useful on Big Data projects, helping to move terabytes of data and making scheduled tasks more resilient, thanks to its **Auto Healing** functionality.
+Its **generators** functionality makes easier to squeeze some performance on special tasks, like buckets traversal. 
 
 Simplicity first, flexibility second
 ===
 *Fibry* has been designed to be simple yet flexible, **easy to add to an existing project**:
-- **Fibry has no dependencies**, so no conflicts, no surprises and just a tiny jar available in the Maven Central repository
+- **Fibry has no dependencies**, so no conflicts, no security issues on the dependencies and no surprises, just a tiny jar available in the Maven Central repository
 - Your actors can and should use **synchronous logic**
-- You can use both **fibers** (if you run on Loom) and **threads**
+- You can use both **virtual threads** (if you run on JDK 21+ or on Loom) and **native threads**
 - There is a series of Stereotypes to handle common scenarios
 - Your actors don't need to extend any particular class, they can just implement **Consumer** or **Function**
 - Your actors have anyway the option to extend **CustomActor** and **CustomActorWithResult**, if this suits you best 
@@ -26,11 +31,12 @@ Simplicity first, flexibility second
 - It is possible to send messages to named actors even before they are created, potentially simplifying your logic; the messages can be discarded or processed when the actor will be available 
 - There is a fluid interface to build the actors
 - On some actors, you can receive messages of your choice while processing a message (Erlang style)  
-- Many types of actor implement the **Executor** interface, so you can "send code" to be executed by the thread/fiber of almost any actors, and use them on service that are not actor-aware
+- Many types of actor implement the **Executor** interface, so you can "send code" to be executed by the thread of almost any actors, and use them on service that are not actor-aware
 - Most actors can be converted to **Reactive Flow Subscribers** (TCK tested), calling *asReactiveSubscriber()*
 - Fibry can create **generators** (Iterables with **back-pressure**) in a simple and effective way
 - Remote actors can be **discovered** using UDP Multicast
 - It implements a way to schedule messages in the future
+- It implements several ways to schedule tasks periodically
 - It implements several types of actor pools, for work-stealing tasks, with the possibility to assign a weight to each job 
 - It implements a very simple **Map/Reduce mechanism**, limited to the local computer.
 - It implements a very simple **Pub/Sub** mechanism, limited to the local computer.
@@ -41,12 +47,12 @@ Simplicity first, flexibility second
 - It provides a way to create simple **Finite State Machines**, either with Actors or with Consumers (recommended)
 - It provides support for three types of **transactions**, from lightweight to full transactions, with roll-back 
 
-Some numbers
+Some numbers (from Loom)
 ===
-So, fibers are better than threads. Got it. How much better?
+So, virtual threads (fibers) are faster than threads. Got it. How much faster?
 Very much. Depending on your problem, you can consider them 10X-100X better than threads.
 While Fibry has not been optimized for extreme performance (e.g. it is based on a JDK queue), performance has been taken into high consideration, with the result that generally you don't pay the price of features that you don't need, which explains why there are so many types of actors with different capabilities.
-Also, Loom is not completed yet, so its performance can change.
+Also, at hte time of the test Loom was not completed yet, so its performance can be different than now.
 I took some informal benchmarks using a C5.2xlarge VM instance, without tuning of the OS or of Loom:
 
 - Number of concurrent threads that can be created without OS tuning: around 3K
@@ -77,39 +83,17 @@ To include it using Maven:
 </dependency>
 ```
 
-Why fibers?
+Why Virtual Threads?
 ===
-Fibers, or green threads, are lightweight threads. Lightweight means that you can have many of them, and in fact Fibry will be happy to keep running several million of fibers at the same time, if that's what you need.
+Virtual threads, or fibers, are lightweight threads. Lightweight means that you can have many of them, and in fact Fibry will be happy to keep running several million of virtual threads at the same time, if that's what you need.
 With threads, depending on your configuration, you can maybe have some tens of thousands.
 
 Surely you can use thread pools, but if you need to execute long operations this can be a problem, and in fact you might need to use asynchronous network operations to scale.
 And **asynchronous code is hard**. It can be really hard. Even a simple logic can be split in several callbacks and create endless issues.
 You can do amazing stuff with just a single thread, but you pay a price for it.
 
-With fibers you can write your actors using synchronous calls. Yep, boring, plain, synchronous calls, and your project will still scale like crazy.
+With virtual threads, you can write your actors using synchronous calls. Yep, boring, plain, synchronous calls, and your project will still scale like crazy.
 That's why **Fibry** was born: to let you write simple actors with synchronous logic.
-
-Project Loom?
-===
-That's the trick. Project Loom enables fibers. While fibers are nice but themselves, they were not very useful to do network operations until JDK 13 (due in September 2019) merged [JEP 353](https://openjdk.java.net/jeps/353), that rewrote part the network stack of Java to be Fiber friendly.
-Unfortunately, Loom is not yet merged into the OpenJDK, so you will have to build it by yourself. This might sound scary, but it is not.
-On Linux, building Loom is a matter of running a few commands and waiting:
-```bash
-hg clone http://hg.openjdk.java.net/loom/loom 
-cd loom 
-hg update -r fibers
-sh configure  
-make images
-```
-
-Please consider that to compile Loom you need a "bootstrap JDK" that should be Java 12 or 13 (I guess 14 also works as Looms is already on JDK 14). I used Zulu 12 for my tests.
-Most likely you will need to install some packages, but *sh configure* kindly tells you the command to run.
-When you are done, you will have a new JVM at your disposal. Mine was on this path: **build/linux-x86_64-server-release/images/jdk/bin/java**
-
-More info in [Loom Wiki](https://wiki.openjdk.java.net/display/loom/Main#Main-DownloadandBuildfromSource)
-On Windows you might have to use a Virtual Machine, and I would recommend avoiding shared folders as they can be issues with symbolic links.
-
-To recognize Loom you don't need to do anything particular, **Fibry will detect if fibers are available** and use them automatically. But you do have to choose to use the FIBER or AUTO strategy, as Fibry allows you to force the creation of threads if that's what you need.
 
 Creating actors with the ActorSystem class
 ===
@@ -117,7 +101,7 @@ While using actors is very simple, there are several ways to create the actors a
 
 The most flexible way to create actors is using ActorSystem, a class implementing a fluid interface.
 You might create anonymous and named actors, the difference being that named actors have a name and they can be used without having ac Actor object, and in fact you can send messages even before the actor has been created, which helps reducing race conditions.
-You can choose the strategy: AUTO (the default, using fibers if available), FIBER (using fibers, throwing an exception if they are not available) and THREAD (using threads).
+You can choose the strategy: AUTO (the default, using virtual threads if available), FIBER (using fibers, throwing an exception if they are not available) and THREAD (using threads).
 You can supply an initial state, which is mostly useful for thread confinement.
 
 You can create several types of actor:
@@ -151,8 +135,8 @@ Excessive use of apply() and sendMessageReturnWait() can have negative effects o
 
 Thread confinement
 ===
-Actors systems exist to implement thread confinement: your thread/fiber executes in the same thread/fiber and therefore you don't need synchronization or thread-safe classes.
-Usually, the logic of the actor is supplied during the creation, but sometimes instead of implementing several message types, it would be easier to just "send some code" to be executed in the context of the actor.
+Actors systems exist to implement thread confinement: your code executes always in the same thread, and therefore you don't need synchronization or thread-safe classes (though you might still experience issues and race conditions when dealing with other actors).
+Usually, the logic of the actor is supplied during the creation, but sometimes instead of implementing several message types, it could be easier to just "send some code" to be executed in the context of the actor.
 An example would be **Platform.runLater()** in JavaFX.
 Fibry support this behavior for every actor, with the methods *execAsync()*, *execAndWait()* and *execFuture()*, all accepting Runnable and Consumer interface.
 In addition, almost every Actor implements the Executor interface.  
@@ -173,7 +157,7 @@ Some examples:
 - *runOnce()*: creates an actor that executes some logic in a separated thread, once.
 - *schedule()*: creates an actor that executes some logic in a separated thread, as many times as requested, as often as requested
 - *scheduler()*: creates a Scheduler that can be used to schedule messages in the future, in several ways
-- *tcpAcceptor()*: creates a master actor that will receive TCP connections, delegating the processing of each connection to a dedicated fiber. This is nice for IoI, to design a chat system or in general, if you have a proxy.
+- *tcpAcceptor()*: creates a master actor that will receive TCP connections, delegating the processing of each connection to a dedicated actor. This is nice for IoI, to design a chat system or in general, if you have a proxy.
 
 Please check the **examples** package for inspiration.
 
@@ -252,7 +236,7 @@ If you are using **Spring Boot**, the **Fibry-Spring** project could help.
 It can also be used to deal with queues in a transparent way, though at the moment you have to implement the logic by yourself.
 
 TcpChannel is more flexible, and allows more sophisticated distributed systems, though surely it needs improvements, and even if it has been designed to recover in case of a failed connection, some stabilization work is necessary.
-In principle, a server with some kernel tuning, a lot of RAM and Loom installed could serve 1M or more concurrent clients. This is one of the main intended use cases of Fibry.
+In principle, a server with appropriate kernel tuning, a lot of RAM and virtual threads enabled, could serve 1M or more concurrent clients. This is one of the main intended use cases of Fibry.
 
 Discovering remote actors
 ===
@@ -286,7 +270,7 @@ You could use a list, but then you need to keep all the elements in RAM, which i
 You can write an Iterable, but it is quite some code, and not always super straightforward.
 
 Fibry Generators don't have these limitations, and can let you customize how many elements to keep in memory (5 in my example); more elements usually mean better performance, but Fibry has also other ways to tune speed.
-Please note that every generator is back by a thread / fiber, and while it can process millions of elements per second, it might still be slower than other solutions.
+Please note that every generator is back by a thread / virtual thread, and while it can process millions of elements per second, it might still be slower than other solutions. It's great to start processing elements while you are still reading them from a relatively slow source, for example a cloud bucket.
  
  
 
@@ -394,18 +378,33 @@ Utilities
 ===
 Fibry has a file called Utilities that contains some useful methods.
 Listening to changes in a directory can be a bit difficult in Java. Fibry provide the *Utilities.watchDirectory()* method, that makes it simpler to receive event about file changes.
- 
-Some warnings
+
+Project Loom?
 ===
-Fibry is still experimental (though I am using it in several projects), and to leverage its full potential you need to use Loom, which is a project under development, and is not clear when Loom will be merged into the OpenJDK; that said, the development of Loom seems very active and proceeding well.
-Loom might still have some bugs, as I saw some errors popping up when exchanging sync messages between a thread and a fiber, so it might be better to not mix them for now.
-If you start to use Fibry and find some bugs, please notify me.
-The API is going to change a bit, while I start to use it in more real-world projects. Nothing drastic, but you might find a new parameter in some methods. I apologise for that, but it will be necessary.
+That was the trick. Since JDK 21 (mandatory starting from Fibry 3.0.0), virtual threads are included in Java, and Project Loom is no longer required for that.
+This section is only useful if you are running Fibry on an older JDK and wants to use virtual threads / fibers there. Then you will need to run your code on Loom.
 
-There are some network operations that are not virtual thread friendly, but the network stack of Java 15+ has been basically rewritten to support Loom. You can find a list of what works and what does not [here](https://wiki.openjdk.java.net/display/loom/Networking+IO). 
+Project Loom was designed to enable fibers. While fibers are nice but themselves, they were not very useful to do network operations until JDK 13 (due in September 2019) merged [JEP 353](https://openjdk.java.net/jeps/353), that rewrote part the network stack of Java to be Fiber friendly.
+If you cannot use a version of JDK with Virtual threads support, or if you cannot find a build suitable for you, you will have to build Loom by yourself. This might sound scary, but it is not.
+On Linux, building Loom is a matter of running a few commands and waiting:
+```bash
+hg clone http://hg.openjdk.java.net/loom/loom 
+cd loom 
+hg update -r fibers
+sh configure  
+make images
+```
 
-Enjoy!
+Please consider that to compile Loom you need a "bootstrap JDK" that should be Java 12 or 13 (I guess 14 also works as Looms is already on JDK 14). I used Zulu 12 for my tests.
+Most likely you will need to install some packages, but *sh configure* kindly tells you the command to run.
+When you are done, you will have a new JVM at your disposal. Mine was on this path: **build/linux-x86_64-server-release/images/jdk/bin/java**
 
+More info in [Loom Wiki](https://wiki.openjdk.java.net/display/loom/Main#Main-DownloadandBuildfromSource)
+On Windows you might have to use a Virtual Machine, and I would recommend avoiding shared folders as they can be issues with symbolic links.
+
+To recognize Loom you don't need to do anything particular, **Fibry will detect if fibers are available** and use them automatically. But you do have to choose to use the FIBER or AUTO strategy, as Fibry allows you to force the creation of threads if that's what you need.
+
+ 
 Acknowledgements
 ===
 Big thank you to Deniz Türkoglu: his code, advice, code reviews and endless discussions made Fibry a much better product. 

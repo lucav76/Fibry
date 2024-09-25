@@ -552,31 +552,35 @@ public class Stereotypes {
             actor.setCloseStrategy(Exitable.CloseStrategy.ASK_EXIT);
 
             actor.execAsync(() -> {
-                if (initialDelayMs > 0)
-                    SystemUtils.sleep(initialDelayMs);
+                try {
+                    if (initialDelayMs > 0)
+                        SystemUtils.sleep(initialDelayMs);
 
-                if (Thread.interrupted())
-                    return;
+                    if (Thread.interrupted())
+                        return;
 
-                long prev = System.currentTimeMillis();
-                long times = 0;
+                    long prev = System.currentTimeMillis();
+                    long times = 0;
 
-                while (!actor.isExiting() && times < maxTimes && !Thread.interrupted()) {
-                    if (!run.get())
-                        break;
+                    while (!actor.isExiting() && times < maxTimes && !Thread.interrupted()) {
+                        if (!run.get())
+                            break;
 
-                    times++;
+                        times++;
 
-                    if (times >= maxTimes)
-                        break;
+                        if (times >= maxTimes)
+                            break;
 
-                    long now = System.currentTimeMillis();
-                    long diff = now - prev;
+                        long now = System.currentTimeMillis();
+                        long diff = now - prev;
 
-                    if (diff < scheduleMs)
-                        SystemUtils.sleep(scheduleMs - diff);
+                        if (diff < scheduleMs)
+                            SystemUtils.sleep(scheduleMs - diff);
 
-                    prev = now;
+                        prev = now;
+                    }
+                } finally {
+                    actor.askExit();
                 }
             });
 

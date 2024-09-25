@@ -1,22 +1,22 @@
 Fibry
 ===
 
-Fibry is an Actor System built to be simple and flexible. Hopefully, it will also be fun to use.
-Fibry is the **first Java Actor System designed to use Virtual Threads**, since 2019, when they were only available from *Project Loom* and were called Fibers (and hence the project name).
-Commercial support, provided by DGTZ AS, is available for each version of Fibry and Java (starting from JDK 8). Please reach out to Luca Venturi here or on LinkedIn to discuss it.
-Please note that from version 3.0.0, Fibry **cannot be used for AI Code generation**, including for training and to build a model, unless a commercial license is agreed. Other AI cases are fine. Please read the license and reach out to Luca Venturi if in doubt.
+Fibry is an Actor System built to be simple and flexible. Hopefully, it will also be fun to use.  
+Fibry is the **first Java Actor System designed to use Virtual Threads**, since 2019, when they were only available from *Project Loom* and were called Fibers (and hence the project name).  
+Commercial support, provided by DGTZ AS, is available for each version of Fibry and Java (starting from JDK 8). Please reach out to Luca Venturi here or on LinkedIn to discuss it.  
+Please note that from version 3.0.0, Fibry **cannot be used for AI Code generation**, including for training and to build a model, unless a commercial license is agreed. Other AI cases are fine. Please read the license and reach out to Luca Venturi if in doubt.  
 
-Fibry **3.X** requires **JDK 21+**, and it is the recommended version, as JDK 21 finally merged virtual threads / fibers into the mainline, so you no longer need a build of Loom to use them.
-Fibry **2.X** requires **JDK 11+**, and you need Loom to get access to virtual threads
-Fibry **1.X** works **JDK 8+**, and you need Loom to get access to virtual threads
-Fibry 2.X is supported, and changes are available in the **jdk11** branch.
-Fibry 1.X is supported, and changes are available in the **jdk8** branch.
-Fibry aims to replicate some of the features of the Erlang Actor System in Java.
-Fibry allows you to send code to be executed in the thread/fiber of an actor, a mechanism similar to the one used in Chromium and to Java Executors.
+Fibry **3.X** requires **JDK 21+**, and it is the recommended version, as JDK 21 finally merged virtual threads / fibers into the mainline, so you no longer need a build of Loom to use them.  
+Fibry **2.X** requires **JDK 11+**, and you need Loom to get access to virtual threads  
+Fibry **1.X** works **JDK 8+**, and you need Loom to get access to virtual threads  
+Fibry 2.X is supported, and changes are available in the **jdk11** branch.  
+Fibry 1.X is supported, and changes are available in the **jdk8** branch.  
+Fibry aims to replicate some of the features of the Erlang Actor System in Java.  
+Fibry allows you to send code to be executed in the thread/fiber of an actor, a mechanism similar to the one used in Chromium and to Java Executors.  
 
-The original line of development was meant to make Fibry useful on the creation of IoT products and video games supporting *online multi-players* functionalities and chats.
-However, Fibry proved useful on Big Data projects, helping to move terabytes of data and making scheduled tasks more resilient, thanks to its **Auto Healing** functionality.
-Its **generators** functionality makes easier to squeeze some performance on special tasks, like buckets traversal. 
+The original line of development was meant to make Fibry useful on the creation of IoT products and video games supporting *online multi-players* functionalities and chats.  
+However, Fibry proved useful on Big Data projects, helping to move terabytes of data and making scheduled tasks more resilient, thanks to its **Auto Healing** functionality.  
+Its **generators** functionality makes easier to squeeze some performance on special tasks, like buckets traversal.   
 
 Simplicity first, flexibility second
 ===
@@ -51,9 +51,9 @@ Simplicity first, flexibility second
 Some numbers (from Loom)
 ===
 So, virtual threads (fibers) are faster than threads. Got it. How much faster?
-Very much. Depending on your problem, you can consider them 10X-100X better than threads.
-While Fibry has not been optimized for extreme performance (e.g. it is based on a JDK queue), performance has been taken into high consideration, with the result that generally you don't pay the price of features that you don't need, which explains why there are so many types of actors with different capabilities.
-Also, at hte time of the test Loom was not completed yet, so its performance can be different than now.
+Very much. Depending on your problem, you can consider them 10X-100X faster than threads.
+While Fibry has not been optimized for extreme performance (e.g. it is based on a standard JDK queue), performance has been taken into high consideration, with the result that generally you don't pay the price of features that you don't need, which explains why there are so many types of actors with different capabilities.  
+Also, at the time of the test Loom was not completed yet, so its performance can be different from now.  
 I took some informal benchmarks using a C5.2xlarge VM instance, without tuning of the OS or of Loom:
 
 - Number of concurrent threads that can be created without OS tuning: around 3K

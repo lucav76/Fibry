@@ -3,7 +3,7 @@ plugins {
     id 'maven-publish'
     id 'signing'
     //id 'org.kordamp.gradle.java-project' version '0.45.0'
-    id 'org.jreleaser' version '0.10.0'
+    id 'org.jreleaser' version '1.14.0'
 }
 
 group 'eu.lucaventuri'
@@ -57,7 +57,6 @@ tasks.register("releaseCheck") {
 jreleaser {
     release {
         github {
-            owner = 'lucav76'
             overwrite = true
             changelog {
                 external = file('RELEASE_NOTES.md')

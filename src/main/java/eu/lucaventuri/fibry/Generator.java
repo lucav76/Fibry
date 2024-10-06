@@ -3,10 +3,7 @@ package eu.lucaventuri.fibry;
 import eu.lucaventuri.concurrent.AntiFreeze;
 import eu.lucaventuri.fibry.cache.CacheAheadList;
 
-import java.util.Iterator;
-import java.util.NoSuchElementException;
-import java.util.Spliterator;
-import java.util.Spliterators;
+import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -37,6 +34,14 @@ public interface Generator<T> extends Iterable<T> {
 
     interface Yielder<T> {
         void yield(T element);
+
+        default void yield(Collection<T> elements) {
+            if (elements != null) {
+                for (var element: elements) {
+                    this.yield(element);
+                }
+            }
+        }
     }
 
     /** This producer is the simplest, but the performance are suboptimal */

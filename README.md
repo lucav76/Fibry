@@ -12,7 +12,8 @@ Fibry **1.X** works **JDK 8+**, and you need Loom to get access to virtual threa
 Fibry 2.X is supported, and changes are available in the **jdk11** branch.  
 Fibry 1.X is supported, and changes are available in the **jdk8** branch.  
 Fibry aims to replicate some of the features of the Erlang Actor System in Java.  
-Fibry allows you to send code to be executed in the thread/fiber of an actor, a mechanism similar to the one used in Chromium and to Java Executors.  
+Fibry allows you to send code to be executed in the thread/fiber of an actor, a mechanism similar to the one used in Chromium and to Java Executors.
+Fibry is following the "Tip and Tail model" as described by JEP 14, so new features will only be available on version 3.X, and version 1.X and 2.X will only receive critical bug fixes. 
 
 The original line of development was meant to make Fibry useful on the creation of IoT products and video games supporting *online multi-players* functionalities and chats.  
 However, Fibry proved useful on Big Data projects, helping to move terabytes of data and making scheduled tasks more resilient, thanks to its **Auto Healing**.  

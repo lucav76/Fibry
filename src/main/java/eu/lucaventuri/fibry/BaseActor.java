@@ -15,6 +15,8 @@ import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -153,6 +155,20 @@ public abstract class BaseActor<T, R, S> extends Exitable implements Function<T,
 
             return ActorUtils.sendMessageReturn(queue, message).get();
         } catch (InterruptedException | ExecutionException e) {
+            return valueOnError;
+        }
+    }
+
+    /**
+     * Synchronously sends a message and waits for the result. This can take some time because of the context switch and of possible messages in the queue
+     */
+    public R sendMessageReturnWait(T message, R valueOnError, int timeout, TimeUnit timeUnit) {
+        try {
+            if (isExiting())
+                return valueOnError;
+
+            return ActorUtils.sendMessageReturn(queue, message).get(timeout, timeUnit);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
             return valueOnError;
         }
     }

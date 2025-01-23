@@ -12,6 +12,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 public class HttpUtil {
@@ -134,4 +135,36 @@ public class HttpUtil {
 
         return result;
     }
+
+    public static HttpResponse<String> post(URI uri, String body, Map<String, String> headers, int timeoutSeconds) throws IOException, InterruptedException {
+        return postCheckSuccess(uri, body, headers, timeoutSeconds, null);
+    }
+
+    public static HttpResponse<String> postCheckSuccess(URI uri, String body, Map<String, String> headers, int timeoutSeconds, String errorMessage /* Must be != null to trigger the success check */) throws IOException, InterruptedException {
+        HttpClient client = getHttpClient(timeoutSeconds);
+
+        var requestBuilder = addHeaders(headers, HttpRequest.newBuilder().uri(uri));
+        requestBuilder.POST(HttpRequest.BodyPublishers.ofString(body));
+
+        return checkSuccess(errorMessage, client.send(requestBuilder.build(), HttpResponse.BodyHandlers.ofString()));
+    }
+
+    private static HttpRequest.Builder addHeaders(Map<String, String> headers, HttpRequest.Builder requestBuilder) {
+        if (headers != null) {
+            for (var entry : headers.entrySet())
+                requestBuilder.header(entry.getKey(), entry.getValue());
+        }
+
+        return requestBuilder;
+    }
+
+    private static <T> HttpResponse<T> checkSuccess(String errorMessage, HttpResponse<T> response) {
+        if (errorMessage != null) {
+            if (response.statusCode() < 200 || response.statusCode() >= 300)
+                throw new RuntimeException((errorMessage.isEmpty() ? "Error" : errorMessage) + ": " + response.statusCode() + " - " + response.body());
+        }
+
+        return response;
+    }
+
 }

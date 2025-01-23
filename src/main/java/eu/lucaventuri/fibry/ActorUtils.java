@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
@@ -19,6 +20,7 @@ import java.util.function.Function;
 
 public final class ActorUtils {
     private ActorUtils() { /* Static methods only */}
+    static final AtomicInteger num = new AtomicInteger(0);
 
     static <T, R, S> void sendMessage(MiniQueue<Either3<Consumer<S>, T, MessageWithAnswer<T, R>>> queue, T message) {
         queue.add(Either3.right(message));

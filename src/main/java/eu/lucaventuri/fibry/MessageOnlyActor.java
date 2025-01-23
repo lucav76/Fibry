@@ -1,5 +1,6 @@
 package eu.lucaventuri.fibry;
 
+import eu.lucaventuri.common.Exceptions;
 import eu.lucaventuri.common.Stateful;
 
 import java.util.concurrent.CompletableFuture;
@@ -36,5 +37,31 @@ public interface MessageOnlyActor<T, R, S> extends MessageSendOnlyActor<T, S>, F
     @Override
     default void close() throws Exception {
         sendPoisonPill();
+    }
+
+    // Useful if you have an actor with logic returning a CompletableFuture (e.g. if it generates an actor for each message)
+    static <T, R, S> MessageOnlyActor<T, R, S> fromAsync(MessageOnlyActor<T, CompletableFuture<R>, S> actor) {
+        return new MessageOnlyActor<T, R, S>() {
+            @Override
+            public void accept(T message) {
+                actor.accept(message);
+            }
+
+            @Override
+            public MessageOnlyActor<T, R, S> sendMessage(T message) {
+                actor.sendMessage(message);
+                return this;
+            }
+
+            @Override
+            public boolean sendPoisonPill() {
+                return actor.sendPoisonPill();
+            }
+
+            @Override
+            public CompletableFuture<R> sendMessageReturn(T message) {
+                return Exceptions.rethrowRuntime(() -> actor.sendMessageReturn(message).get());
+            }
+        };
     }
 }

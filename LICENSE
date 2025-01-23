@@ -1,26 +1,36 @@
-MIT License + AI Code Exclusion
-This software is released under the MIT License (see below). However, the following additional terms apply:
+MIT License + AI limitation License
+This software is released under the MIT License (see below), plus some additional terms that limit some usages .
+If any conflict exists between the MIT License terms and the additional terms below, the additional terms control.
 
-Permitted AI Uses:
-The Software may be used, modified, and distributed for purposes involving artificial intelligence (AI) tasks, provided that such tasks do not involve the generation of code, software programs, or software artifacts at scale, for other companies. Internal use cases are allowed.
-If in doubt, please contact the Licensor.
+Prohibition: Third-Party AI Code Generation
+Without a commercial license, you may not use the Software to train, support, or operate any system whose primary function is to generate code at scale for third parties (e.g., other companies). Internal or personal use is allowed.
 
-Prohibition on AI Code Generation:
-The use or modification of the Software, both in bytecode or other compiled form or source code form, for the purpose of training AI models, machine learning algorithms, or any systems that generate code, software programs, or software artifacts is expressly prohibited.
-This prohibition includes incorporating any portion of the Software, in any form, into datasets or training materials for AI systems designed to produce code or software outputs.
-Notwithstanding the above prohibitions, the use of the Software's examples and unit tests for the purpose of training models to learn how to use the Software is permitted; provided, however, that such use does not involve training models to generically learn how to code or to generate code unrelated to the use of the Software
+Prohibition: Datasets
+You may not use, modify, or include this Software (in source, compiled or derived form) in any datasets for training or evaluating AI models, machine learning algorithms, or any systems that generate code, software programs, or similar artifacts.
+This includes (but is not limited to) incorporating any portion of the Software into training datasets, validation datasets, testing datasets or fine-tuning datasets.
 
 Commercial Licensing for Prohibited Uses:
 Entities wishing to use the Software for prohibited purposes must obtain a separate commercial license from the Licensor.
 Payment of the fee and execution of a commercial license agreement must occur prior to any such use.
 
 Implicit Agreement to Pay Licensing Fee:
-Unauthorized use of the Software for prohibited purposes without obtaining a commercial license is a copyright violation, and shall constitute an implicit agreement by the user to pay a licensing fee determined by running the sloccount program on the Software's source code, and the resulting monetary value shall constitute the fee owed.
+Unauthorized use of the Software in datasets (as previously defined) without obtaining a commercial license is a copyright violation, and shall constitute an implicit agreement by the user to pay a licensing fee determined by running the sloccount program on the Software's source code, and the resulting monetary value shall constitute the fee owed.
 Payment must be made to the Licensor within thirty (30) days of the commencement of such unauthorized use.
 
 Enforcement and Legal Remedies:
 Failure to comply with these terms may result in legal action to recover the licensing fee, damages, and associated legal costs.
 The user consents to the jurisdiction of Norway for any disputes arising under these terms.
+Disputes shall be resolved under Norwegian law in the courts located in Oslo, Norway.
+
+Include This Notice
+A copy of this license notice must be included in any version or distribution of the Software.
+
+License Modification and Derivatives
+You may distribute or re-license this Software (including any modifications or forks), provided you:
+- Preserve the Prohibited uses exactly (or use stricter terms), and
+- Require that any subsequent forks, modifications, or redistributions do the same.
+This means no future license may weaken or remove the Prohibited AI Use clause, without the approval of licensor.
+
 
 MIT License
 

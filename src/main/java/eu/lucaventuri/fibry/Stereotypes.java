@@ -109,7 +109,7 @@ class MultiTracker<T extends MergeableParallelBatches> {
  * Class providing functions for common use cases
  */
 public class Stereotypes {
-    private static AtomicBoolean debug = new AtomicBoolean(false);
+    static AtomicBoolean debug = new AtomicBoolean(false);
     private static AtomicInteger defaultHttpBacklog = new AtomicInteger(100);
 
     public static class HttpWorker {

@@ -42,7 +42,7 @@ public class AiAgentExample {
             builder.addStateParallel(VacationStates.CITIES, VacationStates.CHOOSE, 1, List.of(nodeFood, nodeDance, nodeSea), null);
             builder.addState(VacationStates.CHOOSE, null, 1, nodeChoice, null);
 
-            return builder.build(VacationStates.CITIES, null);
+            return builder.build(VacationStates.CITIES, null, false);
         }
     }
 
@@ -71,7 +71,7 @@ public class AiAgentExample {
             builder.addState(TravelStates.SEARCH, TravelStates.CALCULATE, 1, nodeSearch, null);
             builder.addState(TravelStates.CALCULATE, null, 1, nodeCalculateCost, null);
 
-            return builder.build(TravelStates.SEARCH, null);
+            return builder.build(TravelStates.SEARCH, null, false);
         }
     }
 

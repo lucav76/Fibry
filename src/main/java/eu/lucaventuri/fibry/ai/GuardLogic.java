@@ -17,4 +17,12 @@ public interface GuardLogic<S extends Enum, I extends Record> {
             return gentState.getVisitedStates().containsAll(Arrays.stream(requiredStates).toList());
         };
     }
+
+    static <S extends Enum, I extends Record> GuardLogic<S, I> always() {
+        return (prevState, nextState, gentState) -> true;
+    }
+
+    static <S extends Enum, I extends Record> GuardLogic<S, I> never() {
+        return (prevState, nextState, gentState) -> false;
+    }
 }

@@ -10,6 +10,7 @@ import org.junit.Test;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Test for an AI agent that can help you to find a plane
@@ -34,10 +35,20 @@ public class TestAIAgent {
         PAY
     }
 
+    public enum WaitingState {
+        A,
+        W1,
+        W2,
+        W3,
+        DONE
+    }
+
+    public record WaitingInfo(int done) {}
+
     public record ShoppingContext(int priceVeggies, int priceMeat, int totalPaid, boolean peekedAround, boolean peekedAround2, boolean peekedOutside) {}
 
 
-    private AiAgent<TravelState, TravelInfo> buildAgent(boolean parallel, int parallelism, int sleep) {
+    private AiAgent<TravelState, TravelInfo> buildVacationAgent(boolean parallel, int parallelism, int sleep) {
         long start = System.currentTimeMillis();
         var builder = new AiAgentBuilderActor<TravelState, TravelInfo>(false);
         List<AgentNode<TravelState, TravelInfo>> nodes = List.of(
@@ -67,12 +78,36 @@ public class TestAIAgent {
             return state.setAttribute("flights", List.of("Ticket to Florence", "Ticket to Barcelona"));
         }, null);
 
-        return builder.build(TravelState.SELECT_COUNTRIES, TravelState.DONE);
+        return builder.build(TravelState.SELECT_COUNTRIES, TravelState.DONE, false);
+    }
+
+    private AiAgent<WaitingState, WaitingInfo> buildWaitingAgent(boolean parallelStateProcessing, int sleep) {
+        long start = System.currentTimeMillis();
+        var builder = new AiAgentBuilderActor<WaitingState, WaitingInfo>(true);
+        builder.addStateMulti(WaitingState.A, List.of(WaitingState.W1, WaitingState.W2, WaitingState.W3), 0, state -> state, null);
+        builder.addState(WaitingState.W1, WaitingState.DONE, 0, state -> {
+            SystemUtils.sleep(sleep);
+            System.out.println("W1 done at " + (System.currentTimeMillis() - start));
+            return state;
+        }, null);
+        builder.addState(WaitingState.W2, WaitingState.DONE, 0, state -> {
+            SystemUtils.sleep(sleep);
+            System.out.println("W2 done at " + (System.currentTimeMillis() - start));
+            return state;
+        }, null);
+        builder.addState(WaitingState.W3, WaitingState.DONE, 0, state -> {
+            SystemUtils.sleep(sleep);
+            System.out.println("W3 done at " + (System.currentTimeMillis() - start));
+            return state;
+        }, null);
+        builder.addState(WaitingState.DONE, null, 0, state -> state.setAttribute("done", state.data().done() + 1), null);
+
+        return builder.build(WaitingState.A, null, parallelStateProcessing);
     }
 
     @Test
     public void testSerial() throws ExecutionException, InterruptedException {
-        var aiAgent = buildAgent(false, 1, 50);
+        var aiAgent = buildVacationAgent(false, 1, 50);
 
         var result = aiAgent.process(TravelInfo.empty(), (state, info) -> {
             System.out.println(state + ": " + info);
@@ -84,7 +119,7 @@ public class TestAIAgent {
 
     @Test
     public void testParallel() throws ExecutionException, InterruptedException {
-        var aiAgent = buildAgent(true, 1, 50);
+        var aiAgent = buildVacationAgent(true, 1, 50);
 
         var result = aiAgent.process(TravelInfo.empty(), (state, info) -> {
             System.out.println(state + ": " + info);
@@ -96,7 +131,7 @@ public class TestAIAgent {
 
     @Test
     public void testThreadsSerial() throws ExecutionException, InterruptedException {
-        var aiAgent = buildAgent(false, 1, 150);
+        var aiAgent = buildVacationAgent(false, 1, 150);
 
         System.out.println(aiAgent.process(TravelInfo.empty(), null));
         System.out.println("\n\n\n*****\n");
@@ -107,7 +142,7 @@ public class TestAIAgent {
 
     @Test
     public void testThreadsSerialOneThreadPerMessage() throws ExecutionException, InterruptedException {
-        var aiAgent = buildAgent(false, 0, 150);
+        var aiAgent = buildVacationAgent(false, 0, 150);
 
         System.out.println(aiAgent.process(TravelInfo.empty(), null));
         System.out.println("\n\n\n*****\n");
@@ -118,7 +153,7 @@ public class TestAIAgent {
 
     @Test
     public void testThreadsParallel() throws ExecutionException, InterruptedException {
-        var aiAgent = buildAgent(true, 1, 150);
+        var aiAgent = buildVacationAgent(true, 1, 150);
 
         System.out.println(aiAgent.process(TravelInfo.empty(), null));
         System.out.println("\n\n\n*****\n");
@@ -129,7 +164,7 @@ public class TestAIAgent {
 
     @Test
     public void testThreadsParallelOneThreadPerMessage() throws ExecutionException, InterruptedException {
-        var aiAgent = buildAgent(true, 0, 150);
+        var aiAgent = buildVacationAgent(true, 0, 150);
 
         System.out.println(aiAgent.process(TravelInfo.empty(), null));
         System.out.println("\n\n\n*****\n");
@@ -140,33 +175,33 @@ public class TestAIAgent {
 
     @Test
     public void testThreadsAsyncSerial() throws ExecutionException, InterruptedException {
-        asyncExec(buildAgent(false, 1, 150));
+        asyncExec(buildVacationAgent(false, 1, 150));
     }
 
     @Test
     public void testThreadsAsyncSerial2Threads() throws ExecutionException, InterruptedException {
-        asyncExec(buildAgent(false, 2, 150));
+        asyncExec(buildVacationAgent(false, 2, 150));
     }
 
     @Test
     public void testThreadsAsyncParallelOneThreadPerMessage() throws ExecutionException, InterruptedException {
-        asyncExec(buildAgent(true, 0, 150));
+        asyncExec(buildVacationAgent(true, 0, 150));
 
     }
 
     @Test
     public void testThreadsAsyncParallel() throws ExecutionException, InterruptedException {
-        asyncExec(buildAgent(true, 1, 150));
+        asyncExec(buildVacationAgent(true, 1, 150));
     }
 
     @Test
     public void testThreadsAsyncParallel2Threads() throws ExecutionException, InterruptedException {
-        asyncExec(buildAgent(true, 2, 150));
+        asyncExec(buildVacationAgent(true, 2, 150));
     }
 
     @Test
     public void testThreadsAsyncSerialOneThreadPerMessage() throws ExecutionException, InterruptedException {
-        asyncExec(buildAgent(false, 0, 150));
+        asyncExec(buildVacationAgent(false, 0, 150));
 
     }
 
@@ -213,7 +248,7 @@ public class TestAIAgent {
         //}, (prevState, newState, ctx) -> ctx.getState().totalPaid > 0 && ctx.getState().peekedAround && ctx.getState().peekedAround2);
         }, null /*GuardLogic.waitStates(ShoppingState.LOOK_AROUND2, ShoppingState.PAY)*/);
 
-        return builder.build(ShoppingState.COLLECT_FOOD, null);
+        return builder.build(ShoppingState.COLLECT_FOOD, null, false);
     }
 
     @Test
@@ -229,5 +264,21 @@ public class TestAIAgent {
         Assert.assertTrue(result.peekedOutside());
 
         System.out.println(agent.processAsync(startingState, null).get());
+    }
+
+    @Test
+    public void testWaitingNormal() throws ExecutionException, InterruptedException {
+        var agent = buildWaitingAgent(false, 50);
+
+        var res= agent.process(new WaitingInfo(0), 1, TimeUnit.MINUTES, null);
+        Assert.assertEquals(1, res.done());
+    }
+
+    @Test
+    public void testWaitingParallel() throws ExecutionException, InterruptedException {
+        var agent = buildWaitingAgent(true, 50);
+
+        var res= agent.process(new WaitingInfo(0), 1, TimeUnit.MINUTES, null);
+        Assert.assertEquals(1, res.done());
     }
 }

@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.UnaryOperator;
 
@@ -14,6 +15,7 @@ public class AgentState<S extends Enum, T extends Record> {
     private final AtomicReference<T> data = new AtomicReference<>();
     private final AtomicReference<List<S>> stateOverride = new AtomicReference<>();
     private final Set<S> visitedStates = ConcurrentHashSet.build();
+    private final AtomicBoolean processed = new AtomicBoolean();
 
     public AgentState(T initialState) {
         data.set(initialState);
@@ -89,5 +91,13 @@ public class AgentState<S extends Enum, T extends Record> {
 
     public Set<S> getVisitedStates() {
         return new HashSet<>(visitedStates);
+    }
+
+    public boolean isProcessed() {
+        return processed.get();
+    }
+
+    public void setProcessed(boolean value) {
+        processed.set(value);
     }
 }

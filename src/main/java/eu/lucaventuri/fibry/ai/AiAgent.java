@@ -1,18 +1,15 @@
 package eu.lucaventuri.fibry.ai;
 
+import eu.lucaventuri.common.ConcurrentHashSet;
 import eu.lucaventuri.common.Exceptions;
+import eu.lucaventuri.common.RunnableEx;
+import eu.lucaventuri.common.SystemUtils;
 import eu.lucaventuri.fibry.*;
 import eu.lucaventuri.fibry.fsm.FsmContext;
 import eu.lucaventuri.fibry.fsm.FsmTemplateActor;
 
-import java.util.ArrayDeque;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 
@@ -25,6 +22,8 @@ public class AiAgent<S extends Enum, I extends Record> extends CustomActorWithRe
     private final S finalState;
     private final Map<S, List<S>> defaultStates;
     private static final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+    private final boolean parallelStatesProcessing;
+    private final boolean skipLastStates;
 
     @Override
     protected CompletableFuture<AiAgent.AgentResult<I>> onMessage(AiAgent.AgentExecutionRequest<S, I> message) {
@@ -37,12 +36,14 @@ public class AiAgent<S extends Enum, I extends Record> extends CustomActorWithRe
     record States<S>(S prevState, S curState) {
     }
 
-    public AiAgent(FsmTemplateActor<S, S, AgentState<S, I>, MessageOnlyActor<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>, Void>, AgentState<S, I>> fsm, S initialState, S finalState, Map<S, List<S>> defaultStates) {
+    public AiAgent(FsmTemplateActor<S, S, AgentState<S, I>, MessageOnlyActor<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>, Void>, AgentState<S, I>> fsm, S initialState, S finalState, Map<S, List<S>> defaultStates, boolean parallelStatesProcessing, boolean skipLastStates) {
         super(new FibryQueue<>(), null, null, Integer.MAX_VALUE);
         this.fsm = fsm;
         this.initialState = initialState;
         this.finalState = finalState;
         this.defaultStates = defaultStates;
+        this.parallelStatesProcessing = parallelStatesProcessing;
+        this.skipLastStates = skipLastStates;
 
         closeStrategy = CloseStrategy.SEND_POISON_PILL;
         CreationStrategy.AUTO.start(this);
@@ -50,37 +51,67 @@ public class AiAgent<S extends Enum, I extends Record> extends CustomActorWithRe
 
     private AgentResult<I> executeInCurrentThread(I initialContext, BiConsumer<S, I> stateListener) {
         AtomicInteger statesProcessed = new AtomicInteger();
+        AtomicInteger pendingStates = new AtomicInteger();
 
         return Exceptions.rethrowRuntime(() -> {
             AgentState<S, I> agentState = new AgentState<>(initialContext);
-            Queue<States<S>> queuesStates = new ArrayDeque<>();
+            Queue<States<S>> queuesStates = new ConcurrentLinkedDeque<>();
+            Set<S> lastStates = ConcurrentHashSet.build();
 
             queuesStates.add(new States<>(null, initialState));
 
-            while (!queuesStates.isEmpty()) {
+            while (!queuesStates.isEmpty() || pendingStates.get() > 0) {
                 statesProcessed.incrementAndGet();
 
                 var states = queuesStates.poll();
-                var actor = fsm.newFsmActor(states.curState);
-                var result = actor.getActor().sendMessageReturn(new FsmContext<>(states.prevState, states.curState, null, agentState)).get();
 
-                agentState.visit(states.curState);
-                if (stateListener != null)
-                    stateListener.accept(states.curState, result.data());
-
-                final List<S> nextStates;
-                if (result.getStateOverride() != null)
-                    nextStates = result.getStateOverride();
-                else
-                    nextStates = defaultStates.get(states.curState);
-
-                if (nextStates != null) {
-                    for (var state : nextStates) {
-                        if (state != finalState && state != null) {
-                            queuesStates.add(new States<>(states.curState, state));
-                        }
-                    }
+                if (states == null) {
+                    SystemUtils.sleep(1);
+                    continue;
                 }
+
+                if (skipLastStates && lastStates.contains(states.curState)) {
+                    continue;
+                }
+
+                var actor = fsm.newFsmActor(states.curState);
+
+                RunnableEx run = () -> {
+                    try {
+                        var result = actor.getActor().sendMessageReturn(new FsmContext<>(states.prevState, states.curState, null, agentState)).get();
+
+                        agentState.visit(states.curState);
+                        if (stateListener != null)
+                            stateListener.accept(states.curState, result.data());
+
+                        final List<S> nextStates;
+                        if (result.getStateOverride() != null)
+                            nextStates = result.getStateOverride();
+                        else
+                            nextStates = defaultStates.get(states.curState);
+
+                        if (nextStates != null && !nextStates.isEmpty()) {
+                            for (var state : nextStates) {
+                                if (state != finalState && state != null) {
+                                    queuesStates.add(new States<>(states.curState, state));
+                                }
+                            }
+                        } else {
+                            // If there is no next state, it could be either a final state or a guard blocking a state
+                            if (agentState.isProcessed())
+                                lastStates.add(states.curState);
+                        }
+                    } finally {
+                        pendingStates.decrementAndGet();
+                    }
+                };
+
+                if (parallelStatesProcessing) {
+                    pendingStates.incrementAndGet();
+                    CompletableFuture.runAsync(() -> Exceptions.rethrowRuntime(run), executor);
+                }
+                else
+                    run.run();
             }
 
             return new AgentResult<>(statesProcessed.get(), agentState.data());

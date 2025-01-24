@@ -46,8 +46,8 @@ public class AiAgentBuilderActor<S extends Enum, I extends Record> {
         return this;
     }
 
-    public AiAgentBuilderActor<S, I> addState(S state, S defaultNextState, int parallelism, Function<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>> actorLogic, GuardLogic<S, I> guard) {
-        return addStateFork(state, defaultNextState == null? List.of() : List.of(defaultNextState),parallelism, actorLogic, guard);
+    public AiAgentBuilderActor<S, I> addState(S state, S defaultNextState, int parallelism, Function<AgentState<S, I>, AgentState<S, I>> actorLogic, GuardLogic<S, I> guard) {
+        return addStateFork(state, defaultNextState == null? List.of() : List.of(defaultNextState),parallelism, ctx -> actorLogic.apply(ctx.info), guard);
     }
 
     public AiAgentBuilderActor<S, I> addStateFork(S state, List<S> defaultNextStates, int parallelism, Function<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>> actorLogic, GuardLogic<S, I> guard) {
@@ -68,7 +68,7 @@ public class AiAgentBuilderActor<S extends Enum, I extends Record> {
 
     public AiAgentBuilderActor<S, I> addStateSerial(S state, List<S> defaultNextStates, int parallelism, List<AgentNode<S, I>> actorLogics, GuardLogic<S, I> guard) {
         Function<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>> combinedLogic = ctx -> {
-            actorLogics.forEach(actorLogic -> actorLogic.apply(ctx));
+            actorLogics.forEach(actorLogic -> actorLogic.apply(ctx.info));
 
             return ctx.info;
         };
@@ -81,12 +81,12 @@ public class AiAgentBuilderActor<S extends Enum, I extends Record> {
     }
 
     public AiAgentBuilderActor<S, I> addStateParallel(S state, List<S> defaultNextStates, int parallelism, List<AgentNode<S, I>> actorLogics, GuardLogic<S, I> guard) {
-        List<Actor<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>, Void>> actorsStatic = parallelism <= 0 ? null : actorLogics.stream().map(logic -> ActorSystem.anonymous().newActorWithReturn(logic)).toList();
+        List<Actor<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>, Void>> actorsStatic = parallelism <= 0 ? null : actorLogics.stream().map(logic -> ActorSystem.anonymous().newActorWithReturn((FsmContext<S, S, AgentState<S, I>> ctx) -> logic.apply(ctx.info))).toList();
 
         Function<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>> combinedLogic = ctx -> {
             CompletableFuture<AgentState<S, I>>[] fut = new CompletableFuture[actorLogics.size()];
 
-            var actors = parallelism <= 0 ? actorLogics.stream().map(logic -> actorWithParallelism(parallelism, logic)).toList() : actorsStatic;
+            var actors = parallelism <= 0 ? actorLogics.stream().map(logic -> actorWithParallelism(parallelism, (FsmContext<S, S, AgentState<S, I>> it) -> logic.apply(it.info))).toList() : actorsStatic;
 
             for (int i = 0; i < actorLogics.size(); i++) {
                 fut[i] = actors.get(i).sendMessageReturn(ctx);
@@ -119,7 +119,7 @@ public class AiAgentBuilderActor<S extends Enum, I extends Record> {
             throw new IllegalArgumentException("The initial state cannot be null!");
 
         if (finalState != null && !defaultStates.containsKey(finalState))
-            addState(finalState, finalState, 1, it -> it.info, null);
+            addState(finalState, finalState, 1, it -> it, null);
 
         defaultStates.forEach((k, v) -> {
                     if (k == v && k != finalState)

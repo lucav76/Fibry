@@ -137,7 +137,7 @@ public class RecordUtils {
         return with(record, attributeName, newValue);
     }
 
-    public static <T extends Record, O> T mergeList(T record, String attributeName, List<O> valuesToAdd) {
+    public static <T extends Record, O> T addToList(T record, String attributeName, List<O> valuesToAdd) {
         List<O> prevValue = getAttribute(record, attributeName);
         List<O> newValue = prevValue == null ? new ArrayList<>() : new ArrayList<>(prevValue);
 
@@ -145,7 +145,7 @@ public class RecordUtils {
         return with(record, attributeName, newValue);
     }
 
-    public static <T extends Record, O> T mergeSet(T record, String attributeName, Set<O> valuesToAdd) {
+    public static <T extends Record, O> T addToSet(T record, String attributeName, Set<O> valuesToAdd) {
         Set<O> prevValue = getAttribute(record, attributeName);
         Set<O> newValue = prevValue == null ? new HashSet<>() : new HashSet<>(prevValue);
 
@@ -153,7 +153,7 @@ public class RecordUtils {
         return with(record, attributeName, newValue);
     }
 
-    public static <T extends Record, K, V> T mergeMap(T record, String attributeName, Map<K, V> valuesToAdd) {
+    public static <T extends Record, K, V> T addToMap(T record, String attributeName, Map<K, V> valuesToAdd) {
         Map<K, V> prevValue = getAttribute(record, attributeName);
         Map<K, V> newValue = prevValue == null ? new HashMap<>() : new HashMap<>(prevValue);
 

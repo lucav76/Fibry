@@ -1,6 +1,5 @@
 package eu.lucaventuri.examples;
 
-import eu.lucaventuri.common.RecordUtils;
 import eu.lucaventuri.fibry.ai.*;
 import static eu.lucaventuri.common.RecordUtils.replaceAllFields;
 import static eu.lucaventuri.common.RecordUtils.replaceField;
@@ -31,13 +30,13 @@ public class AiAgentExample {
 
         public static AiAgent<?, VacationContext> buildAgent(LLM modelSearch, LLM modelThink) {
             var builder = new AiAgentBuilderActor<VacationStates, VacationContext>(false);
-            AgentNode<VacationStates, VacationContext> nodeFood = ctx -> ctx.info.replace("food", modelSearch.call("user", replaceField(promptFood, ctx.info.getState(), "country")));
-            AgentNode<VacationStates, VacationContext> nodeDance = ctx -> ctx.info.replace("dance", modelSearch.call("user", replaceField(promptDance, ctx.info.getState(), "country")));
-            AgentNode<VacationStates, VacationContext> nodeSea = ctx -> ctx.info.replace("sea", modelSearch.call("user", replaceField(promptSea, ctx.info.getState(), "country")));
-            AgentNode<VacationStates, VacationContext> nodeChoice = ctx -> {
-                var prompt = replaceAllFields(promptChoice, ctx.info.getState());
+            AgentNode<VacationStates, VacationContext> nodeFood = state -> state.setAttribute("food", modelSearch.call("user", replaceField(promptFood, state.data(), "country")));
+            AgentNode<VacationStates, VacationContext> nodeDance = state -> state.setAttribute("dance", modelSearch.call("user", replaceField(promptDance, state.data(), "country")));
+            AgentNode<VacationStates, VacationContext> nodeSea = state -> state.setAttribute("sea", modelSearch.call("user", replaceField(promptSea, state.data(), "country")));
+            AgentNode<VacationStates, VacationContext> nodeChoice = state -> {
+                var prompt = replaceAllFields(promptChoice, state.data());
                 System.out.println("***** CHOICE PROMPT: " + prompt);
-                return ctx.info.replace("proposal", modelThink.call("user", prompt));
+                return state.setAttribute("proposal", modelThink.call("user", prompt));
             };
 
             builder.addStateParallel(VacationStates.CITIES, VacationStates.CHOOSE, 1, List.of(nodeFood, nodeDance, nodeSea), null);
@@ -62,12 +61,12 @@ public class AiAgentExample {
 
         public static AiAgent<?, TravelContext> buildAgent(LLM model, AiAgent<?, AiAgentVacations.VacationContext> vacationsAgent, String country) {
             var builder = new AiAgentBuilderActor<TravelStates, TravelContext>(false);
-            AgentNode<TravelStates, TravelContext> nodeSearch = ctx -> {
-                var vacationProposal = vacationsAgent.sendMessageReturnWait(AiAgentVacations.VacationContext.from(country), null, 1, TimeUnit.MINUTES).result();
-                return ctx.info.replace("proposal", vacationProposal.proposal())
-                        .replace("destination", model.call(promptDestination.replaceAll("\\{proposal\\}", vacationProposal.proposal())));
+            AgentNode<TravelStates, TravelContext> nodeSearch = state -> {
+                var vacationProposal = vacationsAgent.process(AiAgentVacations.VacationContext.from(country), 1, TimeUnit.MINUTES);
+                return state.setAttribute("proposal", vacationProposal.proposal())
+                        .setAttribute("destination", model.call(promptDestination.replaceAll("\\{proposal\\}", vacationProposal.proposal())));
             };
-            AgentNode<TravelStates, TravelContext> nodeCalculateCost = ctx -> ctx.info.replace("cost", model.call(replaceAllFields(promptCost, ctx.info.getState())));
+            AgentNode<TravelStates, TravelContext> nodeCalculateCost = state -> state.setAttribute("cost", model.call(replaceAllFields(promptCost, state.data())));
 
             builder.addState(TravelStates.SEARCH, TravelStates.CALCULATE, 1, nodeSearch, null);
             builder.addState(TravelStates.CALCULATE, null, 1, nodeCalculateCost, null);
@@ -80,12 +79,12 @@ public class AiAgentExample {
     public static void main(String[] args) {
         try (var vacationsAgent = AiAgentVacations.buildAgent(ChatGpt.GPT_MODEL_4O, ChatGpt.GPT_MODEL_O1_MINI)) {
             try (var travelAgent = AiAgentTravelAgency.buildAgent(ChatGpt.GPT_MODEL_4O, vacationsAgent, "Italy")) {
-                var result = travelAgent.execute(AiAgentTravelAgency.TravelContext.from("Oslo", "Norway", 2,2), (state, info) -> System.out.println(state + ": " + info));
+                var result = travelAgent.process(AiAgentTravelAgency.TravelContext.from("Oslo", "Norway", 2,2), (state, info) -> System.out.println(state + ": " + info));
 
                 System.out.println("\n\n\n***** FINAL ANALYSIS *****\n\n\n");
-                System.out.println(result.result().proposal);
-                System.out.println(result.result().destination);
-                System.out.println(result.result().cost());
+                System.out.println(result.proposal);
+                System.out.println(result.destination);
+                System.out.println(result.cost());
             }
         }
     }

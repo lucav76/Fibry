@@ -3,7 +3,6 @@ package eu.lucaventuri.fibry;
 import eu.lucaventuri.common.SystemUtils;
 import eu.lucaventuri.fibry.ai.AgentNode;
 import eu.lucaventuri.fibry.ai.AiAgent;
-import eu.lucaventuri.fibry.ai.AiAgentBuilderActor;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -50,7 +49,7 @@ public class TestAIAgent {
 
     private AiAgent<TravelState, TravelInfo> buildVacationAgent(boolean parallel, int parallelism, int sleep) {
         long start = System.currentTimeMillis();
-        var builder = new AiAgentBuilderActor<TravelState, TravelInfo>(false);
+        var builder = AiAgent.<TravelState, TravelInfo>builder(false);
         List<AgentNode<TravelState, TravelInfo>> nodes = List.of(
                 state -> {
                     System.out.println("Italy starts at " + (System.currentTimeMillis() - start));
@@ -83,7 +82,7 @@ public class TestAIAgent {
 
     private AiAgent<WaitingState, WaitingInfo> buildWaitingAgent(boolean parallelStateProcessing, int sleep) {
         long start = System.currentTimeMillis();
-        var builder = new AiAgentBuilderActor<WaitingState, WaitingInfo>(true);
+        var builder = AiAgent.<WaitingState, WaitingInfo>builder(true);
         builder.addStateMulti(WaitingState.A, List.of(WaitingState.W1, WaitingState.W2, WaitingState.W3), 0, state -> state, null);
         builder.addState(WaitingState.W1, WaitingState.DONE, 0, state -> {
             SystemUtils.sleep(sleep);
@@ -223,7 +222,7 @@ public class TestAIAgent {
     }
 
     private AiAgent<ShoppingState, ShoppingContext> buildShoppingAgent() {
-        var builder = new AiAgentBuilderActor<ShoppingState, ShoppingContext>(true);
+        var builder = AiAgent.<ShoppingState, ShoppingContext>builder(true);
         builder.addStateSerial(ShoppingState.COLLECT_FOOD, List.of(ShoppingState.PAY, ShoppingState.LOOK_AROUND), 1, List.of(
                 state -> state.setAttribute("priceVeggies", 100),
                 state -> state.setAttribute("priceMeat", 200) ), null);

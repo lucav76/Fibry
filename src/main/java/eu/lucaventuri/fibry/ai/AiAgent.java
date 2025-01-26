@@ -36,8 +36,8 @@ public class AiAgent<S extends Enum, I extends Record> extends CustomActorWithRe
     record States<S>(S prevState, S curState) {
     }
 
-    public AiAgent(FsmTemplateActor<S, S, AgentState<S, I>, MessageOnlyActor<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>, Void>, AgentState<S, I>> fsm, S initialState, S finalState, Map<S, List<S>> defaultStates, boolean parallelStatesProcessing, boolean skipLastStates) {
-        super(new FibryQueue<>(), null, null, Integer.MAX_VALUE);
+    public AiAgent(FsmTemplateActor<S, S, AgentState<S, I>, MessageOnlyActor<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>, Void>, AgentState<S, I>> fsm, S initialState, S finalState, Map<S, List<S>> defaultStates, String actorName, int capacity, boolean parallelStatesProcessing, boolean skipLastStates) {
+        super(ActorSystem.getOrCreateActorQueue(actorName, capacity), null, null, Integer.MAX_VALUE);
         this.fsm = fsm;
         this.initialState = initialState;
         this.finalState = finalState;
@@ -131,5 +131,9 @@ public class AiAgent<S extends Enum, I extends Record> extends CustomActorWithRe
 
     public I process(I input, BiConsumer<S, I> stateListener) {
         return process(input, 1, TimeUnit.HOURS, stateListener);
+    }
+
+    public static <S extends Enum, I extends Record>  AiAgentBuilderActor<S, I> builder(boolean autoGuards) {
+        return new AiAgentBuilderActor<>(autoGuards);
     }
 }

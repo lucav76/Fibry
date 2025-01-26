@@ -192,6 +192,20 @@ public class RecordUtils {
         return input;
     }
 
+    /**
+     * Replaces a specific placeholder in the given input string with the value of the corresponding field
+     * from the provided record. The placeholder in the input string must match the field name and be
+     * enclosed in curly braces, e.g., {fieldName}.
+     *
+     * @param <T> the type of the record, which must extend {@link Record}
+     * @param input the input string containing a placeholder to be replaced
+     * @param record the record whose field value will be used for replacement
+     * @param attributeName the name of the record's field to replace in the input string
+     * @return the input string with the specified placeholder replaced by the corresponding field value from the record,
+     *         or the input string unchanged if the attribute name does not match any field in the record
+     * @throws IllegalArgumentException if the record, input string, or attribute name is null
+     * @throws RuntimeException if an error occurs while accessing the field value of the record
+     */
     public static <T extends Record> String replaceField(String input, T record, String attributeName) {
         if (record == null || input == null || attributeName == null) {
             throw new IllegalArgumentException("Record, input string, and attribute name cannot be null");
@@ -215,7 +229,7 @@ public class RecordUtils {
         return input;
     }
 
-    public static <T extends Record> String replaceFields(T record, String input, Collection<String> attributeNames) {
+    public static <T extends Record> String replaceFields(String input, T record, String... attributeNames) {
         if (record == null || input == null || attributeNames == null) {
             throw new IllegalArgumentException("Record, input string, and attribute names cannot be null");
         }

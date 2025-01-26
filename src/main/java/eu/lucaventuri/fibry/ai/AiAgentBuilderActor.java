@@ -132,6 +132,10 @@ public class AiAgentBuilderActor<S extends Enum, I extends Record> {
     }
 
     public AiAgent<S, I> build(S initialState, S finalState, boolean parallelStatesProcessing) {
+        return build(initialState, finalState, parallelStatesProcessing, null, Integer.MAX_VALUE);
+    }
+
+    public AiAgent<S, I> build(S initialState, S finalState, boolean parallelStatesProcessing, String actorName, int queueCapacity) {
         if (initialState == null)
             throw new IllegalArgumentException("The initial state cannot be null!");
 
@@ -144,7 +148,7 @@ public class AiAgentBuilderActor<S extends Enum, I extends Record> {
                 }
         );
 
-        return new AiAgent<>(builder.build(), initialState, finalState, defaultStates, parallelStatesProcessing, autoGuards);
+        return new AiAgent<>(builder.build(), initialState, finalState, defaultStates, actorName, queueCapacity, parallelStatesProcessing, autoGuards);
     }
 
     Function<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>> logicWithGuard(S state, Function<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>> actorLogic, GuardLogic<S, I> guard) {

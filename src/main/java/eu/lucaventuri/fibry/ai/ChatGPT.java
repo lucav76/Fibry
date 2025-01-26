@@ -6,13 +6,12 @@ import eu.lucaventuri.common.JsonUtils;
 
 import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.http.HttpResponse;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class ChatGpt {
+public class ChatGPT {
     public static final LLM GPT_MODEL_4O = llm("gpt-4o");
     public static final LLM GPT_MODEL_4O_MINI = llm("gpt-4o-mini");
     public static final LLM GPT_MODEL_O1 = llm("o1");
@@ -104,7 +103,7 @@ public class ChatGpt {
         return new LLM() {
             @Override
             public String call(List<LlmMessage> promptParts) {
-                return ChatGpt.request(modelName, promptParts);
+                return ChatGPT.request(modelName, promptParts);
             }
 
             @Override

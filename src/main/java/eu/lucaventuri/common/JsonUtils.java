@@ -3,41 +3,41 @@ package eu.lucaventuri.common;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class JsonUtils {
-    private static AtomicReference<JsonProcessor> serializer = new AtomicReference<>();
+    private static AtomicReference<JsonProcessor> processor = new AtomicReference<>();
 
-    public static void setSerializer(JsonProcessor serializer) {
-        JsonUtils.serializer.set(serializer);
+    public static void setProcessor(JsonProcessor processor) {
+        JsonUtils.processor.set(processor);
     }
 
     public static String toJson(Object obj) {
-        return ensureSerializer().toJson(obj);
+        return ensureProcessor().toJson(obj);
     }
 
     public static String traverseAsString(String json, Object... paths) {
-        return ensureSerializer().traverseAsString(json, paths);
+        return ensureProcessor().traverseAsString(json, paths);
     }
 
-    private static JsonProcessor ensureSerializer() {
-        var ser = serializer.get();
+    private static JsonProcessor ensureProcessor() {
+        var proc = processor.get();
 
-        if (ser == null) {
+        if (proc == null) {
             synchronized(JsonUtils.class) {
-                ser = serializer.get();
+                proc = processor.get();
 
-                if (ser == null) {
+                if (proc == null) {
                     if (JacksonProcessor.isJacksonAvailable()) {
-                        ser = new JacksonProcessor();
+                        proc = new JacksonProcessor();
                     }
                     else {
-                        ser = new JsonMiniProcessor();
+                        proc = new JsonMiniProcessor();
                         System.err.println("Please call setSerializer() to use a real production JSON serializer. For now, a simple one useful for experiments will be used instead. ");
                     }
 
-                    setSerializer(ser);
+                    setProcessor(proc);
                 }
             }
         }
 
-        return ser;
+        return proc;
     }
 }

@@ -1,7 +1,7 @@
 Fibry
 ===
 
-Fibry is an Actor System built to be simple and flexible. Hopefully, it will also be fun to use.  
+Fibry is an Actor System with Multi Agents capabilities, built to be simple and flexible. Hopefully, it will also be fun to use.  
 Fibry is the **first Java Actor System designed to use Virtual Threads**, since 2019, when they were only available from *Project Loom* and were called Fibers (and hence the project name).  
 Commercial support, provided by DGTZ AS, is available for each version of Fibry and Java (starting from JDK 8). Please reach out to Luca Venturi here or on LinkedIn to discuss it.  
 Please note that from version 3.0.0, Fibry **cannot be used for AI Code generation**, including for training and to build a model, unless a commercial license is agreed. Other AI cases are fine. Please read the license and reach out to Luca Venturi if in doubt.  
@@ -246,6 +246,12 @@ Remote actors can be made discoverable using a registry created with the **Actor
 The caller is responsible to provide information sufficient to eventually reach the actors, if that's the goal, and the format of this information is up to the caller.
 For example, it could allow you to discover remote actors in the same network using UDP Multicast, then providing a way to reach them via UDP, via TCP or via a RCP proxy, based on teh use case.
 You can check the unit tests or the **UdpMulticastRegistryExample** for how to use this feature.
+
+Distributed Multi-Agents
+===
+Fibry provides support for multi agents, given a lot of flexibility on how to configure their parallelism, in a relatively easy way. Fibry also allow the graph to change at runtime, opening the door to more sophisticated actors.
+You can read more about the Multi Agents support here:
+https://medium.com/@lucav76/designing-ai-multi-agent-systems-in-java-f991dfa7987e
  
 Generators
 ===

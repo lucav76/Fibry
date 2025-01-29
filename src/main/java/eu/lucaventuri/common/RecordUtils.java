@@ -4,6 +4,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.RecordComponent;
 import java.util.*;
 import java.util.function.UnaryOperator;
+import java.util.regex.Matcher;
 
 /** Utilities for records, in particular it provides a "wither" done with reflection */
 public class RecordUtils {
@@ -182,7 +183,7 @@ public class RecordUtils {
                 Object fieldValue = component.getAccessor().invoke(record);
 
                 if (fieldValue != null) {
-                    input = input.replaceAll("\\{" + component.getName() + "\\}", fieldValue.toString());
+                    input = input.replaceAll("\\{" + component.getName() + "\\}", Matcher.quoteReplacement(fieldValue.toString()));
                 }
             } catch (Exception e) {
                 throw new RuntimeException("Failed to access field value for " + component.getName(), e);
@@ -217,7 +218,7 @@ public class RecordUtils {
                     Object fieldValue = component.getAccessor().invoke(record);
 
                     if (fieldValue != null) {
-                        return input.replaceAll("\\{" + attributeName + "\\}", fieldValue.toString());
+                        return input.replaceAll("\\{" + attributeName + "\\}", Matcher.quoteReplacement(fieldValue.toString()));
                     }
                 } catch (Exception e) {
                     throw new RuntimeException("Failed to access field value for " + attributeName, e);
@@ -242,6 +243,10 @@ public class RecordUtils {
         }
 
         return result;
+    }
+
+    public static String replaceString(String input, String attributeName, String value) {
+        return input.replaceAll("\\{" + attributeName + "\\}", Matcher.quoteReplacement(value));
     }
 }
 

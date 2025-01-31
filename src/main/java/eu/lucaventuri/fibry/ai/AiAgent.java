@@ -11,6 +11,7 @@ import eu.lucaventuri.fibry.fsm.FsmTemplateActor;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 
 /** Class that implements the logic to run the full AI agent.
@@ -52,8 +53,9 @@ public class AiAgent<S extends Enum, I extends Record> extends CustomActorWithRe
     private AgentResult<I> executeInCurrentThread(I initialContext, BiConsumer<S, I> stateListener) {
         AtomicInteger statesProcessed = new AtomicInteger();
         AtomicInteger pendingStates = new AtomicInteger();
+        AtomicReference<S> lastStateProcessing = new AtomicReference<>();
 
-        return Exceptions.rethrowRuntime(() -> {
+        try {
             AgentState<S, I> agentState = new AgentState<>(initialContext);
             Queue<States<S>> queuesStates = new ConcurrentLinkedDeque<>();
             Set<S> lastStates = ConcurrentHashSet.build();
@@ -76,8 +78,9 @@ public class AiAgent<S extends Enum, I extends Record> extends CustomActorWithRe
 
                 var actor = fsm.newFsmActor(states.curState);
 
-                RunnableEx run = () -> {
+                RunnableEx<Exception> run = () -> {
                     try {
+                        lastStateProcessing.set(states.curState);
                         var result = actor.getActor().sendMessageReturn(new FsmContext<>(states.prevState, states.curState, null, agentState)).get();
 
                         agentState.visit(states.curState);
@@ -115,7 +118,14 @@ public class AiAgent<S extends Enum, I extends Record> extends CustomActorWithRe
             }
 
             return new AgentResult<>(statesProcessed.get(), agentState.data());
-        });
+        } catch (Exception e) {
+            Throwable refEx = e;
+
+            while (refEx.getCause() != null) {
+                refEx = refEx.getCause();
+            }
+            throw new RuntimeException("Error during " + lastStateProcessing.get() + "State:" + refEx, refEx);
+        }
     }
 
     public CompletableFuture<I> processAsync(I input, BiConsumer<S, I> stateListener) {

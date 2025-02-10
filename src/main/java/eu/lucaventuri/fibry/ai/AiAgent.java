@@ -124,7 +124,7 @@ public class AiAgent<S extends Enum, I extends Record> extends CustomActorWithRe
             while (refEx.getCause() != null) {
                 refEx = refEx.getCause();
             }
-            throw new RuntimeException("Error during " + lastStateProcessing.get() + "State:" + refEx, refEx);
+            throw new RuntimeException("Error during " + lastStateProcessing.get() + " State:" + refEx, refEx);
         }
     }
 

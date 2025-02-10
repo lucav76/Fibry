@@ -91,7 +91,7 @@ public class CacheAheadListTest extends TestCase {
 
     @Test
     public void testTimeout() {
-        var cal = getCacheAhead(0, 1, true, 10, 120);
+        var cal = getCacheAhead(0, 1, true, 20, 250);
 
         assertEquals(Integer.valueOf(1), cal.get());
         assertEquals(Integer.valueOf(1_000_002), cal.get());

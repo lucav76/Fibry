@@ -4,8 +4,12 @@ import eu.lucaventuri.common.SystemUtils;
 import eu.lucaventuri.common.TimeProvider;
 import org.junit.Test;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -161,6 +165,35 @@ public class TestScheduler {
         try (var actor = Stereotypes.def().schedule( () -> num.incrementAndGet() < 3, 50, 1, 5)) {
             SystemUtils.sleep(20);
             assertEquals(0, num.get());
+        }
+    }
+
+    @Test
+    public void testPostponeWithoutReuse() throws Exception {
+        AtomicInteger num = new AtomicInteger(0);
+        AtomicReference<Actor<String, Void, Void>> actorRef = new AtomicReference<>();
+        CountDownLatch latch = new CountDownLatch(3);
+        long start = System.currentTimeMillis();
+
+        try (var sched = new Scheduler()) {
+            Consumer<String> actorLogic = str -> {
+                System.out.println(str + " - " + num.get() + " - " + (System.currentTimeMillis() - start));
+                if (num.incrementAndGet() == 1)
+                    sched.scheduleOnce(actorRef.get(), str, 100, TimeUnit.MILLISECONDS);
+
+                latch.countDown();
+            };
+            actorRef.set(ActorSystem.anonymous().newActor(actorLogic));
+
+            try(var actor = actorRef.get()) {
+                var future = actor.sendMessageReturn("A");
+                future.whenComplete((ret, ex) -> System.out.println("'A' future done with whenComplete(): " + (System.currentTimeMillis() - start)));
+                actor.sendMessageReturn("B");
+                future.get();
+                System.out.println("'A' future done: " + (System.currentTimeMillis() - start));
+                latch.await();
+                System.out.println("Messages done: " + (System.currentTimeMillis() - start));
+            }
         }
     }
 }

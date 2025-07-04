@@ -4,7 +4,7 @@ Fibry
 Fibry is an Actor System with Multi Agents capabilities, built to be simple and flexible. Hopefully, it will also be fun to use.  
 Fibry is the **first Java Actor System designed to use Virtual Threads**, since 2019, when they were only available from *Project Loom* and were called Fibers (and hence the project name).  
 Commercial support, provided by DGTZ AS, is available for each version of Fibry and Java (starting from JDK 8). Please reach out to Luca Venturi here or on LinkedIn to discuss it.  
-Please note that from version 3.0.0, Fibry **cannot be used for AI Code generation**, including for training and to build a model, unless a commercial license is agreed. Other AI cases are fine. Please read the license and reach out to Luca Venturi if in doubt.  
+Please note that from version 3.0.0, Fibry **requires a license to build commercial AI Code generators**, including for training and to build a model. In addition, **the source code cannot be included in AI datasets**. Other AI cases are fine. Please read the license for details and reach out to Luca Venturi if in doubt.
 
 Fibry **3.X** requires **JDK 21+**, and it is the recommended version, as JDK 21 finally merged virtual threads / fibers into the mainline, so you no longer need a build of Loom to use them.  
 Fibry **2.X** requires **JDK 11+**, and you need Loom to get access to virtual threads  
@@ -13,11 +13,13 @@ Fibry 2.X is supported, and changes are available in the **jdk11** branch.
 Fibry 1.X is supported, and changes are available in the **jdk8** branch.  
 Fibry aims to replicate some of the features of the Erlang Actor System in Java.  
 Fibry allows you to send code to be executed in the thread/fiber of an actor, a mechanism similar to the one used in Chromium and to Java Executors.
-Fibry is following the "Tip and Tail model" as described by JEP 14, so new features will only be available on version 3.X, and version 1.X and 2.X will only receive critical bug fixes. 
+Fibry is following the "Tip and Tail model" as described by JEP 14, so new features will only be available on version 3.X, and version 1.X and 2.X will mainly receive critical bug fixes. 
 
 The original line of development was meant to make Fibry useful on the creation of IoT products and video games supporting *online multi-players* functionalities and chats.  
 However, Fibry proved useful on Big Data projects, helping to move terabytes of data and making scheduled tasks more resilient, thanks to its **Auto Healing**.  
-Its **generators** functionality makes easier to squeeze some performance on special tasks, like cloud buckets traversal.   
+Its **generators** functionality makes easier to squeeze some performance on special tasks, like cloud buckets traversal.
+
+You can find more information on Fibry on [Deep Wiki](https://deepwiki.com/lucav76/Fibry) 
 
 Simplicity first, flexibility second
 ===

@@ -71,6 +71,12 @@ public class AgentState<S extends Enum, T extends Record> {
         return this;
     }
 
+    public AgentState<S, T> withData(T data) {
+        this.data.set(data);
+
+        return this;
+    }
+
     public List<S> getStateOverride() {
         return stateOverride.get();
     }

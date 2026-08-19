@@ -42,10 +42,16 @@ public class TestAIAgent {
         DONE
     }
 
+    public enum CrashingState {
+        A,
+        B
+    }
+
     public record WaitingInfo(int done) {}
 
     public record ShoppingContext(int priceVeggies, int priceMeat, int totalPaid, boolean peekedAround, boolean peekedAround2, boolean peekedOutside) {}
 
+    public record CrashingContext() {}
 
     private AiAgent<TravelState, TravelInfo> buildVacationAgent(boolean parallel, int parallelism, int sleep) {
         long start = System.currentTimeMillis();
@@ -265,6 +271,14 @@ public class TestAIAgent {
         System.out.println(agent.processAsync(startingState, null).get());
     }
 
+    private AiAgent<CrashingState, CrashingContext> buildCrashingAgent() {
+        var builder = AiAgent.<CrashingState, CrashingContext>builder(true);
+        builder.addState(CrashingState.A, CrashingState.B, 1, state -> state.setAttribute("dummy", "abc"), null);
+        builder.addState(CrashingState.B, null, 1, state -> state, null);
+
+        return builder.build(CrashingState.A, null, false);
+    }
+
     @Test
     public void testWaitingNormal() throws ExecutionException, InterruptedException {
         var agent = buildWaitingAgent(false, 50);
@@ -279,5 +293,26 @@ public class TestAIAgent {
 
         var res= agent.process(new WaitingInfo(0), 1, TimeUnit.MINUTES, null);
         Assert.assertEquals(1, res.done());
+    }
+
+    @Test
+    public void testCrashing() throws ExecutionException, InterruptedException {
+        var agent = buildCrashingAgent();
+
+        //var res = agent.process(new CrashingContext(), 1, TimeUnit.MINUTES, null);
+        //Assert.assertEquals(1, res != null);
+        var res = agent.processAsync(new CrashingContext(), (state, context) -> {
+            System.out.println("Temporary context: " + state + ": " + context);
+        });
+
+        try {
+            System.out.println("Final context: " + res.get());
+            Assert.fail("Expecting an exception");
+        } catch(Exception e) {
+            System.out.println("Exception: " + e);
+
+            if (!e.toString().contains("dummy"))
+                Assert.fail("Wrong exception");
+        }
     }
 }

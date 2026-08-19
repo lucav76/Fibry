@@ -13,6 +13,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class AiAgentBuilderActor<S extends Enum, I extends Record> {
     final FsmBuilderActor<S, S, AgentState<S, I>, MessageOnlyActor<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>, Void>, AgentState<S, I>> builder = new FsmBuilderActor<>();
@@ -136,19 +137,34 @@ public class AiAgentBuilderActor<S extends Enum, I extends Record> {
     }
 
     public AiAgent<S, I> build(S initialState, S finalState, boolean parallelStatesProcessing, String actorName, int queueCapacity) {
+        return build(initialState, finalState == null ? null : Set.of(finalState), parallelStatesProcessing, actorName, queueCapacity);
+    }
+
+    /** If finalStates is null, the finalStates should have already been supplied */
+    public AiAgent<S, I> build(S initialState, Set<S> finalStates, boolean parallelStatesProcessing, String actorName, int queueCapacity) {
         if (initialState == null)
             throw new IllegalArgumentException("The initial state cannot be null!");
 
-        if (finalState != null && !defaultStates.containsKey(finalState))
-            addState(finalState, finalState, 1, it -> it, null);
+        if (finalStates != null) {
+            for (var finalState: finalStates) {
+                addFinalState(finalState);
+            }
+        }
+
+        Set<S> realFinalStates = finalStates != null ? finalStates : defaultStates.entrySet().stream().filter(e -> e.getKey().equals(e.getValue())).map(Map.Entry::getKey).collect(Collectors.toSet());
 
         defaultStates.forEach((k, v) -> {
-                    if (k == v && k != finalState)
+                    if (k == v && !realFinalStates.contains(k))
                         throw new IllegalArgumentException("State " + k + " by default creates a loop");
                 }
         );
 
-        return new AiAgent<>(builder.build(), initialState, finalState, defaultStates, actorName, queueCapacity, parallelStatesProcessing, autoGuards);
+        return new AiAgent<>(builder.build(), initialState, realFinalStates, defaultStates, actorName, queueCapacity, parallelStatesProcessing, autoGuards);
+    }
+
+    public void addFinalState(S finalState) {
+        if (finalState != null && !defaultStates.containsKey(finalState))
+            addState(finalState, finalState, 1, it -> it, null);
     }
 
     Function<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>> logicWithGuard(S state, Function<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>> actorLogic, GuardLogic<S, I> guard) {

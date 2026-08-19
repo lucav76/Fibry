@@ -20,7 +20,7 @@ import java.util.function.BiConsumer;
 public class AiAgent<S extends Enum, I extends Record> extends CustomActorWithResult<AiAgent.AgentExecutionRequest<S, I>, CompletableFuture<AiAgent.AgentResult<I>>, Void> {
     private final FsmTemplateActor<S, S, AgentState<S, I>, MessageOnlyActor<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>, Void>, AgentState<S, I>> fsm;
     private final S initialState;
-    private final S finalState;
+    private final Set<S> finalStates;
     private final Map<S, List<S>> defaultStates;
     private static final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
     private final boolean parallelStatesProcessing;
@@ -37,11 +37,11 @@ public class AiAgent<S extends Enum, I extends Record> extends CustomActorWithRe
     record States<S>(S prevState, S curState) {
     }
 
-    public AiAgent(FsmTemplateActor<S, S, AgentState<S, I>, MessageOnlyActor<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>, Void>, AgentState<S, I>> fsm, S initialState, S finalState, Map<S, List<S>> defaultStates, String actorName, int capacity, boolean parallelStatesProcessing, boolean skipLastStates) {
+    public AiAgent(FsmTemplateActor<S, S, AgentState<S, I>, MessageOnlyActor<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>, Void>, AgentState<S, I>> fsm, S initialState, Set<S> finalStates, Map<S, List<S>> defaultStates, String actorName, int capacity, boolean parallelStatesProcessing, boolean skipLastStates) {
         super(ActorSystem.getOrCreateActorQueue(actorName, capacity), null, null, Integer.MAX_VALUE);
         this.fsm = fsm;
         this.initialState = initialState;
-        this.finalState = finalState;
+        this.finalStates = finalStates;
         this.defaultStates = defaultStates;
         this.parallelStatesProcessing = parallelStatesProcessing;
         this.skipLastStates = skipLastStates;
@@ -50,6 +50,7 @@ public class AiAgent<S extends Enum, I extends Record> extends CustomActorWithRe
         CreationStrategy.AUTO.start(this);
     }
 
+    // One single processing can create multiple internal messages
     private AgentResult<I> executeInCurrentThread(I initialContext, BiConsumer<S, I> stateListener) {
         AtomicInteger statesProcessed = new AtomicInteger();
         AtomicInteger pendingStates = new AtomicInteger();
@@ -95,7 +96,7 @@ public class AiAgent<S extends Enum, I extends Record> extends CustomActorWithRe
 
                         if (nextStates != null && !nextStates.isEmpty()) {
                             for (var state : nextStates) {
-                                if (state != finalState && state != null) {
+                                if (!finalStates.contains(state) && state != null) {
                                     queuesStates.add(new States<>(states.curState, state));
                                 }
                             }

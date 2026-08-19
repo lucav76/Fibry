@@ -271,12 +271,12 @@ public class TestAIAgent {
         System.out.println(agent.processAsync(startingState, null).get());
     }
 
-    private AiAgent<CrashingState, CrashingContext> buildCrashingAgent() {
+    private AiAgent<CrashingState, CrashingContext> buildCrashingAgent(boolean parallel) {
         var builder = AiAgent.<CrashingState, CrashingContext>builder(true);
         builder.addState(CrashingState.A, CrashingState.B, 1, state -> state.setAttribute("dummy", "abc"), null);
         builder.addState(CrashingState.B, null, 1, state -> state, null);
 
-        return builder.build(CrashingState.A, null, false);
+        return builder.build(CrashingState.A, null, parallel);
     }
 
     @Test
@@ -296,11 +296,13 @@ public class TestAIAgent {
     }
 
     @Test
-    public void testCrashing() throws ExecutionException, InterruptedException {
-        var agent = buildCrashingAgent();
+    public void testCrashingSerial() throws ExecutionException, InterruptedException {
+        var agent = buildCrashingAgent(false);
 
-        //var res = agent.process(new CrashingContext(), 1, TimeUnit.MINUTES, null);
-        //Assert.assertEquals(1, res != null);
+        processAgent(agent);
+    }
+
+    private static void processAgent(AiAgent<CrashingState, CrashingContext> agent) {
         var res = agent.processAsync(new CrashingContext(), (state, context) -> {
             System.out.println("Temporary context: " + state + ": " + context);
         });
@@ -314,5 +316,14 @@ public class TestAIAgent {
             if (!e.toString().contains("dummy"))
                 Assert.fail("Wrong exception");
         }
+    }
+
+    @Test
+    public void testCrashingParallel() throws ExecutionException, InterruptedException {
+        var agent = buildCrashingAgent(true);
+
+        //var res = agent.process(new CrashingContext(), 1, TimeUnit.MINUTES, null);
+        //Assert.assertEquals(1, res != null);
+        processAgent(agent);
     }
 }

@@ -55,6 +55,7 @@ public class AiAgent<S extends Enum, I extends Record> extends CustomActorWithRe
         AtomicInteger statesProcessed = new AtomicInteger();
         AtomicInteger pendingStates = new AtomicInteger();
         AtomicReference<S> lastStateProcessing = new AtomicReference<>();
+        AtomicReference<AiExecutionException> firstException = new AtomicReference<>();
 
         try {
             AgentState<S, I> agentState = new AgentState<>(initialContext);
@@ -112,20 +113,27 @@ public class AiAgent<S extends Enum, I extends Record> extends CustomActorWithRe
 
                 if (parallelStatesProcessing) {
                     pendingStates.incrementAndGet();
-                    CompletableFuture.runAsync(() -> Exceptions.rethrowRuntime(run), executor);
+                    CompletableFuture.runAsync(() -> {
+                        try {
+                            run.run();
+                        } catch (Exception e) {
+                            if (!firstException.compareAndSet(null, AiExecutionException.from(e, states.curState.toString()))) {
+                                System.err.println("Additional exception on state " + states.curState + ": " + e);
+                            }
+
+                        }
+                    }, executor);
                 }
                 else
                     run.run();
             }
 
+            if (firstException.get() != null)
+                throw firstException.get();
+
             return new AgentResult<>(statesProcessed.get(), agentState.data());
         } catch (Exception e) {
-            Throwable refEx = e;
-
-            while (refEx.getCause() != null) {
-                refEx = refEx.getCause();
-            }
-            throw new RuntimeException("Error during " + lastStateProcessing.get() + " State:" + refEx, refEx);
+            throw AiExecutionException.from(e, lastStateProcessing.get().toString());
         }
     }
 

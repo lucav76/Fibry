@@ -64,10 +64,10 @@ publishing {
     }
     repositories {
         maven {
-            url "https://oss.sonatype.org/service/local/staging/deploy/maven2"
+            url  "https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/"
             credentials {
-                username 'pb9X7rd0'
-                password System.properties['mavenCentraPassword']
+                username System.properties['mavenCentralUser']
+                password System.properties['mavenCentralPassword']
             }
         }
     }

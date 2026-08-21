@@ -229,7 +229,7 @@ public class TestAIAgent {
 
     private AiAgent<ShoppingState, ShoppingContext> buildShoppingAgent() {
         var builder = AiAgent.<ShoppingState, ShoppingContext>builder(true);
-        builder.addStateSerial(ShoppingState.COLLECT_FOOD, List.of(ShoppingState.PAY, ShoppingState.LOOK_AROUND), 1, List.of(
+        builder.addStatesSerial(ShoppingState.COLLECT_FOOD, List.of(ShoppingState.PAY, ShoppingState.LOOK_AROUND), 1, List.of(
                 state -> state.setAttribute("priceVeggies", 100),
                 state -> state.setAttribute("priceMeat", 200) ), null);
         builder.addState(ShoppingState.PAY, ShoppingState.LOOK_AROUND_OUTSIDE, 1, state -> state.setAttribute("totalPaid", state.data().priceMeat + state.data().priceVeggies), null);

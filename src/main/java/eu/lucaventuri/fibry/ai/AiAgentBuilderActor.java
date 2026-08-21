@@ -50,14 +50,14 @@ public class AiAgentBuilderActor<S extends Enum, I extends Record> {
     }
 
     public AiAgentBuilderActor<S, I> addState(S state, S defaultNextState, int parallelism, Function<AgentState<S, I>, AgentState<S, I>> actorLogic, GuardLogic<S, I> guard) {
-        return addStateMultiInternal(state, defaultNextState == null? List.of() : List.of(defaultNextState),parallelism, ctx -> actorLogic.apply(ctx.info), guard);
+        return addStatesMultiInternal(state, defaultNextState == null? List.of() : List.of(defaultNextState),parallelism, ctx -> actorLogic.apply(ctx.info), guard);
     }
 
     public AiAgentBuilderActor<S, I> addStateMulti(S state, List<S> defaultNextStates, int parallelism, Function<AgentState<S, I>, AgentState<S, I>> actorLogic, GuardLogic<S, I> guard) {
-        return addStateMultiInternal(state, defaultNextStates,parallelism, ctx -> actorLogic.apply(ctx.info), guard);
+        return addStatesMultiInternal(state, defaultNextStates,parallelism, ctx -> actorLogic.apply(ctx.info), guard);
     }
 
-    private AiAgentBuilderActor<S, I> addStateMultiInternal(S state, List<S> defaultNextStates, int parallelism, Function<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>> actorLogic, GuardLogic<S, I> guard) {
+    private AiAgentBuilderActor<S, I> addStatesMultiInternal(S state, List<S> defaultNextStates, int parallelism, Function<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>> actorLogic, GuardLogic<S, I> guard) {
         actorLogic = logicWithGuard(state, actorLogic, guard);
 
         if (parallelism <= 0)
@@ -81,24 +81,24 @@ public class AiAgentBuilderActor<S extends Enum, I extends Record> {
     }
 
     public AiAgentBuilderActor<S, I> addStateSerial(S state, S defaultNextState, int parallelism, List<AgentNode<S, I>> actorLogics, GuardLogic<S, I> guard) {
-        return addStateSerial(state, defaultNextState == null? List.of() : List.of(defaultNextState), parallelism, actorLogics, guard);
+        return addStatesSerial(state, defaultNextState == null? List.of() : List.of(defaultNextState), parallelism, actorLogics, guard);
     }
 
-    public AiAgentBuilderActor<S, I> addStateSerial(S state, List<S> defaultNextStates, int parallelism, List<AgentNode<S, I>> actorLogics, GuardLogic<S, I> guard) {
+    public AiAgentBuilderActor<S, I> addStatesSerial(S state, List<S> defaultNextStates, int parallelism, List<AgentNode<S, I>> actorLogics, GuardLogic<S, I> guard) {
         Function<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>> combinedLogic = ctx -> {
             actorLogics.forEach(actorLogic -> actorLogic.apply(ctx.info));
 
             return ctx.info;
         };
 
-        return addStateMultiInternal(state, defaultNextStates, parallelism, combinedLogic, guard);
+        return addStatesMultiInternal(state, defaultNextStates, parallelism, combinedLogic, guard);
     }
 
     public AiAgentBuilderActor<S, I> addStateParallel(S state, S defaultNextState, int parallelism, List<AgentNode<S, I>> actorLogics, GuardLogic<S, I> guard) {
-        return addStateParallel(state, defaultNextState == null? List.of() : List.of(defaultNextState), parallelism, actorLogics, guard);
+        return addStatesParallel(state, defaultNextState == null? List.of() : List.of(defaultNextState), parallelism, actorLogics, guard);
     }
 
-    public AiAgentBuilderActor<S, I> addStateParallel(S state, List<S> defaultNextStates, int parallelism, List<AgentNode<S, I>> actorLogics, GuardLogic<S, I> guard) {
+    public AiAgentBuilderActor<S, I> addStatesParallel(S state, List<S> defaultNextStates, int parallelism, List<AgentNode<S, I>> actorLogics, GuardLogic<S, I> guard) {
         List<Actor<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>, Void>> actorsStatic = parallelism <= 0 ? null : actorLogics.stream().map(logic -> ActorSystem.anonymous().newActorWithReturn((FsmContext<S, S, AgentState<S, I>> ctx) -> logic.apply(ctx.info))).toList();
 
         Function<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>> combinedLogic = ctx -> {
@@ -119,7 +119,7 @@ public class AiAgentBuilderActor<S extends Enum, I extends Record> {
             return ctx.info;
         };
 
-        return addStateMultiInternal(state, defaultNextStates, parallelism, combinedLogic, guard);
+        return addStatesMultiInternal(state, defaultNextStates, parallelism, combinedLogic, guard);
     }
 
     private void goToAll(FsmBuilderActor<S, S, AgentState<S, I>, MessageOnlyActor<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>, Void>, AgentState<S, I>>.InStateActor inState, Class<S> clazz) {
@@ -162,9 +162,21 @@ public class AiAgentBuilderActor<S extends Enum, I extends Record> {
         return new AiAgent<>(builder.build(), initialState, realFinalStates, defaultStates, actorName, queueCapacity, parallelStatesProcessing, autoGuards);
     }
 
-    public void addFinalState(S finalState) {
+    public AiAgentBuilderActor<S, I>  addFinalState(S finalState) {
         if (finalState != null && !defaultStates.containsKey(finalState))
             addState(finalState, finalState, 1, it -> it, null);
+
+        return this;
+    }
+
+    public AiAgentBuilderActor<S, I>  addFinalStates(S... finalStates) {
+        if (finalStates!=null) {
+            for (S finalState : finalStates) {
+                addFinalState(finalState);
+            }
+        }
+
+        return this;
     }
 
     Function<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>> logicWithGuard(S state, Function<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>> actorLogic, GuardLogic<S, I> guard) {

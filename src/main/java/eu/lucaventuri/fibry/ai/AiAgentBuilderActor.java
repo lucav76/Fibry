@@ -151,7 +151,12 @@ public class AiAgentBuilderActor<S extends Enum, I extends Record> {
             }
         }
 
-        Set<S> realFinalStates = finalStates != null ? finalStates : defaultStates.entrySet().stream().filter(e -> e.getKey().equals(e.getValue())).map(Map.Entry::getKey).collect(Collectors.toSet());
+        Set<S> realFinalStates = finalStates != null ? finalStates : defaultStates.entrySet().stream().filter(e -> {
+            S sourceState = e.getKey();
+            List<S> targetStates = e.getValue();
+
+            return targetStates != null && !targetStates.isEmpty() && sourceState.equals(targetStates.getFirst());
+        }).map(Map.Entry::getKey).collect(Collectors.toSet());
 
         defaultStates.forEach((k, v) -> {
                     if (k == v && !realFinalStates.contains(k))

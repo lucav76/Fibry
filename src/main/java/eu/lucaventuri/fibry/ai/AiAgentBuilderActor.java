@@ -15,7 +15,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public class AiAgentBuilderActor<S extends Enum, I extends Record> {
+public class AiAgentBuilderActor<S extends Enum<S>, I extends Record> {
     final FsmBuilderActor<S, S, AgentState<S, I>, MessageOnlyActor<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>, Void>, AgentState<S, I>> builder = new FsmBuilderActor<>();
     Map<S, List<S>> defaultStates = new ConcurrentHashMap<>();
     Map<S, Set<S>> incomingStates = new ConcurrentHashMap<>();

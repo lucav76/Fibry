@@ -17,7 +17,7 @@ import java.util.function.BiConsumer;
 /** Class that implements the logic to run the full AI agent.
  * It is an actor returning a CompletableFuture because every message is processed by a new virtual thread, so more tasks con go in parallel
  * */
-public class AiAgent<S extends Enum, I extends Record> extends CustomActorWithResult<AiAgent.AgentExecutionRequest<S, I>, CompletableFuture<AiAgent.AgentResult<I>>, Void> {
+public class AiAgent<S extends Enum<S>, I extends Record> extends CustomActorWithResult<AiAgent.AgentExecutionRequest<S, I>, CompletableFuture<AiAgent.AgentResult<I, S>>, Void> {
     private final FsmTemplateActor<S, S, AgentState<S, I>, MessageOnlyActor<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>, Void>, AgentState<S, I>> fsm;
     private final S initialState;
     private final Set<S> finalStates;
@@ -27,12 +27,12 @@ public class AiAgent<S extends Enum, I extends Record> extends CustomActorWithRe
     private final boolean skipLastStates;
 
     @Override
-    protected CompletableFuture<AiAgent.AgentResult<I>> onMessage(AiAgent.AgentExecutionRequest<S, I> message) {
+    protected CompletableFuture<AiAgent.AgentResult<I, S>> onMessage(AiAgent.AgentExecutionRequest<S, I> message) {
         return CompletableFuture.supplyAsync(() -> executeInCurrentThread(message.input, message.stateListener), executor);
     }
 
-    public record AgentResult<I>(int statesProcessed, I result) {}
-    public record AgentExecutionRequest<S extends Enum, I>(I input, BiConsumer<S, I> stateListener) {}
+    public record AgentResult<I extends Record, S extends Enum<S>>(int statesProcessed, I result, S lastStateProcessed) {}
+    public record AgentExecutionRequest<S extends Enum<S>, I>(I input, BiConsumer<S, I> stateListener) {}
 
     record States<S>(S prevState, S curState) {
     }
@@ -51,7 +51,7 @@ public class AiAgent<S extends Enum, I extends Record> extends CustomActorWithRe
     }
 
     // One single processing can create multiple internal messages
-    private AgentResult<I> executeInCurrentThread(I initialContext, BiConsumer<S, I> stateListener) {
+    private AgentResult<I, S> executeInCurrentThread(I initialContext, BiConsumer<S, I> stateListener) {
         AtomicInteger statesProcessed = new AtomicInteger();
         AtomicInteger pendingStates = new AtomicInteger();
         AtomicReference<S> lastStateProcessing = new AtomicReference<>();
@@ -99,6 +99,8 @@ public class AiAgent<S extends Enum, I extends Record> extends CustomActorWithRe
                             for (var state : nextStates) {
                                 if (!finalStates.contains(state) && state != null) {
                                     queuesStates.add(new States<>(states.curState, state));
+                                } else {
+                                    lastStateProcessing.set(state);
                                 }
                             }
                         } else {
@@ -131,7 +133,7 @@ public class AiAgent<S extends Enum, I extends Record> extends CustomActorWithRe
             if (firstException.get() != null)
                 throw firstException.get();
 
-            return new AgentResult<>(statesProcessed.get(), agentState.data());
+            return new AgentResult<>(statesProcessed.get(), agentState.data(), lastStateProcessing.get());
         } catch (Exception e) {
             throw AiExecutionException.from(e, lastStateProcessing.get().toString());
         }
@@ -139,6 +141,10 @@ public class AiAgent<S extends Enum, I extends Record> extends CustomActorWithRe
 
     public CompletableFuture<I> processAsync(I input, BiConsumer<S, I> stateListener) {
         return sendMessageReturn(new AgentExecutionRequest<>(input, stateListener)).thenCompose(innerFuture -> innerFuture).thenApply(AgentResult::result);
+    }
+
+    public CompletableFuture<AgentResult<I, S>> processAsyncEx(I input, BiConsumer<S, I> stateListener) {
+        return sendMessageReturn(new AgentExecutionRequest<>(input, stateListener)).thenCompose(innerFuture -> innerFuture);
     }
 
     public I process(I input, int timeout, TimeUnit timeUnit) {
@@ -152,7 +158,7 @@ public class AiAgent<S extends Enum, I extends Record> extends CustomActorWithRe
         return process(input, 1, TimeUnit.HOURS, stateListener);
     }
 
-    public static <S extends Enum, I extends Record>  AiAgentBuilderActor<S, I> builder(boolean autoGuards) {
+    public static <S extends Enum<S>, I extends Record>  AiAgentBuilderActor<S, I> builder(boolean autoGuards) {
         return new AiAgentBuilderActor<>(autoGuards);
     }
 }

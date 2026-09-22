@@ -30,7 +30,7 @@ public class AgentState<S extends Enum, T extends Record> {
     }
 
     /** Set the value of an attribute in the data() object */
-    public <TO>  AgentState<S, T> setAttribute(String stateAttributeName, TO newValue) {
+    public synchronized <TO> AgentState<S, T> setAttribute(String stateAttributeName, TO newValue) {
         data.set(RecordUtils.with(data.get(), stateAttributeName, newValue));
 
         return this;

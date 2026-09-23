@@ -99,12 +99,13 @@ public class AiAgentBuilderActor<S extends Enum<S>, I extends Record> {
     }
 
     public AiAgentBuilderActor<S, I> addStatesParallel(S state, List<S> defaultNextStates, int parallelism, List<AgentNode<S, I>> actorLogics, GuardLogic<S, I> guard) {
-        List<Actor<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>, Void>> actorsStatic = parallelism <= 0 ? null : actorLogics.stream().map(logic -> ActorSystem.anonymous().newActorWithReturn((FsmContext<S, S, AgentState<S, I>> ctx) -> logic.apply(ctx.info))).toList();
+        Function<AgentNode<S, I >, MessageOnlyActor<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>, Void>> createAlwaysNewActor = logic -> ActorSystem.anonymous().newActorWithReturn((FsmContext<S, S, AgentState<S, I>> it) -> logic.apply(it.info));
+        var actorsFixedParallelism = parallelism > 0 ? actorLogics.stream().map(logic -> actorWithParallelism(parallelism, (FsmContext<S, S, AgentState<S, I>> it) -> logic.apply(it.info))).toList() : null;
 
         Function<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>> combinedLogic = ctx -> {
             CompletableFuture<AgentState<S, I>>[] fut = new CompletableFuture[actorLogics.size()];
 
-            var actors = parallelism <= 0 ? actorLogics.stream().map(logic -> actorWithParallelism(parallelism, (FsmContext<S, S, AgentState<S, I>> it) -> logic.apply(it.info))).toList() : actorsStatic;
+            var actors = parallelism > 0 ? actorsFixedParallelism : actorLogics.stream().map(createAlwaysNewActor).toList();
 
             for (int i = 0; i < actorLogics.size(); i++) {
                 fut[i] = actors.get(i).sendMessageReturn(ctx);

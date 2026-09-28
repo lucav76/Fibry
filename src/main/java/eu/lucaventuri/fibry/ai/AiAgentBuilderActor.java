@@ -81,12 +81,15 @@ public class AiAgentBuilderActor<S extends Enum<S>, I extends Record> {
     }
 
     public AiAgentBuilderActor<S, I> addStateSerial(S state, S defaultNextState, int parallelism, List<AgentNode<S, I>> actorLogics, GuardLogic<S, I> guard) {
-        return addStatesSerial(state, defaultNextState == null? List.of() : List.of(defaultNextState), parallelism, actorLogics, guard);
+        return addStatesSerial(state, defaultNextState == null? List.of() : List.of(defaultNextState), parallelism, actorLogics, guard, true);
     }
 
-    public AiAgentBuilderActor<S, I> addStatesSerial(S state, List<S> defaultNextStates, int parallelism, List<AgentNode<S, I>> actorLogics, GuardLogic<S, I> guard) {
+    public AiAgentBuilderActor<S, I> addStatesSerial(S state, List<S> defaultNextStates, int parallelism, List<AgentNode<S, I>> actorLogics, GuardLogic<S, I> guard, boolean blockAfterOverride) {
         Function<FsmContext<S, S, AgentState<S, I>>, AgentState<S, I>> combinedLogic = ctx -> {
-            actorLogics.forEach(actorLogic -> actorLogic.apply(ctx.info));
+            actorLogics.forEach(actorLogic -> {
+                if (!blockAfterOverride || ctx.info.getStateOverride() == null)
+                  actorLogic.apply(ctx.info);
+            });
 
             return ctx.info;
         };
